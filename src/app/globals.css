@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Aptos", "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", "Consolas", monospace;
+  --color-ink: #15202b;
+  --color-muted: #5b6874;
+  --color-line: #d7d9df;
+  --color-surface: #f7f2eb;
+  --color-panel: #fffdf8;
+  --color-panel-strong: #f0e4d3;
+  --color-accent: #0f766e;
+  --color-accent-soft: #d8f1ed;
+  --color-danger: #b42318;
+  --color-danger-soft: #fee4e2;
+  --color-warning: #b54708;
+  --color-warning-soft: #ffead5;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(circle at top, rgba(15, 118, 110, 0.08), transparent 30%),
+    linear-gradient(180deg, #fcf9f4 0%, #f4ede2 100%);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+input,
+select,
+textarea {
+  @apply w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] shadow-sm outline-none transition;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  @apply border-[var(--color-accent)] ring-2 ring-[color:var(--color-accent-soft)];
+}
+
+button {
+  @apply transition;
+}
+
+.app-panel {
+  @apply rounded-[28px] border border-white/70 bg-[color:var(--color-panel)] shadow-[0_10px_40px_rgba(15,23,42,0.06)];
+}
+
+.section-title {
+  @apply text-lg font-semibold tracking-[-0.02em] text-[var(--color-ink)];
+}
+
+.muted {
+  @apply text-sm text-[var(--color-muted)];
+}

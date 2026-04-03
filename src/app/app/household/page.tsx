@@ -1,11 +1,11 @@
 import { headers } from "next/headers";
 
-import { db } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { FlashMessage } from "@/components/flash-message";
 import { ExportImportCard } from "@/components/export-import-card";
+import { FlashMessage } from "@/components/flash-message";
 import { HouseholdSetupCard } from "@/components/household-setup-card";
 import { InviteCard } from "@/components/invite-card";
+import { db } from "@/lib/db";
+import { requireUser } from "@/lib/session";
 import { getHouseholdForUser, mapMembersToSlots } from "@/server/services/households";
 
 type HouseholdPageProps = {
@@ -53,14 +53,16 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
     <>
       <FlashMessage notice={notice} error={error} />
       <section className="app-panel px-5 py-5 sm:px-6">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--color-muted)]">Hushåll</p>
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--color-accent)]">Hushåll</p>
         <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">{household.name}</h2>
-        <p className="muted mt-2">MVP:n stöder exakt två personer. Den som gick med först blir Person 1 i reglerna.</p>
+        <p className="muted mt-2">
+          MVP:n stöder exakt två personer. Den som gick med först blir Person 1 i reglerna.
+        </p>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           {members.map((member) => (
-            <div key={member.userId} className="rounded-[24px] bg-white px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-muted)]">
+            <div key={member.userId} className="surface-card">
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-accent)]">
                 {member.slot === "FIRST_PERSON" ? "Person 1" : "Person 2"}
               </p>
               <h3 className="mt-2 font-semibold">{member.name}</h3>
@@ -70,7 +72,7 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
           ))}
 
           {members.length < 2 ? (
-            <div className="rounded-[24px] border border-dashed border-[var(--color-line)] px-4 py-4">
+            <div className="ghost-panel px-4 py-4">
               <p className="text-sm font-semibold">Plats för person 2</p>
               <p className="muted mt-2">Skapa en invite-kod nedan för att fylla hushållet.</p>
             </div>

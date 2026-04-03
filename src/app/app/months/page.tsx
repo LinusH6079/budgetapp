@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { FlashMessage } from "@/components/flash-message";
+import { FormStatusButton } from "@/components/form-status-button";
 import { HouseholdSetupCard } from "@/components/household-setup-card";
 import { MonthSelector } from "@/components/month-selector";
 import { getCurrentMonthKey } from "@/lib/date";
@@ -39,7 +40,9 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
       <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="app-panel px-5 py-5 sm:px-6">
           <h2 className="section-title">Skapa ny månad</h2>
-          <p className="muted mt-2">Du kan skapa en ny månad manuellt eller kopiera återkommande utgifter från senaste månaden.</p>
+          <p className="muted mt-2">
+            Du kan skapa en ny månad manuellt eller kopiera återkommande utgifter från senaste månaden.
+          </p>
 
           <form action={createMonthAction} className="mt-5 space-y-3">
             <input type="hidden" name="returnTo" value="/app/months" />
@@ -58,9 +61,9 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
                 ))}
               </select>
             </label>
-            <button className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-white">
+            <FormStatusButton className="action-primary" pendingLabel="Skapar månad...">
               Skapa månad
-            </button>
+            </FormStatusButton>
           </form>
         </div>
 
@@ -71,22 +74,20 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
           </div>
           <div className="mt-5 grid gap-3">
             {months.map((month) => (
-              <Link key={month.id} href={`/app/months/${month.monthKey}`} className="rounded-[24px] bg-white px-4 py-4">
+              <Link key={month.id} href={`/app/months/${month.monthKey}`} className="surface-card">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="font-semibold">{month.monthKey}</p>
-                    <p className="muted mt-1">
-                      Uppdaterad {month.updatedAt.toLocaleDateString("sv-SE")}
-                    </p>
+                    <p className="muted mt-1">Uppdaterad {month.updatedAt.toLocaleDateString("sv-SE")}</p>
                   </div>
-                  <span className="rounded-full bg-[var(--color-panel-strong)] px-3 py-1 text-xs font-semibold">
+                  <span className="pill-tag bg-[var(--color-panel-strong)]">
                     {month.isLocked ? "Låst" : "Öppen"}
                   </span>
                 </div>
               </Link>
             ))}
             {months.length === 0 ? (
-              <p className="rounded-[24px] bg-white px-4 py-4 text-sm text-[var(--color-muted)]">
+              <p className="surface-card text-sm text-[var(--color-muted)]">
                 Inga månader ännu. Skapa er första ovan.
               </p>
             ) : null}

@@ -86,13 +86,11 @@ export function ExpenseList({
             <option value="amount">Sortera: belopp</option>
             <option value="name">Sortera: namn</option>
           </select>
-          <button className="rounded-2xl bg-[var(--color-ink)] px-4 py-3 text-sm font-semibold text-white lg:col-span-5">
-            Uppdatera filter
-          </button>
+          <button className="action-button action-secondary lg:col-span-5">Uppdatera filter</button>
         </form>
       </div>
 
-      <details className="mt-5 rounded-[28px] bg-[var(--color-surface)] px-4 py-4" open>
+      <details className="ghost-panel mt-5 px-4 py-4" open>
         <summary className="cursor-pointer text-base font-semibold">Ny utgift</summary>
         <div className="mt-4">
           <ExpenseForm
@@ -118,7 +116,7 @@ export function ExpenseList({
             />
           ))
         ) : (
-          <div className="rounded-[28px] bg-white px-4 py-6 text-sm text-[var(--color-muted)]">
+          <div className="surface-card text-sm text-[var(--color-muted)]">
             Inga utgifter matchar filtret ännu.
           </div>
         )}

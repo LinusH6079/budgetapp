@@ -1,4 +1,5 @@
 import { updateMonthNoteAction } from "@/server/actions/month-actions";
+import { FormStatusButton } from "@/components/form-status-button";
 
 type MonthNotesCardProps = {
   monthId: string;
@@ -22,12 +23,13 @@ export function MonthNotesCard({ monthId, note, returnTo, isLocked }: MonthNotes
           placeholder="Till exempel: Sommarsemester och service på bilen."
           disabled={isLocked}
         />
-        <button
+        <FormStatusButton
           disabled={isLocked}
-          className="rounded-2xl bg-[var(--color-ink)] px-5 py-3 text-sm font-semibold text-white disabled:bg-[var(--color-line)]"
+          className="action-secondary"
+          pendingLabel="Sparar anteckning..."
         >
           Spara anteckning
-        </button>
+        </FormStatusButton>
       </form>
     </section>
   );

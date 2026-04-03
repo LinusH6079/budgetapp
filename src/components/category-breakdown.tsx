@@ -14,13 +14,13 @@ export function CategoryBreakdown({ categories }: CategoryBreakdownProps) {
       <div className="mt-4 grid gap-3">
         {categories.length > 0 ? (
           categories.map((entry) => (
-            <div key={entry.category} className="flex items-center justify-between rounded-[24px] bg-white px-4 py-4">
+            <div key={entry.category} className="surface-card flex items-center justify-between">
               <span className="font-medium">{entry.category}</span>
               <span className="font-semibold">{formatCurrency(entry.amount)}</span>
             </div>
           ))
         ) : (
-          <p className="rounded-[24px] bg-white px-4 py-4 text-sm text-[var(--color-muted)]">
+          <p className="surface-card text-sm text-[var(--color-muted)]">
             Inga kategorier ännu för denna månad.
           </p>
         )}

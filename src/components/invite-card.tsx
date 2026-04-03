@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { createInviteAction } from "@/server/actions/household-actions";
+import { FormStatusButton } from "@/components/form-status-button";
 
 type InviteCardProps = {
   inviteCode?: string | null;
@@ -26,12 +27,13 @@ export function InviteCard({
         </div>
 
         <form action={createInviteAction}>
-          <button
+          <FormStatusButton
             disabled={householdIsFull}
-            className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[var(--color-line)]"
+            className="action-primary"
+            pendingLabel="Skapar invite..."
           >
             Skapa ny invite
-          </button>
+          </FormStatusButton>
         </form>
       </div>
 
@@ -61,7 +63,7 @@ export function InviteCard({
           </div>
         </div>
       ) : (
-        <p className="muted mt-4 rounded-2xl bg-white px-4 py-3">Ingen aktiv invite ännu.</p>
+        <p className="muted mt-4 rounded-2xl bg-[color:var(--color-elevated)] px-4 py-3">Ingen aktiv invite ännu.</p>
       )}
     </section>
   );

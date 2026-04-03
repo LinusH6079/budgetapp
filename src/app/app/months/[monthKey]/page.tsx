@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CategoryBreakdown } from "@/components/category-breakdown";
 import { ExpenseList } from "@/components/expense-list";
 import { FlashMessage } from "@/components/flash-message";
+import { FormStatusButton } from "@/components/form-status-button";
 import { IncomeCarryOverForm } from "@/components/income-carry-over-form";
 import { LockMonthButton } from "@/components/lock-month-button";
 import { MonthNotesCard } from "@/components/month-notes-card";
@@ -11,8 +12,8 @@ import { MonthSelector } from "@/components/month-selector";
 import { MonthSummaryCards } from "@/components/month-summary-cards";
 import { WarningBanner } from "@/components/warning-banner";
 import { formatMonthLabel } from "@/lib/date";
-import { formatDateTime } from "@/lib/utils";
 import { requireUser } from "@/lib/session";
+import { formatDateTime } from "@/lib/utils";
 import { createNextMonthAction } from "@/server/actions/month-actions";
 import {
   filterExpenseItems,
@@ -130,8 +131,10 @@ export default async function MonthDetailPage({
       <section className="app-panel px-5 py-5 sm:px-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-[var(--color-muted)]">Aktiv månad</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] capitalize">{formatMonthLabel(monthKey)}</h2>
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--color-accent)]">Aktiv månad</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] capitalize">
+              {formatMonthLabel(monthKey)}
+            </h2>
             <p className="muted mt-2">
               Senast uppdaterad {formatDateTime(pageData.activeMonth.updatedAt)} av{" "}
               {pageData.activeMonth.updatedByUser?.name ?? "okänd"}
@@ -139,12 +142,16 @@ export default async function MonthDetailPage({
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <LockMonthButton monthId={pageData.activeMonth.id} returnTo={returnTo} isLocked={pageData.activeMonth.isLocked} />
+            <LockMonthButton
+              monthId={pageData.activeMonth.id}
+              returnTo={returnTo}
+              isLocked={pageData.activeMonth.isLocked}
+            />
             <form action={createNextMonthAction}>
               <input type="hidden" name="currentMonthKey" value={monthKey} />
-              <button className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-white">
+              <FormStatusButton className="action-primary" pendingLabel="Skapar nästa månad...">
                 Skapa nästa månad
-              </button>
+              </FormStatusButton>
             </form>
           </div>
         </div>

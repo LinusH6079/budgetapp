@@ -1,5 +1,6 @@
 import { formatCurrency, formatEditableAmount } from "@/lib/money";
 import { updateSnapshotAction } from "@/server/actions/month-actions";
+import { FormStatusButton } from "@/components/form-status-button";
 
 type IncomeCarryOverFormProps = {
   monthId: string;
@@ -32,7 +33,7 @@ export function IncomeCarryOverForm({
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         {personSnapshots.map((snapshot) => (
-          <form key={snapshot.userId} action={updateSnapshotAction} className="rounded-[28px] bg-white px-4 py-4">
+          <form key={snapshot.userId} action={updateSnapshotAction} className="surface-card">
             <input type="hidden" name="monthId" value={monthId} />
             <input type="hidden" name="userId" value={snapshot.userId} />
             <input type="hidden" name="returnTo" value={returnTo} />
@@ -72,12 +73,13 @@ export function IncomeCarryOverForm({
               <p className="text-sm text-[var(--color-muted)]">
                 Tillgängligt just nu {formatCurrency(snapshot.incomeAmount + snapshot.carryOverAmount)}
               </p>
-              <button
+              <FormStatusButton
                 disabled={isLocked}
-                className="rounded-2xl bg-[var(--color-ink)] px-4 py-2 text-sm font-semibold text-white disabled:bg-[var(--color-line)]"
+                className="action-secondary"
+                pendingLabel="Sparar..."
               >
                 Spara
-              </button>
+              </FormStatusButton>
             </div>
           </form>
         ))}

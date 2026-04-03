@@ -1,8 +1,9 @@
-import { CheckCircle2, Clock3 } from "lucide-react";
 import { PayerType } from "@prisma/client";
+import { CheckCircle2, Clock3 } from "lucide-react";
 
-import { formatDateTime } from "@/lib/utils";
+import { FormStatusButton } from "@/components/form-status-button";
 import { formatCurrency } from "@/lib/money";
+import { formatDateTime } from "@/lib/utils";
 import { deleteExpenseAction, toggleExpensePaidAction } from "@/server/actions/expense-actions";
 
 import { ExpenseForm } from "./expense-form";
@@ -44,28 +45,29 @@ export function ExpenseItem({
   memberOptions,
 }: ExpenseItemProps) {
   return (
-    <article className="rounded-[28px] bg-white px-4 py-4">
+    <article className="surface-card">
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-semibold">{expense.name}</h3>
-              <span className="rounded-full bg-[var(--color-panel-strong)] px-2.5 py-1 text-xs font-semibold">
-                {expense.category}
-              </span>
-              <span className="rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--color-accent)]">
+              <span className="pill-tag bg-[var(--color-panel-strong)]">{expense.category}</span>
+              <span className="pill-tag bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
                 {expense.planningType === "UNPLANNED" ? "Ej planerad" : "Planerad"}
               </span>
             </div>
             <p className="muted mt-2">
-              {payerLabels[expense.payerType]} · {expense.expenseType === "RECURRING" ? "Återkommande" : "Engångs"}
+              {payerLabels[expense.payerType]} ·{" "}
+              {expense.expenseType === "RECURRING" ? "Återkommande" : "Engångs"}
             </p>
           </div>
 
           <div className="text-right">
             <p className="text-xl font-semibold tracking-[-0.03em]">{formatCurrency(expense.amount)}</p>
             <p className="muted mt-1">
-              {expense.dueDate ? `Förfaller ${expense.dueDate.toLocaleDateString("sv-SE")}` : "Inget förfallodatum"}
+              {expense.dueDate
+                ? `Förfaller ${expense.dueDate.toLocaleDateString("sv-SE")}`
+                : "Inget förfallodatum"}
             </p>
           </div>
         </div>
@@ -93,19 +95,20 @@ export function ExpenseItem({
             <input type="hidden" name="monthId" value={monthId} />
             <input type="hidden" name="expenseId" value={expense.id} />
             <input type="hidden" name="nextPaidState" value={expense.isPaid ? "unpaid" : "paid"} />
-            <button
+            <FormStatusButton
               disabled={isLocked}
-              className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold disabled:bg-[var(--color-line)]"
+              className="action-secondary"
+              pendingLabel={expense.isPaid ? "Ångrar..." : "Markerar..."}
             >
               {expense.isPaid ? "Markera som obetald" : "Markera som betald"}
-            </button>
+            </FormStatusButton>
           </form>
 
           <details className="min-w-full">
-            <summary className="inline-flex cursor-pointer rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold">
+            <summary className="inline-flex cursor-pointer rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)]">
               Redigera
             </summary>
-            <div className="mt-4 rounded-[24px] bg-[var(--color-surface)] px-4 py-4">
+            <div className="ghost-panel mt-4 px-4 py-4">
               <ExpenseForm
                 monthId={monthId}
                 returnTo={returnTo}
@@ -120,12 +123,9 @@ export function ExpenseItem({
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="monthId" value={monthId} />
             <input type="hidden" name="expenseId" value={expense.id} />
-            <button
-              disabled={isLocked}
-              className="rounded-2xl border border-[var(--color-danger)]/30 px-4 py-2 text-sm font-semibold text-[var(--color-danger)] disabled:bg-[var(--color-line)]"
-            >
+            <FormStatusButton disabled={isLocked} className="action-danger" pendingLabel="Tar bort...">
               Ta bort
-            </button>
+            </FormStatusButton>
           </form>
         </div>
       </div>

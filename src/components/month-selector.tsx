@@ -14,7 +14,7 @@ type MonthSelectorProps = {
 export function MonthSelector({ months, activeMonthKey }: MonthSelectorProps) {
   if (months.length === 0) {
     return (
-      <div className="rounded-3xl bg-white px-4 py-4 text-sm text-[var(--color-muted)]">
+      <div className="surface-card text-sm text-[var(--color-muted)]">
         Inga månader skapade ännu.
       </div>
     );
@@ -28,8 +28,8 @@ export function MonthSelector({ months, activeMonthKey }: MonthSelectorProps) {
           href={`/app/months/${month.monthKey}`}
           className={`min-w-40 rounded-3xl border px-4 py-3 ${
             month.monthKey === activeMonthKey
-              ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
-              : "border-[var(--color-line)] bg-white text-[var(--color-ink)]"
+              ? "border-[var(--color-accent-strong)] bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
+              : "border-[var(--color-line)] bg-[color:var(--color-elevated)] text-[var(--color-ink)]"
           }`}
         >
           <p className="text-sm font-semibold capitalize">{formatMonthLabel(month.monthKey)}</p>

@@ -1,7 +1,8 @@
 import { ExpenseType, PayerType, PlanningType } from "@prisma/client";
 
-import { formatEditableAmount } from "@/lib/money";
+import { FormStatusButton } from "@/components/form-status-button";
 import { toDateInputValue } from "@/lib/date";
+import { formatEditableAmount } from "@/lib/money";
 import { saveExpenseAction } from "@/server/actions/expense-actions";
 
 type ExpenseFormProps = {
@@ -140,12 +141,13 @@ export function ExpenseForm({
         </label>
       </div>
 
-      <button
+      <FormStatusButton
         disabled={isLocked}
-        className="mt-1 rounded-2xl bg-[var(--color-accent)] px-4 py-3 text-sm font-semibold text-white disabled:bg-[var(--color-line)]"
+        className="action-primary mt-1"
+        pendingLabel={expense ? "Sparar ändringar..." : "Lägger till..."}
       >
         {expense ? "Spara ändringar" : "Lägg till utgift"}
-      </button>
+      </FormStatusButton>
     </form>
   );
 }

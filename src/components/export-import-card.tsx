@@ -1,4 +1,5 @@
 import { importHouseholdAction } from "@/server/actions/household-actions";
+import { FormStatusButton } from "@/components/form-status-button";
 
 type ExportImportCardProps = {
   exportUrl: string;
@@ -14,10 +15,7 @@ export function ExportImportCard({ exportUrl, returnTo }: ExportImportCardProps)
       </p>
 
       <div className="mt-5 flex flex-wrap gap-3">
-        <a
-          href={exportUrl}
-          className="rounded-2xl bg-[var(--color-ink)] px-5 py-3 text-sm font-semibold text-white"
-        >
+        <a href={exportUrl} className="action-button action-secondary">
           Exportera som JSON
         </a>
       </div>
@@ -37,9 +35,9 @@ export function ExportImportCard({ exportUrl, returnTo }: ExportImportCardProps)
             className="min-h-32"
           />
         </label>
-        <button className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-white">
+        <FormStatusButton className="action-primary" pendingLabel="Importerar JSON...">
           Importera JSON
-        </button>
+        </FormStatusButton>
       </form>
     </section>
   );

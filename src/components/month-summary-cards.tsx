@@ -43,10 +43,10 @@ function SummaryCard({
       ? "bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
       : tone === "accent"
         ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
-        : "bg-white text-[var(--color-ink)]";
+        : "bg-[color:var(--color-elevated)] text-[var(--color-ink)]";
 
   return (
-    <div className={`rounded-[28px] px-4 py-4 ${toneClass}`}>
+    <div className={`rounded-[28px] border border-[var(--color-line)] px-4 py-4 ${toneClass}`}>
       <p className="text-xs uppercase tracking-[0.18em] opacity-80">{label}</p>
       <p className="mt-3 text-2xl font-semibold tracking-[-0.03em]">{value}</p>
     </div>
@@ -62,7 +62,7 @@ export function MonthSummaryCards({ summary }: MonthSummaryCardsProps) {
             <Wallet className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-[var(--color-muted)]">Hushållets nuläge</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--color-accent)]">Hushållets nuläge</p>
             <p className="text-xl font-semibold tracking-[-0.03em]">{formatCurrency(summary.remainingActual)}</p>
           </div>
         </div>
@@ -91,10 +91,10 @@ export function MonthSummaryCards({ summary }: MonthSummaryCardsProps) {
           </p>
           <div className="mt-4 grid gap-3">
             {summary.perPerson.map((person) => (
-              <div key={person.userId} className="rounded-[24px] bg-white px-4 py-4">
+              <div key={person.userId} className="surface-card">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="font-semibold">{person.name}</h3>
-                  <span className="rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--color-accent)]">
+                  <span className="pill-tag bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
                     Faktiskt kvar {formatCurrency(person.remainingActual)}
                   </span>
                 </div>
@@ -114,16 +114,16 @@ export function MonthSummaryCards({ summary }: MonthSummaryCardsProps) {
             <h2 className="section-title">Status</h2>
           </div>
           <div className="mt-4 space-y-3 text-sm">
-            <p className="rounded-2xl bg-white px-4 py-3">
+            <p className="surface-card py-3">
               Pengar kvar enligt plan: <strong>{formatCurrency(summary.remainingPlanned)}</strong>
             </p>
-            <p className="rounded-2xl bg-white px-4 py-3">
+            <p className="surface-card py-3">
               Obetalda poster: <strong>{summary.unpaidCount}</strong>
             </p>
-            <p className="rounded-2xl bg-white px-4 py-3">
+            <p className="surface-card py-3">
               Försenade obetalda: <strong>{summary.overdueExpensesCount}</strong>
             </p>
-            <p className="rounded-2xl bg-white px-4 py-3">
+            <p className="surface-card py-3">
               Oförklarad förbrukning:{" "}
               <strong>
                 {summary.unexplainedDifferenceFromPreviousMonth === null

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { FormStatusButton } from "@/components/form-status-button";
+
 type AuthFormProps = {
   mode: "login" | "register";
   action: (formData: FormData) => Promise<void>;
@@ -61,9 +63,12 @@ export function AuthForm({ mode, action, inviteCode, error }: AuthFormProps) {
 
         {!isRegister ? <input type="hidden" name="returnTo" value="/app" /> : null}
 
-        <button className="w-full rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-white">
+        <FormStatusButton
+          className="action-primary w-full"
+          pendingLabel={isRegister ? "Skapar konto..." : "Loggar in..."}
+        >
           {isRegister ? "Skapa konto" : "Logga in"}
-        </button>
+        </FormStatusButton>
       </form>
 
       <p className="muted mt-5">

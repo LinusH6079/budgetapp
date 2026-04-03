@@ -33,7 +33,6 @@ type MonthDetailPageProps = {
     type?: string;
     category?: string;
     payer?: string;
-    sort?: string;
     expensePage?: string;
   }>;
 };
@@ -78,13 +77,9 @@ export default async function MonthDetailPage({
     type: resolvedSearchParams.type ?? "all",
     category: resolvedSearchParams.category ?? "all",
     payer: resolvedSearchParams.payer ?? "all",
-    sort: resolvedSearchParams.sort ?? "name",
   };
 
-  const allFilteredExpenses = sortExpenseItems(
-    filterExpenseItems(pageData.activeMonth.expenses, filters),
-    filters.sort,
-  );
+  const allFilteredExpenses = sortExpenseItems(filterExpenseItems(pageData.activeMonth.expenses, filters), "amount");
   const expensePageCount = Math.max(1, Math.ceil(allFilteredExpenses.length / EXPENSES_PER_PAGE));
   const currentExpensePage = Math.min(getPositivePage(resolvedSearchParams.expensePage), expensePageCount);
   const expenseStart = (currentExpensePage - 1) * EXPENSES_PER_PAGE;
@@ -99,10 +94,6 @@ export default async function MonthDetailPage({
     {
       label: orderedMembers[1] ? `${orderedMembers[1].name} (Person 2)` : "Person 2",
       value: PayerType.SECOND_PERSON,
-    },
-    {
-      label: "Gemensamt",
-      value: PayerType.SHARED,
     },
   ];
   const payerLabels: Record<PayerType, string> = {

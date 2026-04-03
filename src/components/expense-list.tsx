@@ -33,7 +33,6 @@ type ExpenseListProps = {
     type: string;
     category: string;
     payer: string;
-    sort: string;
   };
   categories: string[];
   pageInfo: {
@@ -118,13 +117,6 @@ export function ExpenseList({
                       {option.label}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Sortering</span>
-                <select name="sort" defaultValue={currentFilters.sort}>
-                  <option value="name">Namn</option>
-                  <option value="amount">Belopp</option>
                 </select>
               </label>
               <button className="action-button action-primary w-full justify-center">Visa utgifter</button>

@@ -1,5 +1,5 @@
 import { PayerType } from "@prisma/client";
-import { CheckCircle2, Clock3, Pencil, Trash2 } from "lucide-react";
+import { Check, Pencil, Trash2 } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { ModalLauncher } from "@/components/modal-launcher";
@@ -46,14 +46,16 @@ export function ExpenseItem({
           <input type="hidden" name="nextPaidState" value={expense.isPaid ? "unpaid" : "paid"} />
           <FormStatusButton
             disabled={isLocked}
-            className={`!h-10 !w-10 !rounded-full !px-0 ${
-              expense.isPaid ? "action-primary" : "action-secondary"
+            className={`!h-10 !w-10 !rounded-full !border-0 !px-0 ${
+              expense.isPaid
+                ? "bg-[#22c55e] text-white shadow-[0_8px_20px_rgba(34,197,94,0.24)]"
+                : "bg-[var(--color-accent-strong)] text-[#09090b]"
             }`}
             pendingLabel=""
             aria-label={expense.isPaid ? "Markera som obetald" : "Markera som betald"}
             title={expense.isPaid ? "Markera som obetald" : "Markera som betald"}
           >
-            {expense.isPaid ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
+            <Check className="h-4 w-4" />
           </FormStatusButton>
         </form>
 

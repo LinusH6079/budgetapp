@@ -78,6 +78,8 @@ export async function deleteMonthAction(formData: FormData) {
     redirectWithMessage(returnTo, "error", "Kunde inte ta bort månaden.");
   }
 
+  let redirectTarget = returnTo;
+
   try {
     const result = await deleteMonthForUser({
       actorUserId: user.id,
@@ -85,14 +87,11 @@ export async function deleteMonthAction(formData: FormData) {
     });
 
     revalidateBudgetPaths("/app/months");
-
-    const redirectTarget = returnTo.includes(`/app/months/${parsed.data.monthKey}`)
+    redirectTarget = returnTo.includes(`/app/months/${parsed.data.monthKey}`)
       ? result.redirectMonthKey
         ? `/app/months/${result.redirectMonthKey}`
         : "/app/months"
       : returnTo;
-
-    redirectWithMessage(redirectTarget, "notice", "Månaden togs bort.");
   } catch (error) {
     redirectWithMessage(
       returnTo,
@@ -100,6 +99,8 @@ export async function deleteMonthAction(formData: FormData) {
       error instanceof Error ? error.message : "Kunde inte ta bort månaden.",
     );
   }
+
+  redirectWithMessage(redirectTarget, "notice", "Månaden togs bort.");
 }
 
 export async function updateSnapshotAction(formData: FormData) {
@@ -113,7 +114,11 @@ export async function updateSnapshotAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirectWithMessage(returnTo, "error", parsed.error.issues[0]?.message ?? "Ogiltiga månadsvärden.");
+    redirectWithMessage(
+      returnTo,
+      "error",
+      parsed.error.issues[0]?.message ?? "Ogiltiga månadsvärden.",
+    );
   }
 
   try {

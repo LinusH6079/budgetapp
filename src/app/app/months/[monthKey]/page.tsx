@@ -134,6 +134,17 @@ export default async function MonthDetailPage({
     <>
       <FlashMessage notice={resolvedSearchParams.notice} error={resolvedSearchParams.error} />
 
+      <Link
+        href="/app/months"
+        className="action-button action-secondary w-fit"
+        prefetch
+        aria-label="Tillbaka till månader"
+        title="Tillbaka till månader"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Månader
+      </Link>
+
       <section id="month-top" className="app-panel px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-4">
           <div>
@@ -157,15 +168,6 @@ export default async function MonthDetailPage({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Link
-              href="/app/months"
-              className="action-button action-secondary"
-              prefetch
-              aria-label="Tillbaka till månader"
-              title="Tillbaka till månader"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
             <LockMonthButton
               monthId={pageData.activeMonth.id}
               returnTo={returnTo}
@@ -237,6 +239,7 @@ export default async function MonthDetailPage({
 
       <ModalLauncher
         title="Ny utgift"
+        dialogClassName="sm:max-w-2xl"
         trigger={
           <span className="floating-action-button">
             <Plus className="h-6 w-6" />

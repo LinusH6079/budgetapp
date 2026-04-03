@@ -36,19 +36,19 @@ export function ExpenseForm({
   expense,
 }: ExpenseFormProps) {
   return (
-    <form action={saveExpenseAction} className="grid gap-3">
+    <form action={saveExpenseAction} className="grid gap-2.5">
       <input type="hidden" name="monthId" value={monthId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <input type="hidden" name="expenseId" value={expense?.id ?? ""} />
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-2.5 sm:grid-cols-2">
         <label className="block sm:col-span-2">
-          <span className="mb-2 block text-sm font-medium">Namn</span>
+          <span className="mb-1.5 block text-sm font-medium">Namn</span>
           <input name="name" defaultValue={expense?.name} placeholder="Hyra" disabled={isLocked} required />
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium">Belopp</span>
+          <span className="mb-1.5 block text-sm font-medium">Belopp</span>
           <input
             name="amount"
             inputMode="decimal"
@@ -60,7 +60,7 @@ export function ExpenseForm({
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium">Kategori</span>
+          <span className="mb-1.5 block text-sm font-medium">Kategori</span>
           <input
             name="category"
             defaultValue={expense?.category}
@@ -71,7 +71,7 @@ export function ExpenseForm({
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium">Typ</span>
+          <span className="mb-1.5 block text-sm font-medium">Typ</span>
           <select name="expenseType" defaultValue={expense?.expenseType ?? ExpenseType.ONE_TIME} disabled={isLocked}>
             <option value={ExpenseType.ONE_TIME}>Engångs</option>
             <option value={ExpenseType.RECURRING}>Återkommande</option>
@@ -79,7 +79,7 @@ export function ExpenseForm({
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium">Planering</span>
+          <span className="mb-1.5 block text-sm font-medium">Planering</span>
           <select
             name="planningType"
             defaultValue={expense?.planningType ?? PlanningType.PLANNED}
@@ -91,7 +91,7 @@ export function ExpenseForm({
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium">Betalas av</span>
+          <span className="mb-1.5 block text-sm font-medium">Betalas av</span>
           <select name="payerType" defaultValue={expense?.payerType ?? PayerType.SHARED} disabled={isLocked}>
             {memberOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -102,7 +102,7 @@ export function ExpenseForm({
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium">Förfallodatum</span>
+          <span className="mb-1.5 block text-sm font-medium">Förfallodatum</span>
           <input
             name="dueDate"
             type="date"
@@ -112,7 +112,7 @@ export function ExpenseForm({
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium">Betald?</span>
+          <span className="mb-1.5 block text-sm font-medium">Betald?</span>
           <select name="isPaid" defaultValue={expense?.isPaid ? "true" : "false"} disabled={isLocked}>
             <option value="false">Nej</option>
             <option value="true">Ja</option>
@@ -120,7 +120,7 @@ export function ExpenseForm({
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium">Betaldatum</span>
+          <span className="mb-1.5 block text-sm font-medium">Betaldatum</span>
           <input
             name="paidAt"
             type="date"
@@ -130,10 +130,10 @@ export function ExpenseForm({
         </label>
 
         <label className="block sm:col-span-2">
-          <span className="mb-2 block text-sm font-medium">Anteckning</span>
+          <span className="mb-1.5 block text-sm font-medium">Anteckning</span>
           <textarea
             name="note"
-            rows={3}
+            rows={2}
             defaultValue={expense?.note ?? ""}
             placeholder="Valfri kommentar"
             disabled={isLocked}
@@ -144,9 +144,9 @@ export function ExpenseForm({
       <FormStatusButton
         disabled={isLocked}
         className="action-primary mt-1"
-        pendingLabel={expense ? "Sparar ändringar..." : "Lägger till..."}
+        pendingLabel={expense ? "Sparar..." : "Lägger till..."}
       >
-        {expense ? "Spara ändringar" : "Lägg till utgift"}
+        {expense ? "Spara" : "Lägg till"}
       </FormStatusButton>
     </form>
   );

@@ -46,12 +46,12 @@ export function ModalLauncher({
       </button>
 
       {isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(0,0,0,0.58)] p-3 sm:items-center sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[rgba(0,0,0,0.58)] p-3 sm:items-center sm:p-6">
           <button type="button" aria-label="Stäng popup" className="absolute inset-0" onClick={() => setIsOpen(false)} />
 
           <div
             className={cn(
-              "app-panel relative z-10 max-h-[88vh] w-full max-w-lg overflow-y-auto px-4 py-4 sm:px-5",
+              "app-panel relative z-10 my-auto max-h-[88vh] w-full max-w-lg overflow-y-auto overscroll-contain px-4 py-4 sm:px-5",
               dialogClassName,
             )}
           >

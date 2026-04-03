@@ -5,19 +5,19 @@
   --font-mono: "Cascadia Code", "SFMono-Regular", "Consolas", monospace;
   --color-ink: #f3f4f6;
   --color-muted: #9ca3af;
-  --color-line: rgba(255, 255, 255, 0.09);
+  --color-line: rgba(255, 255, 255, 0.08);
   --color-surface: #0a0b0d;
   --color-surface-strong: #111214;
-  --color-panel: rgba(20, 21, 24, 0.86);
-  --color-panel-strong: rgba(34, 35, 40, 0.96);
-  --color-elevated: rgba(26, 27, 31, 0.96);
+  --color-panel: #17181b;
+  --color-panel-strong: #202126;
+  --color-elevated: #1b1c20;
   --color-accent: #d4d4d8;
   --color-accent-strong: #f5f5f5;
-  --color-accent-soft: rgba(255, 255, 255, 0.06);
+  --color-accent-soft: rgba(255, 255, 255, 0.05);
   --color-danger: #ff7b7b;
-  --color-danger-soft: rgba(255, 123, 123, 0.14);
+  --color-danger-soft: rgba(255, 123, 123, 0.12);
   --color-warning: #f3c77a;
-  --color-warning-soft: rgba(243, 199, 122, 0.14);
+  --color-warning-soft: rgba(243, 199, 122, 0.12);
 }
 
 html {
@@ -25,26 +25,10 @@ html {
 }
 
 body {
-  background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.045), transparent 22%),
-    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.035), transparent 24%),
-    linear-gradient(180deg, #060607 0%, #0b0c0f 42%, #090a0c 100%);
+  background: linear-gradient(180deg, #0a0a0b 0%, #0e0f11 100%);
   color: var(--color-ink);
   font-family: var(--font-sans);
   min-height: 100vh;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(circle at center, black, transparent 78%);
-  opacity: 0.42;
 }
 
 a,
@@ -58,10 +42,7 @@ textarea {
 input,
 select,
 textarea {
-  @apply w-full rounded-2xl border border-[var(--color-line)] bg-[color:var(--color-surface-strong)] px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 12px 30px rgba(0, 0, 0, 0.28);
+  @apply w-full rounded-xl border border-[var(--color-line)] bg-[color:var(--color-surface-strong)] px-3.5 py-2.5 text-sm text-[var(--color-ink)] outline-none transition;
 }
 
 input:focus,
@@ -75,15 +56,15 @@ button {
 }
 
 .app-panel {
-  @apply rounded-[28px] border bg-[color:var(--color-panel)];
+  @apply rounded-[24px] border bg-[color:var(--color-panel)];
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.46),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 8px 24px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .section-title {
-  @apply text-lg font-semibold tracking-[-0.02em] text-[var(--color-ink)];
+  @apply text-base font-semibold tracking-[-0.02em] text-[var(--color-ink)];
 }
 
 .muted {
@@ -91,22 +72,20 @@ button {
 }
 
 .surface-card {
-  @apply rounded-[24px] border px-4 py-4;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(24, 25, 28, 0.96), rgba(17, 18, 21, 0.94));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 18px 40px rgba(0, 0, 0, 0.24);
+  @apply rounded-[20px] border px-4 py-4;
+  border-color: rgba(255, 255, 255, 0.07);
+  background: var(--color-elevated);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .ghost-panel {
-  @apply rounded-[24px] border;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.025);
+  @apply rounded-[20px] border;
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .action-button {
-  @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium;
 }
 
 .action-button:disabled {
@@ -116,9 +95,7 @@ button {
 .action-primary {
   background: linear-gradient(180deg, var(--color-accent-strong), var(--color-accent));
   color: #09090b;
-  box-shadow:
-    0 14px 36px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .action-secondary {
@@ -128,22 +105,27 @@ button {
 }
 
 .action-danger {
-  background: rgba(255, 143, 143, 0.09);
+  background: rgba(255, 123, 123, 0.08);
   color: var(--color-danger);
-  border: 1px solid rgba(255, 143, 143, 0.16);
+  border: 1px solid rgba(255, 123, 123, 0.14);
 }
 
 .pill-tag {
-  @apply rounded-full px-3 py-1 text-xs font-semibold;
+  @apply rounded-full px-2.5 py-1 text-xs font-medium;
 }
 
 .floating-action-button {
-  @apply inline-flex h-14 w-14 items-center justify-center rounded-full transition hover:scale-[1.03];
+  @apply inline-flex h-14 w-14 items-center justify-center rounded-full transition hover:scale-[1.02];
   background: linear-gradient(180deg, var(--color-accent-strong), var(--color-accent));
   color: #09090b;
   box-shadow:
-    0 20px 45px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    0 10px 28px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.content-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 240px;
 }
 
 .skeleton {
@@ -157,8 +139,8 @@ button {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
-  animation: shimmer 1.3s infinite;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  animation: shimmer 1.1s infinite;
 }
 
 .spinner {

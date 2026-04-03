@@ -105,23 +105,23 @@ export default async function MonthDetailPage({
   const warnings: string[] = [];
 
   if (pageData.summary.remainingPlanned < 0) {
-    warnings.push("Pengar kvar enligt plan är under noll.");
+    warnings.push("Plan kvar under noll.");
   }
 
   if (pageData.summary.remainingActual < 0) {
-    warnings.push("Faktiskt kvar är under noll.");
+    warnings.push("Faktiskt kvar under noll.");
   }
 
   if (pageData.summary.overdueExpensesCount > 0) {
-    warnings.push("Det finns obetalda utgifter med förfallodatum i det förflutna.");
+    warnings.push("Det finns försenade obetalda poster.");
   }
 
   if (pageData.household.members.length < 2) {
-    warnings.push("Hushållet har ännu bara en medlem.");
+    warnings.push("Hushållet saknar person 2.");
   }
 
   if (!pageData.nextMonth) {
-    warnings.push("Nästa månad är inte skapad ännu.");
+    warnings.push("Nästa månad saknas.");
   }
 
   const dashboardSummary = {
@@ -134,20 +134,17 @@ export default async function MonthDetailPage({
     <>
       <FlashMessage notice={resolvedSearchParams.notice} error={resolvedSearchParams.error} />
 
-      <section id="month-top" className="app-panel scroll-mt-24 px-5 py-5 sm:px-6 lg:scroll-mt-10">
+      <section id="month-top" className="app-panel px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-[var(--color-accent)]">Aktiv månad</p>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-[var(--color-muted)]">Månad</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] capitalize">
               {formatMonthLabel(monthKey)}
             </h2>
-            <p className="muted mt-2">
-              Senast uppdaterad {formatDateTime(pageData.activeMonth.updatedAt)} av{" "}
-              {pageData.activeMonth.updatedByUser?.name ?? "okänd"}
-            </p>
+            <p className="muted mt-2">{formatDateTime(pageData.activeMonth.updatedAt)}</p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <LockMonthButton
               monthId={pageData.activeMonth.id}
               returnTo={returnTo}
@@ -160,27 +157,27 @@ export default async function MonthDetailPage({
             />
             <form action={createNextMonthAction}>
               <input type="hidden" name="currentMonthKey" value={monthKey} />
-              <FormStatusButton className="action-primary" pendingLabel="Skapar nästa månad...">
-                Skapa nästa månad
+              <FormStatusButton className="action-primary" pendingLabel="Skapar...">
+                Nästa månad
               </FormStatusButton>
             </form>
           </div>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-4">
           <MonthSelector months={pageData.allMonths} activeMonthKey={monthKey} />
         </div>
       </section>
 
-      <section id="month-status" className="scroll-mt-24 lg:scroll-mt-10">
+      <section id="month-status">
         <WarningBanner warnings={warnings} />
       </section>
 
-      <section id="month-summary" className="scroll-mt-24 lg:scroll-mt-10">
+      <section id="month-summary">
         <MonthSummaryCards summary={dashboardSummary} />
       </section>
 
-      <section id="month-household" className="scroll-mt-24 lg:scroll-mt-10">
+      <section id="month-household">
         <IncomeCarryOverForm
           monthId={pageData.activeMonth.id}
           returnTo={returnTo}
@@ -189,7 +186,7 @@ export default async function MonthDetailPage({
         />
       </section>
 
-      <section id="month-expenses" className="scroll-mt-24 lg:scroll-mt-10">
+      <section id="month-expenses">
         <ExpenseList
           monthId={pageData.activeMonth.id}
           returnTo={returnTo}
@@ -203,10 +200,10 @@ export default async function MonthDetailPage({
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section id="month-categories" className="scroll-mt-24 lg:scroll-mt-10">
+        <section id="month-categories">
           <CategoryBreakdown categories={pageData.summary.categories} />
         </section>
-        <section id="month-notes" className="scroll-mt-24 lg:scroll-mt-10">
+        <section id="month-notes">
           <MonthNotesCard
             monthId={pageData.activeMonth.id}
             note={pageData.activeMonth.note}
@@ -218,7 +215,6 @@ export default async function MonthDetailPage({
 
       <ModalLauncher
         title="Ny utgift"
-        description="Lägg till en ny planerad eller ej planerad utgift för den här månaden."
         trigger={
           <span className="floating-action-button">
             <Plus className="h-6 w-6" />

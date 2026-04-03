@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { randomBytes } from "node:crypto";
 
 import { HouseholdRole } from "@prisma/client";
@@ -24,7 +25,7 @@ export function mapMembersToSlots(household: HouseholdWithMembers) {
   }));
 }
 
-export async function getHouseholdForUser(userId: string) {
+export const getHouseholdForUser = cache(async (userId: string) => {
   const membership = await db.householdMember.findUnique({
     where: {
       userId,
@@ -35,7 +36,7 @@ export async function getHouseholdForUser(userId: string) {
   });
 
   return membership?.household ?? null;
-}
+});
 
 export async function createHouseholdForUser(userId: string, name: string) {
   const existing = await db.householdMember.findUnique({

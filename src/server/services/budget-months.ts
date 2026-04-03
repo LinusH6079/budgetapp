@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { buildMonthSummary } from "@/lib/budget-calculations";
 import { compareMonthKeys, getNextMonthKey, getPreviousMonthKey } from "@/lib/date";
 import { db } from "@/lib/db";
@@ -85,7 +86,7 @@ async function requireMonthAccessById(userId: string, monthId: string) {
   return month;
 }
 
-export async function getMonthsForUser(userId: string) {
+export const getMonthsForUser = cache(async (userId: string) => {
   const household = await getHouseholdForUser(userId);
 
   if (!household) {
@@ -106,9 +107,9 @@ export async function getMonthsForUser(userId: string) {
       updatedAt: true,
     },
   });
-}
+});
 
-export async function getMonthPageData(userId: string, monthKey: string) {
+export const getMonthPageData = cache(async (userId: string, monthKey: string) => {
   const household = await getHouseholdForUser(userId);
 
   if (!household) {
@@ -190,7 +191,7 @@ export async function getMonthPageData(userId: string, monthKey: string) {
     summary,
     previousSummary,
   };
-}
+});
 
 export async function createMonthForUser(input: {
   userId: string;

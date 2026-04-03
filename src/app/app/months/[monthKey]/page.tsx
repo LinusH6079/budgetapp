@@ -1,9 +1,8 @@
 import { PayerType } from "@prisma/client";
-import { ArrowLeft, Lock, LockOpen, Plus } from "lucide-react";
+import { ArrowLeft, CalendarRange, Lock, LockOpen, Plus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { CategoryBreakdown } from "@/components/category-breakdown";
 import { DeleteMonthButton } from "@/components/delete-month-button";
 import { ExpenseForm } from "@/components/expense-form";
 import { ExpenseList } from "@/components/expense-list";
@@ -13,9 +12,10 @@ import { IncomeCarryOverForm } from "@/components/income-carry-over-form";
 import { LockMonthButton } from "@/components/lock-month-button";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { MonthNotesCard } from "@/components/month-notes-card";
-import { MonthSummaryCards } from "@/components/month-summary-cards";
+import { MonthSelector } from "@/components/month-selector";
 import { MonthTabs } from "@/components/month-tabs";
-import { formatMonthLabel } from "@/lib/date";
+import { compareMonthKeys, formatMonthLabel } from "@/lib/date";
+import { formatCurrency } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import { formatDateTime } from "@/lib/utils";
 import { createNextMonthAction } from "@/server/actions/month-actions";
@@ -26,9 +26,9 @@ import {
 } from "@/server/services/budget-months";
 import { mapMembersToSlots } from "@/server/services/households";
 
-const EXPENSES_PER_PAGE = 4;
+const EXPENSES_PER_PAGE = 6;
 
-type MonthTabId = "summary" | "people" | "expenses" | "notes";
+type MonthTabId = "month" | "income" | "expenses" | "notes";
 
 type MonthDetailPageProps = {
   params: Promise<{
@@ -48,11 +48,11 @@ type MonthDetailPageProps = {
 };
 
 function getActiveTab(tab?: string): MonthTabId {
-  if (tab === "people" || tab === "expenses" || tab === "notes") {
+  if (tab === "income" || tab === "expenses" || tab === "notes") {
     return tab;
   }
 
-  return "summary";
+  return "month";
 }
 
 function getPositivePage(page?: string) {
@@ -99,15 +99,7 @@ export default async function MonthDetailPage({
   const expenseStart = (currentExpensePage - 1) * EXPENSES_PER_PAGE;
   const pagedExpenses = allFilteredExpenses.slice(expenseStart, expenseStart + EXPENSES_PER_PAGE);
 
-  const categories = [...new Set(pageData.activeMonth.expenses.map((expense) => expense.category))]
-    .sort((a, b) => a.localeCompare(b, "sv"))
-    .map((category) => ({
-      category,
-      amount: pageData.summary.categories.find((entry) => entry.category === category)?.amount ?? 0,
-    }));
-
   const orderedMembers = mapMembersToSlots(pageData.household);
-
   const memberOptions = [
     {
       label: orderedMembers[0] ? `${orderedMembers[0].name} (Person 1)` : "Person 1",
@@ -122,22 +114,20 @@ export default async function MonthDetailPage({
       value: PayerType.SHARED,
     },
   ];
-
   const payerLabels: Record<PayerType, string> = {
     [PayerType.FIRST_PERSON]: memberOptions[0].label,
     [PayerType.SECOND_PERSON]: memberOptions[1].label,
     [PayerType.SHARED]: "Gemensamt",
   };
 
-  const dashboardSummary = {
-    ...pageData.summary,
-    unexplainedDifferenceFromPreviousMonth:
-      pageData.previousSummary?.unexplainedDifferenceFromPreviousMonth ?? null,
-  };
+  const monthList = [...pageData.allMonths].sort((a, b) => compareMonthKeys(b.monthKey, a.monthKey));
+  const monthIndex = monthList.findIndex((month) => month.monthKey === monthKey);
+  const newerMonth = monthIndex > 0 ? monthList[monthIndex - 1] : null;
+  const olderMonth = monthIndex >= 0 && monthIndex < monthList.length - 1 ? monthList[monthIndex + 1] : null;
 
   const tabs = [
-    { id: "summary" as const, label: "Översikt" },
-    { id: "people" as const, label: "Personer" },
+    { id: "month" as const, label: "Månad" },
+    { id: "income" as const, label: "Inkomst" },
     { id: "expenses" as const, label: "Utgifter" },
     { id: "notes" as const, label: "Anteckning" },
   ].map((tab) => {
@@ -161,30 +151,48 @@ export default async function MonthDetailPage({
   nextExpenseQuery.set("tab", "expenses");
   nextExpenseQuery.set("expensePage", String(Math.min(expensePageCount, currentExpensePage + 1)));
 
+  const quickFilters = [
+    { label: "Alla", status: "all" },
+    { label: "Obetalda", status: "unpaid" },
+    { label: "Betalda", status: "paid" },
+  ].map((filter) => {
+    const filterQuery = new URLSearchParams(query);
+    filterQuery.set("tab", "expenses");
+    filterQuery.set("status", filter.status);
+    filterQuery.set("expensePage", "1");
+
+    return {
+      label: filter.label,
+      href: `/app/months/${monthKey}?${filterQuery.toString()}`,
+      active: filters.status === filter.status,
+    };
+  });
+
+  const unexplained = pageData.previousSummary?.unexplainedDifferenceFromPreviousMonth ?? null;
+
   return (
     <div className="viewport-page">
       <FlashMessage notice={resolvedSearchParams.notice} error={resolvedSearchParams.error} />
 
-      <Link href="/app/months" className="action-button action-secondary w-fit" prefetch>
+      <Link href="/app" className="action-button action-secondary w-fit" prefetch>
         <ArrowLeft className="h-4 w-4" />
-        Månader
+        Översikt
       </Link>
 
-      <section id="month-top" className="app-panel px-4 py-4 sm:px-5">
-        <div className="flex flex-col gap-4">
+      <section className="app-panel px-4 py-4 sm:px-5">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-3xl font-semibold tracking-[-0.04em] capitalize">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--color-muted)]">Månad</p>
+            <div className="mt-2 flex items-center gap-2">
+              <h2 className="text-2xl font-semibold tracking-[-0.04em] capitalize">
                 {formatMonthLabel(monthKey)}
               </h2>
               <span
-                className={`inline-flex h-9 w-9 items-center justify-center rounded-full border ${
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
                   pageData.activeMonth.isLocked
                     ? "border-[var(--color-line)] bg-[var(--color-elevated)] text-[var(--color-muted)]"
                     : "border-[var(--color-line)] bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
                 }`}
-                title={pageData.activeMonth.isLocked ? "Låst" : "Öppen"}
-                aria-label={pageData.activeMonth.isLocked ? "Låst" : "Öppen"}
               >
                 {pageData.activeMonth.isLocked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
               </span>
@@ -192,17 +200,83 @@ export default async function MonthDetailPage({
             <p className="muted mt-2">{formatDateTime(pageData.activeMonth.updatedAt)}</p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <ModalLauncher
+            title="Byt månad"
+            description="Öppna en annan månad utan att lämna den här vyn."
+            trigger={
+              <span className="icon-action-button">
+                <CalendarRange className="h-4 w-4" />
+              </span>
+            }
+          >
+            <MonthSelector
+              months={monthList}
+              activeMonthKey={monthKey}
+              getHref={(targetMonthKey) => `/app/months/${targetMonthKey}?tab=${activeTab}`}
+            />
+          </ModalLauncher>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <Link
+            href={newerMonth ? `/app/months/${newerMonth.monthKey}?tab=${activeTab}` : "#"}
+            className={`action-button action-secondary justify-center ${!newerMonth ? "pointer-events-none opacity-50" : ""}`}
+            prefetch
+          >
+            Nyare
+          </Link>
+          <div className="rounded-xl bg-[var(--color-elevated)] px-3 py-2 text-center text-sm font-medium capitalize">
+            {formatMonthLabel(monthKey)}
+          </div>
+          <Link
+            href={olderMonth ? `/app/months/${olderMonth.monthKey}?tab=${activeTab}` : "#"}
+            className={`action-button action-secondary justify-center ${!olderMonth ? "pointer-events-none opacity-50" : ""}`}
+            prefetch
+          >
+            Äldre
+          </Link>
+        </div>
+      </section>
+
+      <MonthTabs activeTabId={activeTab} tabs={tabs} />
+
+      {activeTab === "month" ? (
+        <section className="grid gap-4">
+          <div className="rounded-[22px] bg-[var(--color-elevated)] px-4 py-4">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-muted)]">Kvar just nu</p>
+            <p className="mt-1 text-3xl font-semibold tracking-[-0.05em]">
+              {formatCurrency(pageData.summary.remainingActual)}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-[18px] bg-[var(--color-elevated)] px-3.5 py-3">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">Tillgängligt</p>
+              <p className="mt-1.5 text-base font-semibold">{formatCurrency(pageData.summary.totalAvailable)}</p>
+            </div>
+            <div className="rounded-[18px] bg-[var(--color-elevated)] px-3.5 py-3">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">Obetalda</p>
+              <p className="mt-1.5 text-base font-semibold">{pageData.summary.unpaidCount} st</p>
+            </div>
+            <div className="rounded-[18px] bg-[var(--color-elevated)] px-3.5 py-3">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">Planerat kvar</p>
+              <p className="mt-1.5 text-base font-semibold">{formatCurrency(pageData.summary.remainingPlanned)}</p>
+            </div>
+            <div className="rounded-[18px] bg-[var(--color-elevated)] px-3.5 py-3">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">Oförklarat</p>
+              <p className="mt-1.5 text-base font-semibold">
+                {unexplained === null ? "Ingen data" : formatCurrency(unexplained)}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
             <LockMonthButton
               monthId={pageData.activeMonth.id}
               returnTo={returnTo}
               isLocked={pageData.activeMonth.isLocked}
             />
-            <DeleteMonthButton
-              monthId={pageData.activeMonth.id}
-              monthKey={monthKey}
-              returnTo={returnTo}
-            />
+            <DeleteMonthButton monthId={pageData.activeMonth.id} monthKey={monthKey} returnTo={returnTo} />
             <form action={createNextMonthAction}>
               <input type="hidden" name="currentMonthKey" value={monthKey} />
               <FormStatusButton
@@ -215,19 +289,27 @@ export default async function MonthDetailPage({
               </FormStatusButton>
             </form>
           </div>
-        </div>
-      </section>
 
-      <MonthTabs activeTabId={activeTab} tabs={tabs} />
-
-      {activeTab === "summary" ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <MonthSummaryCards summary={dashboardSummary} />
-          <CategoryBreakdown categories={categories} />
-        </div>
+          <div className="app-panel px-4 py-4 sm:px-5">
+            <div className="grid gap-3 text-sm text-[var(--color-muted)]">
+              <div className="flex items-center justify-between gap-3">
+                <span>Status</span>
+                <span className="font-medium text-[var(--color-ink)]">
+                  {pageData.activeMonth.isLocked ? "Låst månad" : "Öppen för ändringar"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span>Nästa månad</span>
+                <span className="font-medium text-[var(--color-ink)]">
+                  {pageData.nextMonth ? formatMonthLabel(pageData.nextMonth.monthKey) : "Inte skapad"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
       ) : null}
 
-      {activeTab === "people" ? (
+      {activeTab === "income" ? (
         <IncomeCarryOverForm
           monthId={pageData.activeMonth.id}
           returnTo={returnTo}
@@ -246,18 +328,22 @@ export default async function MonthDetailPage({
             memberOptions={memberOptions}
             payerLabels={payerLabels}
             currentFilters={filters}
-            categories={categories.map((entry) => entry.category)}
+            categories={[...new Set(pageData.activeMonth.expenses.map((expense) => expense.category))].sort((a, b) =>
+              a.localeCompare(b, "sv"),
+            )}
             pageInfo={{
               currentPage: currentExpensePage,
               pageCount: expensePageCount,
               previousHref: `/app/months/${monthKey}?${previousExpenseQuery.toString()}`,
               nextHref: `/app/months/${monthKey}?${nextExpenseQuery.toString()}`,
             }}
+            quickFilters={quickFilters}
           />
 
           <ModalLauncher
             title="Ny utgift"
-            dialogClassName="sm:max-w-2xl"
+            description="Snabb registrering för den här månaden."
+            dialogClassName="sm:max-w-xl"
             trigger={
               <span className="floating-action-button">
                 <Plus className="h-6 w-6" />

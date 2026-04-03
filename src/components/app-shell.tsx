@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { LogOut, Settings2, WalletCards } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Home, LogOut, MoreHorizontal, Settings2, WalletCards } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { formatMonthLabel } from "@/lib/date";
@@ -13,9 +13,11 @@ type AppShellProps = {
   children: React.ReactNode;
   userName: string;
   householdName?: string | null;
+  latestMonthKey?: string | null;
 };
 
-const primaryNavItems = [
+const desktopNavItems = [
+  { href: "/app", label: "Översikt", icon: Home },
   { href: "/app/months", label: "Månader", icon: WalletCards },
   { href: "/app/household", label: "Hushåll", icon: Settings2 },
 ];
@@ -36,26 +38,57 @@ function getPageTitle(pathname: string, householdName?: string | null) {
   }
 
   if (pathname.startsWith("/app/household")) {
-    return "Hushåll";
+    return "Mer";
   }
 
-  return householdName || "Budgetkompis";
+  return householdName || "Översikt";
 }
 
-export function AppShell({ children, userName, householdName }: AppShellProps) {
+export function AppShell({ children, userName, householdName, latestMonthKey }: AppShellProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const pageTitle = getPageTitle(pathname, householdName);
+  const pathMonthKey = getMonthKeyFromPath(pathname);
+  const contextMonthKey = pathMonthKey ?? latestMonthKey;
+  const activeTab = searchParams.get("tab");
+
+  const mobileNavItems = [
+    {
+      href: "/app",
+      label: "Översikt",
+      icon: Home,
+      isActive: pathname === "/app",
+    },
+    {
+      href: contextMonthKey ? `/app/months/${contextMonthKey}?tab=month` : "/app/months",
+      label: "Månad",
+      icon: WalletCards,
+      isActive: pathname.startsWith("/app/months") && (!pathname.startsWith("/app/months/") || activeTab !== "expenses"),
+    },
+    {
+      href: contextMonthKey ? `/app/months/${contextMonthKey}?tab=expenses` : "/app/months",
+      label: "Utgifter",
+      icon: WalletCards,
+      isActive: pathname.startsWith("/app/months/") && activeTab === "expenses",
+    },
+    {
+      href: "/app/household",
+      label: "Mer",
+      icon: MoreHorizontal,
+      isActive: pathname.startsWith("/app/household"),
+    },
+  ];
 
   const sidebar = (
-    <aside className="flex h-full flex-col rounded-[28px] border border-[var(--color-line)] bg-[var(--color-panel)] p-4">
-      <div className="border-b border-[var(--color-line)] px-2 pb-4">
+    <aside className="flex h-full flex-col rounded-[26px] border border-[var(--color-line)] bg-[var(--color-panel)] p-4">
+      <div className="border-b border-[var(--color-line)] px-1 pb-4">
         <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--color-muted)]">Budgetkompis</p>
         <h1 className="mt-3 text-xl font-semibold tracking-[-0.04em]">{householdName || "Hushåll"}</h1>
         <p className="muted mt-1">{userName}</p>
       </div>
 
       <nav className="mt-5 flex flex-col gap-1.5">
-        {primaryNavItems.map((item) => {
+        {desktopNavItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
@@ -113,34 +146,30 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
         </header>
 
         <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-line)] bg-[rgba(12,12,13,0.96)] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur">
-          <div className="mx-auto grid max-w-md grid-cols-2 gap-2">
-            {primaryNavItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  prefetch
-                  className={cn(
-                    "flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-2xl text-xs font-medium transition",
-                    isActive
-                      ? "bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
-                      : "text-[var(--color-muted)] hover:text-[var(--color-ink)]",
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+          <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
+            {mobileNavItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch
+                className={cn(
+                  "flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-medium transition",
+                  item.isActive
+                    ? "bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
+                    : "text-[var(--color-muted)] hover:text-[var(--color-ink)]",
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                <span>{item.label}</span>
+              </Link>
+            ))}
           </div>
         </nav>
       </div>
 
-      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[296px] lg:p-5">{sidebar}</div>
+      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[288px] lg:p-5">{sidebar}</div>
 
-      <div className="lg:pl-[296px]">
+      <div className="lg:pl-[288px]">
         <main className="mx-auto flex w-full max-w-[1040px] flex-col gap-4 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </main>

@@ -13,18 +13,18 @@ type MonthTabsProps = {
 
 export function MonthTabs({ tabs, activeTabId }: MonthTabsProps) {
   return (
-    <div className="app-panel px-3 py-3 sm:px-4">
-      <div className="flex gap-2 overflow-x-auto">
+    <div className="rounded-[18px] bg-[var(--color-elevated)] p-1">
+      <div className="grid grid-cols-4 gap-1">
         {tabs.map((tab) => (
           <Link
             key={tab.id}
             href={tab.href}
             prefetch
             className={cn(
-              "rounded-xl px-4 py-2 text-sm font-medium whitespace-nowrap transition",
+              "rounded-[14px] px-3 py-2 text-center text-sm font-medium transition",
               tab.id === activeTabId
-                ? "bg-[var(--color-accent-strong)] text-[#09090b]"
-                : "bg-[var(--color-elevated)] text-[var(--color-muted)] hover:text-[var(--color-ink)]",
+                ? "bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                : "text-[var(--color-muted)]",
             )}
           >
             {tab.label}

@@ -1,7 +1,7 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, PayerType, PlanningType } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { getNextMonthKey, parseDateInput } from "@/lib/date";
+import { getNextMonthKey } from "@/lib/date";
 import { assertMonthEditable } from "@/server/services/access";
 import { buildRecurringExpenseCopyData } from "@/server/services/budget-months";
 
@@ -13,7 +13,11 @@ async function requireExpenseAccess(actorUserId: string, monthId: string) {
     include: {
       household: {
         include: {
-          members: true,
+          members: {
+            orderBy: {
+              joinedAt: "asc",
+            },
+          },
         },
       },
     },
@@ -41,8 +45,23 @@ async function requireExpenseInMonth(expenseId: string, monthId: string) {
   return expense;
 }
 
-function asDate(value: string | undefined) {
-  return parseDateInput(value);
+function getActorPayerType(
+  members: Array<{
+    userId: string;
+  }>,
+  actorUserId: string,
+) {
+  const actorIndex = members.findIndex((member) => member.userId === actorUserId);
+
+  if (actorIndex === 0) {
+    return PayerType.FIRST_PERSON;
+  }
+
+  if (actorIndex === 1) {
+    return PayerType.SECOND_PERSON;
+  }
+
+  throw new Error("Kunde inte koppla utgiften till rätt person.");
 }
 
 async function syncRecurringExpenseToNextMonth(input: {
@@ -117,49 +136,44 @@ export async function upsertExpenseForUser(input: {
   amount: number;
   category: string;
   expenseType: "RECURRING" | "ONE_TIME";
-  planningType: "PLANNED" | "UNPLANNED";
-  payerType: "FIRST_PERSON" | "SECOND_PERSON" | "SHARED";
-  dueDate?: string;
-  isPaid: boolean;
-  paidAt?: string;
-  note?: string;
 }) {
   const month = await requireExpenseAccess(input.actorUserId, input.monthId);
   assertMonthEditable(month.isLocked);
 
   return db.$transaction(async (tx) => {
+    let existingExpense = null;
+
+    if (input.expenseId) {
+      existingExpense = await requireExpenseInMonth(input.expenseId, input.monthId);
+    }
+
     const expensePayload = {
       name: input.name,
       amount: input.amount,
       category: input.category,
       expenseType: input.expenseType,
-      planningType: input.planningType,
-      payerType: input.payerType,
-      dueDate: asDate(input.dueDate),
-      isPaid: input.isPaid,
-      paidAt: input.isPaid ? asDate(input.paidAt) ?? new Date() : null,
-      note: input.note || null,
+      planningType: existingExpense?.planningType ?? PlanningType.PLANNED,
+      payerType: existingExpense?.payerType ?? getActorPayerType(month.household.members, input.actorUserId),
+      dueDate: null,
+      isPaid: existingExpense?.isPaid ?? false,
+      paidAt: existingExpense?.paidAt ?? null,
+      note: null,
       updatedByUserId: input.actorUserId,
     } as const;
 
-    let expense;
-
-    if (input.expenseId) {
-      await requireExpenseInMonth(input.expenseId, input.monthId);
-      expense = await tx.expense.update({
-        where: {
-          id: input.expenseId,
-        },
-        data: expensePayload,
-      });
-    } else {
-      expense = await tx.expense.create({
-        data: {
-          budgetMonthId: input.monthId,
-          ...expensePayload,
-        },
-      });
-    }
+    const expense = existingExpense
+      ? await tx.expense.update({
+          where: {
+            id: existingExpense.id,
+          },
+          data: expensePayload,
+        })
+      : await tx.expense.create({
+          data: {
+            budgetMonthId: input.monthId,
+            ...expensePayload,
+          },
+        });
 
     await syncRecurringExpenseToNextMonth({
       tx,

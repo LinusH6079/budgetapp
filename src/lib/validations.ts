@@ -93,12 +93,6 @@ export const expenseSchema = z.object({
   amount: moneyField,
   category: z.string().trim().min(1, "Kategori krävs.").max(50, "Kategorin är för lång."),
   expenseType: z.nativeEnum(ExpenseType),
-  planningType: z.nativeEnum(PlanningType),
-  payerType: z.nativeEnum(PayerType),
-  dueDate: z.string().optional().or(z.literal("")),
-  isPaid: z.enum(["true", "false"]).default("false"),
-  paidAt: z.string().optional().or(z.literal("")),
-  note: z.string().trim().max(400, "Anteckningen är för lång.").optional().or(z.literal("")),
 });
 
 export const deleteExpenseSchema = z.object({

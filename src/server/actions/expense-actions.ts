@@ -24,12 +24,6 @@ export async function saveExpenseAction(formData: FormData) {
     amount: formData.get("amount"),
     category: formData.get("category"),
     expenseType: formData.get("expenseType"),
-    planningType: formData.get("planningType"),
-    payerType: formData.get("payerType"),
-    dueDate: formData.get("dueDate"),
-    isPaid: formData.get("isPaid"),
-    paidAt: formData.get("paidAt"),
-    note: formData.get("note"),
   });
 
   if (!parsed.success) {
@@ -45,12 +39,6 @@ export async function saveExpenseAction(formData: FormData) {
       amount: parsed.data.amount,
       category: parsed.data.category,
       expenseType: parsed.data.expenseType,
-      planningType: parsed.data.planningType,
-      payerType: parsed.data.payerType,
-      dueDate: parsed.data.dueDate || undefined,
-      isPaid: parsed.data.isPaid === "true",
-      paidAt: parsed.data.paidAt || undefined,
-      note: parsed.data.note || undefined,
     });
   } catch (error) {
     redirectWithMessage(

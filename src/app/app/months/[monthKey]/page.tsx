@@ -26,6 +26,8 @@ import {
 } from "@/server/services/budget-months";
 import { mapMembersToSlots } from "@/server/services/households";
 
+type MonthTabId = "summary" | "people" | "expenses" | "notes";
+
 type MonthDetailPageProps = {
   params: Promise<{
     monthKey: string;
@@ -33,14 +35,22 @@ type MonthDetailPageProps = {
   searchParams: Promise<{
     notice?: string;
     error?: string;
+    tab?: string;
     status?: string;
     type?: string;
-    planning?: string;
     category?: string;
     payer?: string;
     sort?: string;
   }>;
 };
+
+function getActiveTab(tab?: string): MonthTabId {
+  if (tab === "people" || tab === "expenses" || tab === "notes") {
+    return tab;
+  }
+
+  return "summary";
+}
 
 export default async function MonthDetailPage({
   params,
@@ -55,7 +65,9 @@ export default async function MonthDetailPage({
     notFound();
   }
 
+  const activeTab = getActiveTab(resolvedSearchParams.tab);
   const query = new URLSearchParams();
+
   for (const [key, value] of Object.entries(resolvedSearchParams)) {
     if (value) {
       query.set(key, value);
@@ -66,10 +78,9 @@ export default async function MonthDetailPage({
   const filters = {
     status: resolvedSearchParams.status ?? "all",
     type: resolvedSearchParams.type ?? "all",
-    planning: resolvedSearchParams.planning ?? "all",
     category: resolvedSearchParams.category ?? "all",
     payer: resolvedSearchParams.payer ?? "all",
-    sort: resolvedSearchParams.sort ?? "dueDate",
+    sort: resolvedSearchParams.sort ?? "name",
   };
 
   const filteredExpenses = sortExpenseItems(
@@ -107,6 +118,33 @@ export default async function MonthDetailPage({
     unexplainedDifferenceFromPreviousMonth:
       pageData.previousSummary?.unexplainedDifferenceFromPreviousMonth ?? null,
   };
+
+  const tabs = [
+    {
+      id: "summary" as const,
+      label: "Översikt",
+    },
+    {
+      id: "people" as const,
+      label: "Personer",
+    },
+    {
+      id: "expenses" as const,
+      label: "Utgifter",
+    },
+    {
+      id: "notes" as const,
+      label: "Anteckning",
+    },
+  ].map((tab) => {
+    const tabQuery = new URLSearchParams(query);
+    tabQuery.set("tab", tab.id);
+
+    return {
+      ...tab,
+      href: `/app/months/${monthKey}?${tabQuery.toString()}`,
+    };
+  });
 
   return (
     <>
@@ -165,79 +203,64 @@ export default async function MonthDetailPage({
         </div>
       </section>
 
-      <MonthTabs
-        defaultTabId="summary"
-        tabs={[
-          {
-            id: "summary",
-            label: "Översikt",
-            content: (
-              <div className="space-y-4">
-                <MonthSummaryCards summary={dashboardSummary} />
-                <CategoryBreakdown categories={pageData.summary.categories} />
-              </div>
-            ),
-          },
-          {
-            id: "people",
-            label: "Personer",
-            content: (
-              <IncomeCarryOverForm
-                monthId={pageData.activeMonth.id}
-                returnTo={returnTo}
-                isLocked={pageData.activeMonth.isLocked}
-                personSnapshots={pageData.activeMonth.personSnapshots}
-              />
-            ),
-          },
-          {
-            id: "expenses",
-            label: "Utgifter",
-            content: (
-              <ExpenseList
-                monthId={pageData.activeMonth.id}
-                returnTo={returnTo}
-                isLocked={pageData.activeMonth.isLocked}
-                expenses={filteredExpenses}
-                memberOptions={memberOptions}
-                payerLabels={payerLabels}
-                currentFilters={filters}
-                categories={categories}
-              />
-            ),
-          },
-          {
-            id: "notes",
-            label: "Anteckning",
-            content: (
-              <MonthNotesCard
-                monthId={pageData.activeMonth.id}
-                note={pageData.activeMonth.note}
-                returnTo={returnTo}
-                isLocked={pageData.activeMonth.isLocked}
-              />
-            ),
-          },
-        ]}
-      />
+      <MonthTabs activeTabId={activeTab} tabs={tabs} />
 
-      <ModalLauncher
-        title="Ny utgift"
-        dialogClassName="sm:max-w-2xl"
-        trigger={
-          <span className="floating-action-button">
-            <Plus className="h-6 w-6" />
-          </span>
-        }
-        triggerClassName="fixed bottom-6 right-4 z-30 sm:right-6 lg:bottom-8"
-      >
-        <ExpenseForm
+      {activeTab === "summary" ? (
+        <div className="space-y-4">
+          <MonthSummaryCards summary={dashboardSummary} />
+          <CategoryBreakdown categories={pageData.summary.categories} />
+        </div>
+      ) : null}
+
+      {activeTab === "people" ? (
+        <IncomeCarryOverForm
           monthId={pageData.activeMonth.id}
           returnTo={returnTo}
           isLocked={pageData.activeMonth.isLocked}
-          memberOptions={memberOptions}
+          personSnapshots={pageData.activeMonth.personSnapshots}
         />
-      </ModalLauncher>
+      ) : null}
+
+      {activeTab === "expenses" ? (
+        <>
+          <ExpenseList
+            monthId={pageData.activeMonth.id}
+            returnTo={returnTo}
+            isLocked={pageData.activeMonth.isLocked}
+            expenses={filteredExpenses}
+            memberOptions={memberOptions}
+            payerLabels={payerLabels}
+            currentFilters={filters}
+            categories={categories}
+          />
+
+          <ModalLauncher
+            title="Ny utgift"
+            dialogClassName="sm:max-w-2xl"
+            trigger={
+              <span className="floating-action-button">
+                <Plus className="h-6 w-6" />
+              </span>
+            }
+            triggerClassName="fixed bottom-6 right-4 z-30 sm:right-6 lg:bottom-8"
+          >
+            <ExpenseForm
+              monthId={pageData.activeMonth.id}
+              returnTo={returnTo}
+              isLocked={pageData.activeMonth.isLocked}
+            />
+          </ModalLauncher>
+        </>
+      ) : null}
+
+      {activeTab === "notes" ? (
+        <MonthNotesCard
+          monthId={pageData.activeMonth.id}
+          note={pageData.activeMonth.note}
+          returnTo={returnTo}
+          isLocked={pageData.activeMonth.isLocked}
+        />
+      ) : null}
     </>
   );
 }

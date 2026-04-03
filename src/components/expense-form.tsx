@@ -1,7 +1,6 @@
-import { ExpenseType, PayerType, PlanningType } from "@prisma/client";
+import { ExpenseType, PayerType } from "@prisma/client";
 
 import { FormStatusButton } from "@/components/form-status-button";
-import { toDateInputValue } from "@/lib/date";
 import { formatEditableAmount } from "@/lib/money";
 import { saveExpenseAction } from "@/server/actions/expense-actions";
 
@@ -9,32 +8,19 @@ type ExpenseFormProps = {
   monthId: string;
   returnTo: string;
   isLocked: boolean;
-  memberOptions: Array<{
-    label: string;
-    value: PayerType;
-  }>;
   expense?: {
     id: string;
     name: string;
     amount: number;
     category: string;
     expenseType: ExpenseType;
-    planningType: PlanningType;
     payerType: PayerType;
-    dueDate: Date | null;
     isPaid: boolean;
     paidAt: Date | null;
-    note: string | null;
   };
 };
 
-export function ExpenseForm({
-  monthId,
-  returnTo,
-  isLocked,
-  memberOptions,
-  expense,
-}: ExpenseFormProps) {
+export function ExpenseForm({ monthId, returnTo, isLocked, expense }: ExpenseFormProps) {
   return (
     <form action={saveExpenseAction} className="grid gap-2.5">
       <input type="hidden" name="monthId" value={monthId} />
@@ -70,74 +56,12 @@ export function ExpenseForm({
           />
         </label>
 
-        <label className="block">
+        <label className="block sm:col-span-2">
           <span className="mb-1.5 block text-sm font-medium">Typ</span>
           <select name="expenseType" defaultValue={expense?.expenseType ?? ExpenseType.ONE_TIME} disabled={isLocked}>
             <option value={ExpenseType.ONE_TIME}>Engångs</option>
             <option value={ExpenseType.RECURRING}>Återkommande</option>
           </select>
-        </label>
-
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium">Planering</span>
-          <select
-            name="planningType"
-            defaultValue={expense?.planningType ?? PlanningType.PLANNED}
-            disabled={isLocked}
-          >
-            <option value={PlanningType.PLANNED}>Planerad</option>
-            <option value={PlanningType.UNPLANNED}>Ej planerad</option>
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium">Betalas av</span>
-          <select name="payerType" defaultValue={expense?.payerType ?? PayerType.SHARED} disabled={isLocked}>
-            {memberOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium">Förfallodatum</span>
-          <input
-            name="dueDate"
-            type="date"
-            defaultValue={toDateInputValue(expense?.dueDate)}
-            disabled={isLocked}
-          />
-        </label>
-
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium">Betald?</span>
-          <select name="isPaid" defaultValue={expense?.isPaid ? "true" : "false"} disabled={isLocked}>
-            <option value="false">Nej</option>
-            <option value="true">Ja</option>
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium">Betaldatum</span>
-          <input
-            name="paidAt"
-            type="date"
-            defaultValue={toDateInputValue(expense?.paidAt)}
-            disabled={isLocked}
-          />
-        </label>
-
-        <label className="block sm:col-span-2">
-          <span className="mb-1.5 block text-sm font-medium">Anteckning</span>
-          <textarea
-            name="note"
-            rows={2}
-            defaultValue={expense?.note ?? ""}
-            placeholder="Valfri kommentar"
-            disabled={isLocked}
-          />
         </label>
       </div>
 

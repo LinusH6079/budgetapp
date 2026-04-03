@@ -14,12 +14,9 @@ type ExpenseItemProps = {
     amount: number;
     category: string;
     expenseType: "RECURRING" | "ONE_TIME";
-    planningType: "PLANNED" | "UNPLANNED";
     payerType: PayerType;
-    dueDate: Date | null;
     isPaid: boolean;
     paidAt: Date | null;
-    note: string | null;
     updatedAt: Date;
     updatedByUser: {
       name: string;
@@ -29,10 +26,6 @@ type ExpenseItemProps = {
   returnTo: string;
   isLocked: boolean;
   payerLabels: Record<PayerType, string>;
-  memberOptions: Array<{
-    label: string;
-    value: PayerType;
-  }>;
 };
 
 export function ExpenseItem({
@@ -41,7 +34,6 @@ export function ExpenseItem({
   returnTo,
   isLocked,
   payerLabels,
-  memberOptions,
 }: ExpenseItemProps) {
   return (
     <article className="surface-card content-auto">
@@ -51,9 +43,6 @@ export function ExpenseItem({
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-semibold">{expense.name}</h3>
               <span className="pill-tag bg-[var(--color-panel-strong)]">{expense.category}</span>
-              {expense.planningType === "UNPLANNED" ? (
-                <span className="pill-tag bg-[var(--color-danger-soft)] text-[var(--color-danger)]">Ej planerad</span>
-              ) : null}
             </div>
             <p className="muted mt-2">
               {payerLabels[expense.payerType]} · {expense.expenseType === "RECURRING" ? "Återkommande" : "Engångs"}
@@ -62,9 +51,7 @@ export function ExpenseItem({
 
           <div className="text-right">
             <p className="text-xl font-semibold tracking-[-0.03em]">{formatCurrency(expense.amount)}</p>
-            <p className="muted mt-1">
-              {expense.dueDate ? expense.dueDate.toLocaleDateString("sv-SE") : "Ingen dag"}
-            </p>
+            {expense.paidAt ? <p className="muted mt-1">{expense.paidAt.toLocaleDateString("sv-SE")}</p> : null}
           </div>
         </div>
 
@@ -79,7 +66,9 @@ export function ExpenseItem({
             {expense.isPaid ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
             {expense.isPaid ? "Betald" : "Obetald"}
           </span>
-          {expense.note ? <span className="muted">{expense.note}</span> : null}
+          {expense.isPaid && expense.paidAt ? (
+            <span className="muted">Betald {expense.paidAt.toLocaleDateString("sv-SE")}</span>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -102,13 +91,7 @@ export function ExpenseItem({
               Redigera
             </summary>
             <div className="ghost-panel mt-4 px-4 py-4">
-              <ExpenseForm
-                monthId={monthId}
-                returnTo={returnTo}
-                isLocked={isLocked}
-                memberOptions={memberOptions}
-                expense={expense}
-              />
+              <ExpenseForm monthId={monthId} returnTo={returnTo} isLocked={isLocked} expense={expense} />
             </div>
           </details>
 

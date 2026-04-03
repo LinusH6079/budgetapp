@@ -421,7 +421,7 @@ export async function deleteMonthForUser(input: {
   };
 }
 
-export function sortExpenseItems<T extends { amount: number; name: string; dueDate: Date | null }>(
+export function sortExpenseItems<T extends { amount: number; name: string }>(
   expenses: T[],
   sort: string,
 ) {
@@ -437,22 +437,7 @@ export function sortExpenseItems<T extends { amount: number; name: string; dueDa
     return sorted;
   }
 
-  sorted.sort((a, b) => {
-    if (!a.dueDate && !b.dueDate) {
-      return a.name.localeCompare(b.name, "sv");
-    }
-
-    if (!a.dueDate) {
-      return 1;
-    }
-
-    if (!b.dueDate) {
-      return -1;
-    }
-
-    return a.dueDate.getTime() - b.dueDate.getTime();
-  });
-
+  sorted.sort((a, b) => a.name.localeCompare(b.name, "sv"));
   return sorted;
 }
 
@@ -461,7 +446,6 @@ export function filterExpenseItems<
     isPaid: boolean;
     expenseType: string;
     category: string;
-    planningType: string;
     payerType: string;
   },
 >(
@@ -470,7 +454,6 @@ export function filterExpenseItems<
     status?: string;
     type?: string;
     category?: string;
-    planning?: string;
     payer?: string;
   },
 ) {
@@ -484,10 +467,6 @@ export function filterExpenseItems<
     }
 
     if (filters.type && filters.type !== "all" && expense.expenseType !== filters.type) {
-      return false;
-    }
-
-    if (filters.planning && filters.planning !== "all" && expense.planningType !== filters.planning) {
       return false;
     }
 

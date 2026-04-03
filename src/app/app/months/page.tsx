@@ -52,8 +52,8 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
       <section className="app-panel px-4 py-4 sm:px-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h2 className="section-title">Månader</h2>
-            <p className="muted mt-1">All månadshantering sker här.</p>
+            <p className="eyebrow-label">Månader</p>
+            <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em]">Alla månader</h2>
           </div>
 
           <ModalLauncher

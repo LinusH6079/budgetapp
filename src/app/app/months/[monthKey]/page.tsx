@@ -159,7 +159,7 @@ export default async function MonthDetailPage({
       <section className="app-panel px-4 py-4 sm:px-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--color-muted)]">Månad</p>
+            <p className="eyebrow-label">Månad</p>
             <div className="mt-2 flex items-center gap-2">
               <h2 className="text-2xl font-semibold tracking-[-0.04em] capitalize">
                 {formatMonthLabel(monthKey)}
@@ -174,7 +174,7 @@ export default async function MonthDetailPage({
                 {pageData.activeMonth.isLocked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
               </span>
             </div>
-            <p className="muted mt-2">{formatDateTime(pageData.activeMonth.updatedAt)}</p>
+            <p className="mt-2 text-[13px] text-[var(--color-muted)]">{formatDateTime(pageData.activeMonth.updatedAt)}</p>
           </div>
         </div>
       </section>
@@ -183,31 +183,29 @@ export default async function MonthDetailPage({
 
       {activeTab === "summary" ? (
         <section className="grid gap-4">
-          <div className="rounded-[22px] bg-[var(--color-elevated)] px-4 py-4">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-muted)]">Kvar just nu</p>
-            <p className="mt-1 text-3xl font-semibold tracking-[-0.05em]">
+          <div className="rounded-[20px] bg-[var(--color-elevated)] px-4 py-4">
+            <p className="eyebrow-label">Kvar just nu</p>
+            <p className="mt-1 text-[2rem] font-semibold tracking-[-0.05em]">
               {formatCurrency(pageData.summary.remainingActual)}
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-[18px] bg-[var(--color-elevated)] px-3.5 py-3">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">Tillgängligt</p>
-              <p className="mt-1.5 text-base font-semibold">{formatCurrency(pageData.summary.totalAvailable)}</p>
+            <div className="stat-tile">
+              <p className="eyebrow-label">Tillgängligt</p>
+              <p className="stat-value">{formatCurrency(pageData.summary.totalAvailable)}</p>
             </div>
-            <div className="rounded-[18px] bg-[var(--color-elevated)] px-3.5 py-3">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">Obetalda</p>
-              <p className="mt-1.5 text-base font-semibold">{pageData.summary.unpaidCount} st</p>
+            <div className="stat-tile">
+              <p className="eyebrow-label">Obetalda</p>
+              <p className="stat-value">{pageData.summary.unpaidCount} st</p>
             </div>
-            <div className="rounded-[18px] bg-[var(--color-elevated)] px-3.5 py-3">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">Planerat kvar</p>
-              <p className="mt-1.5 text-base font-semibold">{formatCurrency(pageData.summary.remainingPlanned)}</p>
+            <div className="stat-tile">
+              <p className="eyebrow-label">Planerat kvar</p>
+              <p className="stat-value">{formatCurrency(pageData.summary.remainingPlanned)}</p>
             </div>
-            <div className="rounded-[18px] bg-[var(--color-elevated)] px-3.5 py-3">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">Oförklarat</p>
-              <p className="mt-1.5 text-base font-semibold">
-                {unexplained === null ? "Ingen data" : formatCurrency(unexplained)}
-              </p>
+            <div className="stat-tile">
+              <p className="eyebrow-label">Oförklarat</p>
+              <p className="stat-value">{unexplained === null ? "Ingen data" : formatCurrency(unexplained)}</p>
             </div>
           </div>
         </section>

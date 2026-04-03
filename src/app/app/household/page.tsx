@@ -56,7 +56,8 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
       <section className="app-panel px-4 py-4 sm:px-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="section-title">{household.name}</h2>
+            <p className="eyebrow-label">Hushåll</p>
+            <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em]">{household.name}</h2>
             <p className="muted mt-1">2 personer max</p>
           </div>
           <span className="text-sm text-[var(--color-muted)]">{members.length}/2</span>

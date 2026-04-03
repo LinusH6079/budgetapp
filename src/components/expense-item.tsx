@@ -37,7 +37,7 @@ export function ExpenseItem({
   payerLabels,
 }: ExpenseItemProps) {
   return (
-    <article className="w-full overflow-hidden rounded-[18px] border border-[var(--color-line)] bg-[var(--color-elevated)] px-3.5 py-3.5">
+    <article className="w-full overflow-hidden rounded-[18px] border border-[var(--color-line)] bg-[var(--color-elevated)] px-3.5 py-3">
       <div className="flex w-full items-start gap-3">
         <form action={toggleExpensePaidAction} className="shrink-0">
           <input type="hidden" name="returnTo" value={returnTo} />
@@ -62,7 +62,7 @@ export function ExpenseItem({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{expense.name}</p>
+              <p className="truncate text-sm font-semibold tracking-[-0.01em]">{expense.name}</p>
               <p className="mt-1 truncate text-[12px] text-[var(--color-muted)]">
                 {expense.category} · {payerLabels[expense.payerType]} ·{" "}
                 {expense.expenseType === "RECURRING" ? "Återkommande" : "Engångs"}
@@ -70,14 +70,14 @@ export function ExpenseItem({
             </div>
 
             <div className="shrink-0 text-right">
-              <p className="text-lg font-semibold tracking-[-0.03em]">{formatCurrency(expense.amount)}</p>
+              <p className="text-[1.1rem] font-semibold tracking-[-0.03em]">{formatCurrency(expense.amount)}</p>
               <p className="mt-1 text-[12px] text-[var(--color-muted)]">
                 {expense.isPaid && expense.paidAt ? `Betald ${expense.paidAt.toLocaleDateString("sv-SE")}` : "Ej betald"}
               </p>
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2.5">
             <span
               className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
                 expense.isPaid

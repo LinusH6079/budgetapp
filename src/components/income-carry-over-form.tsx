@@ -28,11 +28,14 @@ export function IncomeCarryOverForm({
 }: IncomeCarryOverFormProps) {
   return (
     <section className="app-panel px-4 py-4 sm:px-5">
-      <h2 className="section-title">Personer</h2>
+      <div className="px-1">
+        <p className="eyebrow-label">Personer</p>
+        <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em]">Inkomst och saldo in</h2>
+      </div>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {personSnapshots.map((snapshot) => (
-          <form key={snapshot.userId} action={updateSnapshotAction} className="surface-card px-3.5 py-3.5">
+          <form key={snapshot.userId} action={updateSnapshotAction} className="surface-card px-4 py-4">
             <input type="hidden" name="monthId" value={monthId} />
             <input type="hidden" name="userId" value={snapshot.userId} />
             <input type="hidden" name="returnTo" value={returnTo} />
@@ -40,13 +43,15 @@ export function IncomeCarryOverForm({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="font-semibold">{snapshot.user.name}</h3>
-                <p className="muted mt-1">{snapshot.updatedAt.toLocaleDateString("sv-SE")}</p>
+                <p className="mt-1 text-[13px] text-[var(--color-muted)]">
+                  {snapshot.updatedAt.toLocaleDateString("sv-SE")}
+                </p>
               </div>
             </div>
 
-            <div className="mt-3 grid gap-2.5">
+            <div className="mt-4 grid gap-3">
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Inkomst</span>
+                <span className="mb-2 block text-sm font-medium">Inkomst</span>
                 <input
                   name="incomeAmount"
                   defaultValue={formatEditableAmount(snapshot.incomeAmount)}
@@ -55,7 +60,7 @@ export function IncomeCarryOverForm({
                 />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Saldo in</span>
+                <span className="mb-2 block text-sm font-medium">Saldo in</span>
                 <input
                   name="carryOverAmount"
                   defaultValue={formatEditableAmount(snapshot.carryOverAmount)}
@@ -65,7 +70,7 @@ export function IncomeCarryOverForm({
               </label>
             </div>
 
-            <div className="mt-3 flex items-center justify-between">
+            <div className="mt-4 flex items-center justify-between gap-3">
               <p className="text-sm text-[var(--color-muted)]">
                 Totalt {formatCurrency(snapshot.incomeAmount + snapshot.carryOverAmount)}
               </p>

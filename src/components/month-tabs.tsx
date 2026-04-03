@@ -21,7 +21,7 @@ export function MonthTabs({ tabs, activeTabId }: MonthTabsProps) {
             href={tab.href}
             prefetch
             className={cn(
-              "rounded-[14px] px-3 py-2 text-center text-sm font-medium transition",
+              "rounded-[14px] px-3 py-2 text-center text-[13px] font-medium transition",
               tab.id === activeTabId
                 ? "bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                 : "text-[var(--color-muted)]",

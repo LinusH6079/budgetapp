@@ -60,7 +60,7 @@ canvas {
 input,
 select,
 textarea {
-  @apply w-full min-w-0 rounded-xl border border-[var(--color-line)] bg-[color:var(--color-surface-strong)] px-3.5 py-2.5 text-[16px] text-[var(--color-ink)] outline-none transition;
+  @apply w-full min-w-0 rounded-[16px] border border-[var(--color-line)] bg-[color:var(--color-surface-strong)] px-3.5 py-3 text-[16px] text-[var(--color-ink)] outline-none transition;
 }
 
 input:focus,
@@ -74,15 +74,15 @@ button {
 }
 
 .app-panel {
-  @apply rounded-[24px] border bg-[color:var(--color-panel)];
+  @apply rounded-[22px] border bg-[color:var(--color-panel)];
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.18),
+    0 6px 18px rgba(0, 0, 0, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .section-title {
-  @apply text-base font-semibold tracking-[-0.02em] text-[var(--color-ink)];
+  @apply text-[15px] font-semibold tracking-[-0.02em] text-[var(--color-ink)];
 }
 
 .muted {
@@ -90,20 +90,20 @@ button {
 }
 
 .surface-card {
-  @apply rounded-[20px] border px-4 py-4;
+  @apply rounded-[18px] border px-4 py-3.5;
   border-color: rgba(255, 255, 255, 0.07);
   background: var(--color-elevated);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .ghost-panel {
-  @apply rounded-[20px] border;
+  @apply rounded-[18px] border;
   border-color: rgba(255, 255, 255, 0.07);
   background: rgba(255, 255, 255, 0.02);
 }
 
 .action-button {
-  @apply inline-flex box-border items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium;
+  @apply inline-flex box-border items-center justify-center gap-2 rounded-[14px] px-3.5 py-2.5 text-sm font-medium;
 }
 
 .action-button:disabled {
@@ -129,7 +129,7 @@ button {
 }
 
 .icon-action-button {
-  @apply inline-flex h-10 w-10 shrink-0 box-border items-center justify-center rounded-xl border p-0 text-sm transition;
+  @apply inline-flex h-10 w-10 shrink-0 box-border items-center justify-center rounded-[14px] border p-0 text-sm transition;
   border-color: rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.025);
   color: var(--color-ink);
@@ -163,8 +163,20 @@ button {
 }
 
 .compact-panel {
-  @apply rounded-[20px] border bg-[color:var(--color-panel)] px-4 py-4;
+  @apply rounded-[18px] border bg-[color:var(--color-panel)] px-4 py-3.5;
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+.eyebrow-label {
+  @apply text-[10px] uppercase tracking-[0.22em] text-[var(--color-muted)];
+}
+
+.stat-tile {
+  @apply rounded-[18px] bg-[var(--color-elevated)] px-3.5 py-3;
+}
+
+.stat-value {
+  @apply mt-1.5 text-base font-semibold tracking-[-0.02em];
 }
 
 .no-scrollbar {

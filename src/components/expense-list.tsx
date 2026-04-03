@@ -65,8 +65,8 @@ export function ExpenseList({
       <div className="app-panel px-4 py-4 sm:px-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="section-title">Utgifter</h2>
-            <p className="muted mt-1">Snabb, kompakt och lätt att skanna.</p>
+            <p className="eyebrow-label">Utgifter</p>
+            <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em]">Alla poster</h2>
           </div>
 
           <ModalLauncher
@@ -124,13 +124,13 @@ export function ExpenseList({
           </ModalLauncher>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           {quickFilters.map((filter) => (
             <Link
               key={filter.label}
               href={filter.href}
               prefetch
-              className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
                 filter.active
                   ? "bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
                   : "bg-[var(--color-elevated)] text-[var(--color-muted)]"

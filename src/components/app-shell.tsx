@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Home, LogOut, MoreHorizontal, Settings2, WalletCards } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
@@ -44,13 +44,9 @@ function getPageTitle(pathname: string, householdName?: string | null) {
   return householdName || "Översikt";
 }
 
-export function AppShell({ children, userName, householdName, latestMonthKey }: AppShellProps) {
+export function AppShell({ children, userName, householdName }: AppShellProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const pageTitle = getPageTitle(pathname, householdName);
-  const pathMonthKey = getMonthKeyFromPath(pathname);
-  const contextMonthKey = pathMonthKey ?? latestMonthKey;
-  const activeTab = searchParams.get("tab");
 
   const mobileNavItems = [
     {
@@ -63,13 +59,7 @@ export function AppShell({ children, userName, householdName, latestMonthKey }: 
       href: "/app/months",
       label: "Månader",
       icon: WalletCards,
-      isActive: pathname.startsWith("/app/months") && activeTab !== "expenses",
-    },
-    {
-      href: contextMonthKey ? `/app/months/${contextMonthKey}?tab=expenses` : "/app/months",
-      label: "Utgifter",
-      icon: WalletCards,
-      isActive: pathname.startsWith("/app/months/") && activeTab === "expenses",
+      isActive: pathname.startsWith("/app/months"),
     },
     {
       href: "/app/household",
@@ -123,8 +113,8 @@ export function AppShell({ children, userName, householdName, latestMonthKey }: 
   return (
     <div className="min-h-screen">
       <div className="lg:hidden">
-        <header className="sticky top-0 z-40 border-b border-[var(--color-line)] bg-[rgba(12,12,13,0.94)] px-4 py-3 backdrop-blur">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+        <header className="sticky top-0 z-40 border-b border-[var(--color-line)] bg-[rgba(12,12,13,0.94)] px-4 py-3.5 backdrop-blur">
+          <div className="mx-auto flex max-w-[680px] items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--color-muted)]">
                 {householdName || "Budgetkompis"}
@@ -146,7 +136,7 @@ export function AppShell({ children, userName, householdName, latestMonthKey }: 
         </header>
 
         <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-line)] bg-[rgba(12,12,13,0.96)] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur">
-          <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
+          <div className="mx-auto grid max-w-sm grid-cols-3 gap-2">
             {mobileNavItems.map((item) => (
               <Link
                 key={item.href}
@@ -170,7 +160,7 @@ export function AppShell({ children, userName, householdName, latestMonthKey }: 
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[288px] lg:p-5">{sidebar}</div>
 
       <div className="min-w-0 lg:pl-[288px]">
-        <main className="mx-auto flex w-full min-w-0 max-w-[1040px] flex-col gap-4 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:py-8">
+        <main className="mx-auto flex w-full min-w-0 max-w-[960px] flex-col gap-4 px-4 pb-28 pt-4 sm:px-5 lg:px-8 lg:py-8">
           {children}
         </main>
       </div>

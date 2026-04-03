@@ -132,13 +132,13 @@ export function ExpenseList({
           </ModalLauncher>
         </div>
 
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <div className="mt-3 flex flex-wrap gap-2">
           {quickFilters.map((filter) => (
             <Link
               key={filter.label}
               href={filter.href}
               prefetch
-              className={`rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap ${
+              className={`rounded-full px-3 py-1.5 text-sm font-medium ${
                 filter.active
                   ? "bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
                   : "bg-[var(--color-elevated)] text-[var(--color-muted)]"

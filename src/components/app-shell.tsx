@@ -169,8 +169,8 @@ export function AppShell({ children, userName, householdName, latestMonthKey }: 
 
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[288px] lg:p-5">{sidebar}</div>
 
-      <div className="lg:pl-[288px]">
-        <main className="mx-auto flex w-full max-w-[1040px] flex-col gap-4 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:py-8">
+      <div className="min-w-0 lg:pl-[288px]">
+        <main className="mx-auto flex w-full min-w-0 max-w-[1040px] flex-col gap-4 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </main>
       </div>

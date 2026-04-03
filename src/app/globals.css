@@ -21,7 +21,10 @@
 }
 
 html {
+  max-width: 100%;
+  overflow-x: hidden;
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -29,6 +32,8 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   min-height: 100vh;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 a,
@@ -39,10 +44,23 @@ textarea {
   touch-action: manipulation;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
 input,
 select,
 textarea {
-  @apply w-full rounded-xl border border-[var(--color-line)] bg-[color:var(--color-surface-strong)] px-3.5 py-2.5 text-sm text-[var(--color-ink)] outline-none transition;
+  @apply w-full min-w-0 rounded-xl border border-[var(--color-line)] bg-[color:var(--color-surface-strong)] px-3.5 py-2.5 text-[16px] text-[var(--color-ink)] outline-none transition;
 }
 
 input:focus,
@@ -141,7 +159,7 @@ button {
 }
 
 .viewport-page {
-  @apply flex flex-col gap-4;
+  @apply flex min-w-0 flex-col gap-4;
 }
 
 .compact-panel {
@@ -160,6 +178,10 @@ button {
 
 .mobile-bottom-nav {
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.viewport-page > * {
+  min-width: 0;
 }
 
 .content-auto {

@@ -5,8 +5,8 @@ import { notFound } from "next/navigation";
 
 import { CategoryBreakdown } from "@/components/category-breakdown";
 import { DeleteMonthButton } from "@/components/delete-month-button";
-import { ExpenseList } from "@/components/expense-list";
 import { ExpenseForm } from "@/components/expense-form";
+import { ExpenseList } from "@/components/expense-list";
 import { FlashMessage } from "@/components/flash-message";
 import { FormStatusButton } from "@/components/form-status-button";
 import { IncomeCarryOverForm } from "@/components/income-carry-over-form";
@@ -14,7 +14,7 @@ import { LockMonthButton } from "@/components/lock-month-button";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { MonthNotesCard } from "@/components/month-notes-card";
 import { MonthSummaryCards } from "@/components/month-summary-cards";
-import { WarningBanner } from "@/components/warning-banner";
+import { MonthTabs } from "@/components/month-tabs";
 import { formatMonthLabel } from "@/lib/date";
 import { requireUser } from "@/lib/session";
 import { formatDateTime } from "@/lib/utils";
@@ -102,28 +102,6 @@ export default async function MonthDetailPage({
     [PayerType.SHARED]: "Gemensamt",
   };
 
-  const warnings: string[] = [];
-
-  if (pageData.summary.remainingPlanned < 0) {
-    warnings.push("Plan kvar under noll.");
-  }
-
-  if (pageData.summary.remainingActual < 0) {
-    warnings.push("Faktiskt kvar under noll.");
-  }
-
-  if (pageData.summary.overdueExpensesCount > 0) {
-    warnings.push("Det finns försenade obetalda poster.");
-  }
-
-  if (pageData.household.members.length < 2) {
-    warnings.push("Hushållet saknar person 2.");
-  }
-
-  if (!pageData.nextMonth) {
-    warnings.push("Nästa månad saknas.");
-  }
-
   const dashboardSummary = {
     ...pageData.summary,
     unexplainedDifferenceFromPreviousMonth:
@@ -134,13 +112,7 @@ export default async function MonthDetailPage({
     <>
       <FlashMessage notice={resolvedSearchParams.notice} error={resolvedSearchParams.error} />
 
-      <Link
-        href="/app/months"
-        className="action-button action-secondary w-fit"
-        prefetch
-        aria-label="Tillbaka till månader"
-        title="Tillbaka till månader"
-      >
+      <Link href="/app/months" className="action-button action-secondary w-fit" prefetch>
         <ArrowLeft className="h-4 w-4" />
         Månader
       </Link>
@@ -193,49 +165,61 @@ export default async function MonthDetailPage({
         </div>
       </section>
 
-      <section id="month-status">
-        <WarningBanner warnings={warnings} />
-      </section>
-
-      <section id="month-summary">
-        <MonthSummaryCards summary={dashboardSummary} />
-      </section>
-
-      <section id="month-household">
-        <IncomeCarryOverForm
-          monthId={pageData.activeMonth.id}
-          returnTo={returnTo}
-          isLocked={pageData.activeMonth.isLocked}
-          personSnapshots={pageData.activeMonth.personSnapshots}
-        />
-      </section>
-
-      <section id="month-expenses">
-        <ExpenseList
-          monthId={pageData.activeMonth.id}
-          returnTo={returnTo}
-          isLocked={pageData.activeMonth.isLocked}
-          expenses={filteredExpenses}
-          memberOptions={memberOptions}
-          payerLabels={payerLabels}
-          currentFilters={filters}
-          categories={categories}
-        />
-      </section>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section id="month-categories">
-          <CategoryBreakdown categories={pageData.summary.categories} />
-        </section>
-        <section id="month-notes">
-          <MonthNotesCard
-            monthId={pageData.activeMonth.id}
-            note={pageData.activeMonth.note}
-            returnTo={returnTo}
-            isLocked={pageData.activeMonth.isLocked}
-          />
-        </section>
-      </div>
+      <MonthTabs
+        defaultTabId="summary"
+        tabs={[
+          {
+            id: "summary",
+            label: "Översikt",
+            content: (
+              <div className="space-y-4">
+                <MonthSummaryCards summary={dashboardSummary} />
+                <CategoryBreakdown categories={pageData.summary.categories} />
+              </div>
+            ),
+          },
+          {
+            id: "people",
+            label: "Personer",
+            content: (
+              <IncomeCarryOverForm
+                monthId={pageData.activeMonth.id}
+                returnTo={returnTo}
+                isLocked={pageData.activeMonth.isLocked}
+                personSnapshots={pageData.activeMonth.personSnapshots}
+              />
+            ),
+          },
+          {
+            id: "expenses",
+            label: "Utgifter",
+            content: (
+              <ExpenseList
+                monthId={pageData.activeMonth.id}
+                returnTo={returnTo}
+                isLocked={pageData.activeMonth.isLocked}
+                expenses={filteredExpenses}
+                memberOptions={memberOptions}
+                payerLabels={payerLabels}
+                currentFilters={filters}
+                categories={categories}
+              />
+            ),
+          },
+          {
+            id: "notes",
+            label: "Anteckning",
+            content: (
+              <MonthNotesCard
+                monthId={pageData.activeMonth.id}
+                note={pageData.activeMonth.note}
+                returnTo={returnTo}
+                isLocked={pageData.activeMonth.isLocked}
+              />
+            ),
+          },
+        ]}
+      />
 
       <ModalLauncher
         title="Ny utgift"

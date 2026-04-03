@@ -21,14 +21,6 @@ const primaryNavItems = [
   { href: "/app/household", label: "Hushåll", icon: Settings2 },
 ];
 
-const monthSectionItems = [
-  { id: "month-summary", label: "Summering" },
-  { id: "month-household", label: "Personer" },
-  { id: "month-expenses", label: "Utgifter" },
-  { id: "month-categories", label: "Kategorier" },
-  { id: "month-notes", label: "Anteckning" },
-];
-
 function getMonthKeyFromPath(pathname: string) {
   const match = pathname.match(/^\/app\/months\/([^/?#]+)/);
   return match?.[1] ?? null;
@@ -54,8 +46,6 @@ function getPageTitle(pathname: string, householdName?: string | null) {
 export function AppShell({ children, userName, householdName }: AppShellProps) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const isMonthPage = /^\/app\/months\/[^/]+$/.test(pathname);
-  const monthKey = getMonthKeyFromPath(pathname);
   const pageTitle = getPageTitle(pathname, householdName);
 
   const sidebar = (
@@ -89,25 +79,6 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
           );
         })}
       </nav>
-
-      {isMonthPage && monthKey ? (
-        <div className="mt-6 rounded-[20px] border border-[var(--color-line)] bg-[var(--color-elevated)] p-3">
-          <p className="px-1 text-sm font-semibold capitalize">{formatMonthLabel(monthKey)}</p>
-          <div className="mt-2 flex flex-col gap-1">
-            {monthSectionItems.map((item) => (
-              <Link
-                key={item.id}
-                href={`${pathname}#${item.id}`}
-                prefetch
-                onClick={() => setIsSidebarOpen(false)}
-                className="rounded-xl px-3 py-2 text-sm text-[var(--color-muted)] transition hover:bg-white/5 hover:text-[var(--color-ink)]"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       <div className="mt-auto pt-6">
         <form action={logoutAction}>

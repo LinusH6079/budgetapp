@@ -1,6 +1,6 @@
-import { formatCurrency, formatEditableAmount } from "@/lib/money";
-import { updateSnapshotAction } from "@/server/actions/month-actions";
 import { FormStatusButton } from "@/components/form-status-button";
+import { formatEditableAmount, formatCurrency } from "@/lib/money";
+import { updateSnapshotAction } from "@/server/actions/month-actions";
 
 type IncomeCarryOverFormProps = {
   monthId: string;
@@ -28,8 +28,7 @@ export function IncomeCarryOverForm({
 }: IncomeCarryOverFormProps) {
   return (
     <section className="app-panel px-5 py-5 sm:px-6">
-      <h2 className="section-title">Inkomster och ingående saldo</h2>
-      <p className="muted mt-2">En rad per person och månad. Siffrorna sparas var för sig men summeras automatiskt.</p>
+      <h2 className="section-title">Personer</h2>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         {personSnapshots.map((snapshot) => (
@@ -41,10 +40,7 @@ export function IncomeCarryOverForm({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="font-semibold">{snapshot.user.name}</h3>
-                <p className="muted mt-1">
-                  Senast uppdaterad {snapshot.updatedAt.toLocaleDateString("sv-SE")} av{" "}
-                  {snapshot.updatedByUser?.name ?? "okänd"}
-                </p>
+                <p className="muted mt-1">{snapshot.updatedAt.toLocaleDateString("sv-SE")}</p>
               </div>
             </div>
 
@@ -59,7 +55,7 @@ export function IncomeCarryOverForm({
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-sm font-medium">Ingående saldo</span>
+                <span className="mb-2 block text-sm font-medium">Saldo in</span>
                 <input
                   name="carryOverAmount"
                   defaultValue={formatEditableAmount(snapshot.carryOverAmount)}
@@ -71,13 +67,9 @@ export function IncomeCarryOverForm({
 
             <div className="mt-4 flex items-center justify-between">
               <p className="text-sm text-[var(--color-muted)]">
-                Tillgängligt just nu {formatCurrency(snapshot.incomeAmount + snapshot.carryOverAmount)}
+                Totalt {formatCurrency(snapshot.incomeAmount + snapshot.carryOverAmount)}
               </p>
-              <FormStatusButton
-                disabled={isLocked}
-                className="action-secondary"
-                pendingLabel="Sparar..."
-              >
+              <FormStatusButton disabled={isLocked} className="action-secondary" pendingLabel="Sparar...">
                 Spara
               </FormStatusButton>
             </div>

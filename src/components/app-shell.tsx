@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { Menu, Settings2, WalletCards, X } from "lucide-react";
+import { LogOut, Settings2, WalletCards } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { formatMonthLabel } from "@/lib/date";
@@ -45,7 +44,6 @@ function getPageTitle(pathname: string, householdName?: string | null) {
 
 export function AppShell({ children, userName, householdName }: AppShellProps) {
   const pathname = usePathname();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pageTitle = getPageTitle(pathname, householdName);
 
   const sidebar = (
@@ -65,7 +63,6 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
               key={item.href}
               href={item.href}
               prefetch
-              onClick={() => setIsSidebarOpen(false)}
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
                 isActive
@@ -91,48 +88,60 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
   );
 
   return (
-    <div className="app-viewport">
+    <div className="min-h-screen">
       <div className="lg:hidden">
-        <header className="fixed inset-x-0 top-0 z-40 border-b border-[var(--color-line)] bg-[rgba(12,12,13,0.92)] px-4 py-3">
-          <div className="mx-auto flex max-w-5xl items-center justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--color-muted)]">Budgetkompis</p>
-              <p className="mt-1 text-base font-semibold capitalize">{pageTitle}</p>
+        <header className="sticky top-0 z-40 border-b border-[var(--color-line)] bg-[rgba(12,12,13,0.94)] px-4 py-3 backdrop-blur">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--color-muted)]">
+                {householdName || "Budgetkompis"}
+              </p>
+              <p className="mt-1 truncate text-base font-semibold capitalize">{pageTitle}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsSidebarOpen((current) => !current)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-line)] bg-[var(--color-elevated)] text-[var(--color-ink)]"
-              aria-label={isSidebarOpen ? "Stäng meny" : "Öppna meny"}
-              aria-expanded={isSidebarOpen}
-            >
-              {isSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-            </button>
+
+            <form action={logoutAction}>
+              <FormStatusButton
+                className="icon-action-button"
+                pendingLabel=""
+                aria-label="Logga ut"
+                title="Logga ut"
+              >
+                <LogOut className="h-4 w-4" />
+              </FormStatusButton>
+            </form>
           </div>
         </header>
 
-        <div
-          className={cn(
-            "fixed inset-0 z-30 bg-[rgba(0,0,0,0.52)] transition",
-            isSidebarOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
-          )}
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-line)] bg-[rgba(12,12,13,0.96)] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur">
+          <div className="mx-auto grid max-w-md grid-cols-2 gap-2">
+            {primaryNavItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
-        <div
-          className={cn(
-            "fixed inset-y-0 left-0 z-40 w-[min(84vw,320px)] p-3 transition-transform duration-200",
-            isSidebarOpen ? "translate-x-0" : "-translate-x-full",
-          )}
-        >
-          {sidebar}
-        </div>
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  prefetch
+                  className={cn(
+                    "flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-2xl text-xs font-medium transition",
+                    isActive
+                      ? "bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
+                      : "text-[var(--color-muted)] hover:text-[var(--color-ink)]",
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       </div>
 
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[296px] lg:p-5">{sidebar}</div>
 
-      <div className="h-full lg:pl-[296px]">
-        <main className="mx-auto flex h-full w-full max-w-[1040px] min-h-0 flex-col gap-4 px-4 pb-5 pt-20 sm:px-6 lg:px-8 lg:py-8">
+      <div className="lg:pl-[296px]">
+        <main className="mx-auto flex w-full max-w-[1040px] flex-col gap-4 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </main>
       </div>

@@ -26,7 +26,7 @@ import {
 } from "@/server/services/budget-months";
 import { mapMembersToSlots } from "@/server/services/households";
 
-const EXPENSES_PER_PAGE = 3;
+const EXPENSES_PER_PAGE = 4;
 
 type MonthTabId = "summary" | "people" | "expenses" | "notes";
 
@@ -165,12 +165,12 @@ export default async function MonthDetailPage({
     <div className="viewport-page">
       <FlashMessage notice={resolvedSearchParams.notice} error={resolvedSearchParams.error} />
 
-      <Link href="/app/months" className="action-button action-secondary w-fit shrink-0" prefetch>
+      <Link href="/app/months" className="action-button action-secondary w-fit" prefetch>
         <ArrowLeft className="h-4 w-4" />
         Månader
       </Link>
 
-      <section id="month-top" className="app-panel shrink-0 px-4 py-4 sm:px-5">
+      <section id="month-top" className="app-panel px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -218,74 +218,70 @@ export default async function MonthDetailPage({
         </div>
       </section>
 
-      <div className="shrink-0">
-        <MonthTabs activeTabId={activeTab} tabs={tabs} />
-      </div>
+      <MonthTabs activeTabId={activeTab} tabs={tabs} />
 
-      <div className="min-h-0 flex-1 overflow-hidden">
-        {activeTab === "summary" ? (
-          <div className="grid h-full gap-4 md:grid-cols-[minmax(0,1fr)_280px]">
-            <MonthSummaryCards summary={dashboardSummary} />
-            <CategoryBreakdown categories={categories} />
-          </div>
-        ) : null}
+      {activeTab === "summary" ? (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <MonthSummaryCards summary={dashboardSummary} />
+          <CategoryBreakdown categories={categories} />
+        </div>
+      ) : null}
 
-        {activeTab === "people" ? (
-          <IncomeCarryOverForm
+      {activeTab === "people" ? (
+        <IncomeCarryOverForm
+          monthId={pageData.activeMonth.id}
+          returnTo={returnTo}
+          isLocked={pageData.activeMonth.isLocked}
+          personSnapshots={pageData.activeMonth.personSnapshots}
+        />
+      ) : null}
+
+      {activeTab === "expenses" ? (
+        <>
+          <ExpenseList
             monthId={pageData.activeMonth.id}
             returnTo={returnTo}
             isLocked={pageData.activeMonth.isLocked}
-            personSnapshots={pageData.activeMonth.personSnapshots}
+            expenses={pagedExpenses}
+            memberOptions={memberOptions}
+            payerLabels={payerLabels}
+            currentFilters={filters}
+            categories={categories.map((entry) => entry.category)}
+            pageInfo={{
+              currentPage: currentExpensePage,
+              pageCount: expensePageCount,
+              previousHref: `/app/months/${monthKey}?${previousExpenseQuery.toString()}`,
+              nextHref: `/app/months/${monthKey}?${nextExpenseQuery.toString()}`,
+            }}
           />
-        ) : null}
 
-        {activeTab === "expenses" ? (
-          <>
-            <ExpenseList
+          <ModalLauncher
+            title="Ny utgift"
+            dialogClassName="sm:max-w-2xl"
+            trigger={
+              <span className="floating-action-button">
+                <Plus className="h-6 w-6" />
+              </span>
+            }
+            triggerClassName="fixed bottom-24 right-4 z-30 sm:right-6 lg:bottom-8"
+          >
+            <ExpenseForm
               monthId={pageData.activeMonth.id}
               returnTo={returnTo}
               isLocked={pageData.activeMonth.isLocked}
-              expenses={pagedExpenses}
-              memberOptions={memberOptions}
-              payerLabels={payerLabels}
-              currentFilters={filters}
-              categories={categories.map((entry) => entry.category)}
-              pageInfo={{
-                currentPage: currentExpensePage,
-                pageCount: expensePageCount,
-                previousHref: `/app/months/${monthKey}?${previousExpenseQuery.toString()}`,
-                nextHref: `/app/months/${monthKey}?${nextExpenseQuery.toString()}`,
-              }}
             />
+          </ModalLauncher>
+        </>
+      ) : null}
 
-            <ModalLauncher
-              title="Ny utgift"
-              dialogClassName="sm:max-w-2xl"
-              trigger={
-                <span className="floating-action-button">
-                  <Plus className="h-6 w-6" />
-                </span>
-              }
-              triggerClassName="fixed bottom-6 right-4 z-30 sm:right-6 lg:bottom-8"
-            >
-              <ExpenseForm
-                monthId={pageData.activeMonth.id}
-                returnTo={returnTo}
-                isLocked={pageData.activeMonth.isLocked}
-              />
-            </ModalLauncher>
-          </>
-        ) : null}
-
-        {activeTab === "notes" ? (
-          <MonthNotesCard
-            monthId={pageData.activeMonth.id}
-            note={pageData.activeMonth.note}
-            returnTo={returnTo}
-            isLocked={pageData.activeMonth.isLocked}
-          />
-        ) : null}
-      </div>
+      {activeTab === "notes" ? (
+        <MonthNotesCard
+          monthId={pageData.activeMonth.id}
+          note={pageData.activeMonth.note}
+          returnTo={returnTo}
+          isLocked={pageData.activeMonth.isLocked}
+        />
+      ) : null}
     </div>
   );
 }

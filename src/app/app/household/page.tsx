@@ -79,7 +79,7 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
         </div>
       </section>
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <InviteCard
           inviteCode={latestInvite?.code ?? null}
           inviteUrl={inviteUrl}

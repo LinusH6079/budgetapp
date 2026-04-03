@@ -47,13 +47,13 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
     <div className="viewport-page">
       <FlashMessage notice={notice} error={error} />
 
-      <section className="app-panel flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-5">
+      <section className="app-panel px-4 py-4 sm:px-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="section-title">Månader</h2>
           <span className="text-sm text-[var(--color-muted)]">{months.length}</span>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[var(--color-line)] bg-[var(--color-elevated)]">
+        <div className="overflow-hidden rounded-[20px] border border-[var(--color-line)] bg-[var(--color-elevated)]">
           {visibleMonths.length > 0 ? (
             visibleMonths.map((month) => (
               <Link
@@ -108,7 +108,7 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
             <Plus className="h-6 w-6" />
           </span>
         }
-        triggerClassName="fixed bottom-6 right-4 z-30 sm:right-6 lg:bottom-8"
+        triggerClassName="fixed bottom-24 right-4 z-30 sm:right-6 lg:bottom-8"
       >
         <form action={createMonthAction} className="grid gap-3">
           <input type="hidden" name="returnTo" value="/app/months" />

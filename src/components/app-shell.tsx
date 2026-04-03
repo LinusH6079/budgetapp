@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { ChevronRight, Menu, Plus, Settings2, WalletCards, X } from "lucide-react";
+import { ChevronRight, Menu, Settings2, WalletCards, X } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { formatMonthLabel } from "@/lib/date";
@@ -61,7 +61,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
   const pageTitle = getPageTitle(pathname, householdName);
 
   const sidebar = (
-    <aside className="flex h-full flex-col rounded-[32px] border border-[var(--color-line)] bg-[rgba(7,12,22,0.92)] p-4 shadow-[0_32px_80px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+    <aside className="flex h-full flex-col rounded-[32px] border border-[var(--color-line)] bg-[rgba(15,16,18,0.94)] p-4 shadow-[0_32px_80px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
       <div className="border-b border-[var(--color-line)] px-2 pb-4">
         <p className="text-xs uppercase tracking-[0.32em] text-[var(--color-accent)]">Budgetkompis</p>
         <h1 className="mt-3 text-2xl font-semibold tracking-[-0.05em]">
@@ -117,14 +117,6 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
               </Link>
             ))}
           </div>
-          <Link
-            href={`${pathname}#new-expense`}
-            onClick={() => setIsSidebarOpen(false)}
-            className="action-button action-primary mt-4 w-full justify-center rounded-2xl py-2.5"
-          >
-            <Plus className="h-4 w-4" />
-            Ny utgift
-          </Link>
         </div>
       ) : null}
 
@@ -141,7 +133,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
   return (
     <div className="min-h-screen">
       <div className="lg:hidden">
-        <header className="fixed inset-x-0 top-0 z-40 border-b border-[var(--color-line)] bg-[rgba(6,10,19,0.88)] px-4 py-3 backdrop-blur-xl">
+        <header className="fixed inset-x-0 top-0 z-40 border-b border-[var(--color-line)] bg-[rgba(12,13,15,0.9)] px-4 py-3 backdrop-blur-xl">
           <div className="mx-auto flex max-w-5xl items-center justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--color-accent)]">Budgetkompis</p>

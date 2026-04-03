@@ -1,6 +1,5 @@
 import { PayerType } from "@prisma/client";
 
-import { ExpenseForm } from "@/components/expense-form";
 import { ExpenseItem } from "@/components/expense-item";
 
 type ExpenseListProps = {
@@ -101,18 +100,6 @@ export function ExpenseList({
           <button className="action-button action-secondary lg:col-span-6">Uppdatera filter</button>
         </form>
       </div>
-
-      <details id="new-expense" className="ghost-panel mt-5 scroll-mt-28 px-4 py-4" open>
-        <summary className="cursor-pointer text-base font-semibold">Ny utgift</summary>
-        <div className="mt-4">
-          <ExpenseForm
-            monthId={monthId}
-            returnTo={returnTo}
-            isLocked={isLocked}
-            memberOptions={memberOptions}
-          />
-        </div>
-      </details>
 
       <div className="mt-5 grid gap-4">
         {expenses.length > 0 ? (

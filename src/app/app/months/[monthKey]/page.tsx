@@ -5,10 +5,12 @@ import { notFound } from "next/navigation";
 import { CategoryBreakdown } from "@/components/category-breakdown";
 import { DeleteMonthButton } from "@/components/delete-month-button";
 import { ExpenseList } from "@/components/expense-list";
+import { ExpenseForm } from "@/components/expense-form";
 import { FlashMessage } from "@/components/flash-message";
 import { FormStatusButton } from "@/components/form-status-button";
 import { IncomeCarryOverForm } from "@/components/income-carry-over-form";
 import { LockMonthButton } from "@/components/lock-month-button";
+import { ModalLauncher } from "@/components/modal-launcher";
 import { MonthNotesCard } from "@/components/month-notes-card";
 import { MonthSelector } from "@/components/month-selector";
 import { MonthSummaryCards } from "@/components/month-summary-cards";
@@ -214,13 +216,23 @@ export default async function MonthDetailPage({
         </section>
       </div>
 
-      <a
-        href="#new-expense"
-        className="fixed bottom-6 right-4 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--color-accent-strong),var(--color-accent))] text-[#021412] shadow-[0_20px_45px_rgba(31,214,193,0.28)] transition hover:scale-[1.03] sm:right-6 lg:bottom-8"
-        aria-label="Lägg till ny utgift"
+      <ModalLauncher
+        title="Ny utgift"
+        description="Lägg till en ny planerad eller ej planerad utgift för den här månaden."
+        trigger={
+          <span className="floating-action-button">
+            <Plus className="h-6 w-6" />
+          </span>
+        }
+        triggerClassName="fixed bottom-6 right-4 z-30 sm:right-6 lg:bottom-8"
       >
-        <Plus className="h-6 w-6" />
-      </a>
+        <ExpenseForm
+          monthId={pageData.activeMonth.id}
+          returnTo={returnTo}
+          isLocked={pageData.activeMonth.isLocked}
+          memberOptions={memberOptions}
+        />
+      </ModalLauncher>
     </>
   );
 }

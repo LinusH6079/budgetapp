@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { FlashMessage } from "@/components/flash-message";
 import { FormStatusButton } from "@/components/form-status-button";
 import { HouseholdSetupCard } from "@/components/household-setup-card";
+import { ModalLauncher } from "@/components/modal-launcher";
 import { formatMonthLabel, getCurrentMonthKey } from "@/lib/date";
 import { requireUser } from "@/lib/session";
 import { createMonthAction } from "@/server/actions/month-actions";
@@ -72,17 +73,17 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
         </div>
       </section>
 
-      <section id="new-month" className="app-panel scroll-mt-24 px-5 py-5 sm:px-6 lg:scroll-mt-10">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="section-title">Ny månad</h3>
-            <p className="muted mt-2">
-              Skapa en ny månad manuellt och kopiera gärna återkommande utgifter från senaste månaden.
-            </p>
-          </div>
-        </div>
-
-        <form action={createMonthAction} className="mt-5 grid gap-3 sm:max-w-xl">
+      <ModalLauncher
+        title="Ny månad"
+        description="Skapa en ny månad och kopiera gärna återkommande utgifter från senaste månaden."
+        trigger={
+          <span className="floating-action-button">
+            <Plus className="h-6 w-6" />
+          </span>
+        }
+        triggerClassName="fixed bottom-6 right-4 z-30 sm:right-6 lg:bottom-8"
+      >
+        <form action={createMonthAction} className="grid gap-3">
           <input type="hidden" name="returnTo" value="/app/months" />
           <label className="block">
             <span className="mb-2 block text-sm font-medium">Månadskod</span>
@@ -99,19 +100,11 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
               ))}
             </select>
           </label>
-          <FormStatusButton className="action-primary mt-1 w-full sm:w-fit" pendingLabel="Skapar månad...">
+          <FormStatusButton className="action-primary mt-1 w-full justify-center" pendingLabel="Skapar månad...">
             Skapa månad
           </FormStatusButton>
         </form>
-      </section>
-
-      <a
-        href="#new-month"
-        className="fixed bottom-6 right-4 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--color-accent-strong),var(--color-accent))] text-[#021412] shadow-[0_20px_45px_rgba(31,214,193,0.28)] transition hover:scale-[1.03] sm:right-6 lg:bottom-8"
-        aria-label="Lägg till ny månad"
-      >
-        <Plus className="h-6 w-6" />
-      </a>
+      </ModalLauncher>
     </>
   );
 }

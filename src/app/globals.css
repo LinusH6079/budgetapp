@@ -18,6 +18,8 @@
   --color-danger-soft: rgba(255, 123, 123, 0.12);
   --color-warning: #f3c77a;
   --color-warning-soft: rgba(243, 199, 122, 0.12);
+  --color-chrome-top: linear-gradient(180deg, rgba(32, 78, 139, 0.26) 0%, rgba(12, 12, 13, 0.94) 72%);
+  --color-chrome-bottom: linear-gradient(180deg, rgba(14, 16, 22, 0.96) 0%, rgba(21, 52, 94, 0.28) 100%);
 }
 
 html {
@@ -190,6 +192,14 @@ button {
 
 .mobile-bottom-nav {
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.mobile-top-chrome {
+  background: var(--color-chrome-top);
+}
+
+.mobile-bottom-chrome {
+  background: var(--color-chrome-bottom);
 }
 
 .viewport-page > * {

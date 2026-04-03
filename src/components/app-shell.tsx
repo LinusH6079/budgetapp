@@ -113,7 +113,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
   return (
     <div className="min-h-screen">
       <div className="lg:hidden">
-        <header className="sticky top-0 z-40 border-b border-[var(--color-line)] bg-[rgba(12,12,13,0.94)] px-4 py-3.5 backdrop-blur">
+        <header className="mobile-top-chrome sticky top-0 z-40 border-b border-[var(--color-line)] px-4 py-3.5 backdrop-blur">
           <div className="mx-auto flex max-w-[680px] items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--color-muted)]">
@@ -135,7 +135,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
           </div>
         </header>
 
-        <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-line)] bg-[rgba(12,12,13,0.96)] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur">
+        <nav className="mobile-bottom-nav mobile-bottom-chrome fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-line)] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur">
           <div className="mx-auto grid max-w-sm grid-cols-3 gap-2">
             {mobileNavItems.map((item) => (
               <Link

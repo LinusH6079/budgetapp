@@ -22,10 +22,10 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
 
   if (!household) {
     return (
-      <>
+      <div className="viewport-page">
         <FlashMessage notice={notice} error={error} />
         <HouseholdSetupCard />
-      </>
+      </div>
     );
   }
 
@@ -50,7 +50,7 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
   const inviteUrl = latestInvite ? `${baseUrl}/register?invite=${latestInvite.code}` : null;
 
   return (
-    <>
+    <div className="viewport-page">
       <FlashMessage notice={notice} error={error} />
 
       <section className="app-panel px-4 py-4 sm:px-5">
@@ -79,14 +79,16 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
         </div>
       </section>
 
-      <InviteCard
-        inviteCode={latestInvite?.code ?? null}
-        inviteUrl={inviteUrl}
-        expiresLabel={latestInvite ? latestInvite.expiresAt.toLocaleString("sv-SE") : null}
-        householdIsFull={members.length >= 2}
-      />
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
+        <InviteCard
+          inviteCode={latestInvite?.code ?? null}
+          inviteUrl={inviteUrl}
+          expiresLabel={latestInvite ? latestInvite.expiresAt.toLocaleString("sv-SE") : null}
+          householdIsFull={members.length >= 2}
+        />
 
-      <ExportImportCard exportUrl="/api/export" returnTo="/app/household" />
-    </>
+        <ExportImportCard exportUrl="/api/export" returnTo="/app/household" />
+      </div>
+    </div>
   );
 }

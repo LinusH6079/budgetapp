@@ -26,6 +26,8 @@ import {
 } from "@/server/services/budget-months";
 import { mapMembersToSlots } from "@/server/services/households";
 
+const EXPENSES_PER_PAGE = 3;
+
 type MonthTabId = "summary" | "people" | "expenses" | "notes";
 
 type MonthDetailPageProps = {
@@ -41,6 +43,7 @@ type MonthDetailPageProps = {
     category?: string;
     payer?: string;
     sort?: string;
+    expensePage?: string;
   }>;
 };
 
@@ -50,6 +53,10 @@ function getActiveTab(tab?: string): MonthTabId {
   }
 
   return "summary";
+}
+
+function getPositivePage(page?: string) {
+  return Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
 }
 
 export default async function MonthDetailPage({
@@ -83,13 +90,22 @@ export default async function MonthDetailPage({
     sort: resolvedSearchParams.sort ?? "name",
   };
 
-  const filteredExpenses = sortExpenseItems(
+  const allFilteredExpenses = sortExpenseItems(
     filterExpenseItems(pageData.activeMonth.expenses, filters),
     filters.sort,
   );
-  const categories = [...new Set(pageData.activeMonth.expenses.map((expense) => expense.category))].sort((a, b) =>
-    a.localeCompare(b, "sv"),
-  );
+  const expensePageCount = Math.max(1, Math.ceil(allFilteredExpenses.length / EXPENSES_PER_PAGE));
+  const currentExpensePage = Math.min(getPositivePage(resolvedSearchParams.expensePage), expensePageCount);
+  const expenseStart = (currentExpensePage - 1) * EXPENSES_PER_PAGE;
+  const pagedExpenses = allFilteredExpenses.slice(expenseStart, expenseStart + EXPENSES_PER_PAGE);
+
+  const categories = [...new Set(pageData.activeMonth.expenses.map((expense) => expense.category))]
+    .sort((a, b) => a.localeCompare(b, "sv"))
+    .map((category) => ({
+      category,
+      amount: pageData.summary.categories.find((entry) => entry.category === category)?.amount ?? 0,
+    }));
+
   const orderedMembers = mapMembersToSlots(pageData.household);
 
   const memberOptions = [
@@ -120,25 +136,16 @@ export default async function MonthDetailPage({
   };
 
   const tabs = [
-    {
-      id: "summary" as const,
-      label: "Översikt",
-    },
-    {
-      id: "people" as const,
-      label: "Personer",
-    },
-    {
-      id: "expenses" as const,
-      label: "Utgifter",
-    },
-    {
-      id: "notes" as const,
-      label: "Anteckning",
-    },
+    { id: "summary" as const, label: "Översikt" },
+    { id: "people" as const, label: "Personer" },
+    { id: "expenses" as const, label: "Utgifter" },
+    { id: "notes" as const, label: "Anteckning" },
   ].map((tab) => {
     const tabQuery = new URLSearchParams(query);
     tabQuery.set("tab", tab.id);
+    if (tab.id !== "expenses") {
+      tabQuery.delete("expensePage");
+    }
 
     return {
       ...tab,
@@ -146,16 +153,24 @@ export default async function MonthDetailPage({
     };
   });
 
+  const previousExpenseQuery = new URLSearchParams(query);
+  previousExpenseQuery.set("tab", "expenses");
+  previousExpenseQuery.set("expensePage", String(Math.max(1, currentExpensePage - 1)));
+
+  const nextExpenseQuery = new URLSearchParams(query);
+  nextExpenseQuery.set("tab", "expenses");
+  nextExpenseQuery.set("expensePage", String(Math.min(expensePageCount, currentExpensePage + 1)));
+
   return (
-    <>
+    <div className="viewport-page">
       <FlashMessage notice={resolvedSearchParams.notice} error={resolvedSearchParams.error} />
 
-      <Link href="/app/months" className="action-button action-secondary w-fit" prefetch>
+      <Link href="/app/months" className="action-button action-secondary w-fit shrink-0" prefetch>
         <ArrowLeft className="h-4 w-4" />
         Månader
       </Link>
 
-      <section id="month-top" className="app-panel px-4 py-4 sm:px-5">
+      <section id="month-top" className="app-panel shrink-0 px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -203,64 +218,74 @@ export default async function MonthDetailPage({
         </div>
       </section>
 
-      <MonthTabs activeTabId={activeTab} tabs={tabs} />
+      <div className="shrink-0">
+        <MonthTabs activeTabId={activeTab} tabs={tabs} />
+      </div>
 
-      {activeTab === "summary" ? (
-        <div className="space-y-4">
-          <MonthSummaryCards summary={dashboardSummary} />
-          <CategoryBreakdown categories={pageData.summary.categories} />
-        </div>
-      ) : null}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {activeTab === "summary" ? (
+          <div className="grid h-full gap-4 md:grid-cols-[minmax(0,1fr)_280px]">
+            <MonthSummaryCards summary={dashboardSummary} />
+            <CategoryBreakdown categories={categories} />
+          </div>
+        ) : null}
 
-      {activeTab === "people" ? (
-        <IncomeCarryOverForm
-          monthId={pageData.activeMonth.id}
-          returnTo={returnTo}
-          isLocked={pageData.activeMonth.isLocked}
-          personSnapshots={pageData.activeMonth.personSnapshots}
-        />
-      ) : null}
-
-      {activeTab === "expenses" ? (
-        <>
-          <ExpenseList
+        {activeTab === "people" ? (
+          <IncomeCarryOverForm
             monthId={pageData.activeMonth.id}
             returnTo={returnTo}
             isLocked={pageData.activeMonth.isLocked}
-            expenses={filteredExpenses}
-            memberOptions={memberOptions}
-            payerLabels={payerLabels}
-            currentFilters={filters}
-            categories={categories}
+            personSnapshots={pageData.activeMonth.personSnapshots}
           />
+        ) : null}
 
-          <ModalLauncher
-            title="Ny utgift"
-            dialogClassName="sm:max-w-2xl"
-            trigger={
-              <span className="floating-action-button">
-                <Plus className="h-6 w-6" />
-              </span>
-            }
-            triggerClassName="fixed bottom-6 right-4 z-30 sm:right-6 lg:bottom-8"
-          >
-            <ExpenseForm
+        {activeTab === "expenses" ? (
+          <>
+            <ExpenseList
               monthId={pageData.activeMonth.id}
               returnTo={returnTo}
               isLocked={pageData.activeMonth.isLocked}
+              expenses={pagedExpenses}
+              memberOptions={memberOptions}
+              payerLabels={payerLabels}
+              currentFilters={filters}
+              categories={categories.map((entry) => entry.category)}
+              pageInfo={{
+                currentPage: currentExpensePage,
+                pageCount: expensePageCount,
+                previousHref: `/app/months/${monthKey}?${previousExpenseQuery.toString()}`,
+                nextHref: `/app/months/${monthKey}?${nextExpenseQuery.toString()}`,
+              }}
             />
-          </ModalLauncher>
-        </>
-      ) : null}
 
-      {activeTab === "notes" ? (
-        <MonthNotesCard
-          monthId={pageData.activeMonth.id}
-          note={pageData.activeMonth.note}
-          returnTo={returnTo}
-          isLocked={pageData.activeMonth.isLocked}
-        />
-      ) : null}
-    </>
+            <ModalLauncher
+              title="Ny utgift"
+              dialogClassName="sm:max-w-2xl"
+              trigger={
+                <span className="floating-action-button">
+                  <Plus className="h-6 w-6" />
+                </span>
+              }
+              triggerClassName="fixed bottom-6 right-4 z-30 sm:right-6 lg:bottom-8"
+            >
+              <ExpenseForm
+                monthId={pageData.activeMonth.id}
+                returnTo={returnTo}
+                isLocked={pageData.activeMonth.isLocked}
+              />
+            </ModalLauncher>
+          </>
+        ) : null}
+
+        {activeTab === "notes" ? (
+          <MonthNotesCard
+            monthId={pageData.activeMonth.id}
+            note={pageData.activeMonth.note}
+            returnTo={returnTo}
+            isLocked={pageData.activeMonth.isLocked}
+          />
+        ) : null}
+      </div>
+    </div>
   );
 }

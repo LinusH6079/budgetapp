@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
 import { FlashMessage } from "@/components/flash-message";
 import { FormStatusButton } from "@/components/form-status-button";
@@ -11,43 +11,51 @@ import { createMonthAction } from "@/server/actions/month-actions";
 import { getMonthsForUser } from "@/server/services/budget-months";
 import { getHouseholdForUser } from "@/server/services/households";
 
+const MONTHS_PER_PAGE = 6;
+
 type MonthsPageProps = {
   searchParams: Promise<{
     notice?: string;
     error?: string;
+    page?: string;
   }>;
 };
 
 export default async function MonthsPage({ searchParams }: MonthsPageProps) {
   const user = await requireUser();
   const household = await getHouseholdForUser(user.id);
-  const { notice, error } = await searchParams;
+  const { notice, error, page } = await searchParams;
 
   if (!household) {
     return (
-      <>
+      <div className="viewport-page">
         <FlashMessage notice={notice} error={error} />
         <HouseholdSetupCard />
-      </>
+      </div>
     );
   }
 
   const months = await getMonthsForUser(user.id);
   const latestMonth = months[0];
+  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
+  const pageCount = Math.max(1, Math.ceil(months.length / MONTHS_PER_PAGE));
+  const clampedPage = Math.min(currentPage, pageCount);
+  const pageStart = (clampedPage - 1) * MONTHS_PER_PAGE;
+  const visibleMonths = months.slice(pageStart, pageStart + MONTHS_PER_PAGE);
 
   return (
-    <>
+    <div className="viewport-page">
       <FlashMessage notice={notice} error={error} />
 
-      <section className="app-panel px-4 py-4 sm:px-5">
+      <section className="app-panel flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="section-title">Månader</h2>
           <span className="text-sm text-[var(--color-muted)]">{months.length}</span>
         </div>
 
-        <div className="overflow-hidden rounded-[20px] border border-[var(--color-line)] bg-[var(--color-elevated)]">
-          {months.length > 0 ? (
-            months.map((month) => (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[var(--color-line)] bg-[var(--color-elevated)]">
+          {visibleMonths.length > 0 ? (
+            visibleMonths.map((month) => (
               <Link
                 key={month.id}
                 href={`/app/months/${month.monthKey}`}
@@ -65,6 +73,32 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
             <div className="px-4 py-8 text-sm text-[var(--color-muted)]">Inga månader.</div>
           )}
         </div>
+
+        {pageCount > 1 ? (
+          <div className="mt-4 flex items-center justify-between">
+            <Link
+              href={clampedPage > 1 ? `/app/months?page=${clampedPage - 1}` : "/app/months?page=1"}
+              className={`action-button action-secondary ${clampedPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
+              prefetch
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Föregående
+            </Link>
+            <span className="text-sm text-[var(--color-muted)]">
+              {clampedPage}/{pageCount}
+            </span>
+            <Link
+              href={
+                clampedPage < pageCount ? `/app/months?page=${clampedPage + 1}` : `/app/months?page=${pageCount}`
+              }
+              className={`action-button action-secondary ${clampedPage >= pageCount ? "pointer-events-none opacity-50" : ""}`}
+              prefetch
+            >
+              Nästa
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
+        ) : null}
       </section>
 
       <ModalLauncher
@@ -98,6 +132,6 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
           </FormStatusButton>
         </form>
       </ModalLauncher>
-    </>
+    </div>
   );
 }

@@ -91,7 +91,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
   );
 
   return (
-    <div className="min-h-screen">
+    <div className="app-viewport">
       <div className="lg:hidden">
         <header className="fixed inset-x-0 top-0 z-40 border-b border-[var(--color-line)] bg-[rgba(12,12,13,0.92)] px-4 py-3">
           <div className="mx-auto flex max-w-5xl items-center justify-between">
@@ -131,8 +131,8 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
 
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[296px] lg:p-5">{sidebar}</div>
 
-      <div className="lg:pl-[296px]">
-        <main className="mx-auto flex min-h-screen w-full max-w-[1040px] flex-col gap-5 px-4 pb-24 pt-20 sm:px-6 lg:px-8 lg:py-8">
+      <div className="h-full lg:pl-[296px]">
+        <main className="mx-auto flex h-full w-full max-w-[1040px] min-h-0 flex-col gap-4 px-4 pb-5 pt-20 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </main>
       </div>

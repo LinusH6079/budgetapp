@@ -10,14 +10,14 @@ type MonthNotesCardProps = {
 
 export function MonthNotesCard({ monthId, note, returnTo, isLocked }: MonthNotesCardProps) {
   return (
-    <section className="app-panel px-5 py-5 sm:px-6">
+    <section className="app-panel px-4 py-4 sm:px-5">
       <h2 className="section-title">Anteckning</h2>
-      <form action={updateMonthNoteAction} className="mt-4 space-y-3">
+      <form action={updateMonthNoteAction} className="mt-3 space-y-3">
         <input type="hidden" name="monthId" value={monthId} />
         <input type="hidden" name="returnTo" value={returnTo} />
         <textarea
           name="note"
-          rows={4}
+          rows={3}
           defaultValue={note ?? ""}
           placeholder="Skriv något kort om månaden"
           disabled={isLocked}

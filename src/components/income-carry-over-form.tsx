@@ -27,12 +27,12 @@ export function IncomeCarryOverForm({
   personSnapshots,
 }: IncomeCarryOverFormProps) {
   return (
-    <section className="app-panel px-5 py-5 sm:px-6">
+    <section className="app-panel px-4 py-4 sm:px-5">
       <h2 className="section-title">Personer</h2>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {personSnapshots.map((snapshot) => (
-          <form key={snapshot.userId} action={updateSnapshotAction} className="surface-card">
+          <form key={snapshot.userId} action={updateSnapshotAction} className="surface-card px-3.5 py-3.5">
             <input type="hidden" name="monthId" value={monthId} />
             <input type="hidden" name="userId" value={snapshot.userId} />
             <input type="hidden" name="returnTo" value={returnTo} />
@@ -44,9 +44,9 @@ export function IncomeCarryOverForm({
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3">
+            <div className="mt-3 grid gap-2.5">
               <label className="block">
-                <span className="mb-2 block text-sm font-medium">Inkomst</span>
+                <span className="mb-1.5 block text-sm font-medium">Inkomst</span>
                 <input
                   name="incomeAmount"
                   defaultValue={formatEditableAmount(snapshot.incomeAmount)}
@@ -55,7 +55,7 @@ export function IncomeCarryOverForm({
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-sm font-medium">Saldo in</span>
+                <span className="mb-1.5 block text-sm font-medium">Saldo in</span>
                 <input
                   name="carryOverAmount"
                   defaultValue={formatEditableAmount(snapshot.carryOverAmount)}
@@ -65,7 +65,7 @@ export function IncomeCarryOverForm({
               </label>
             </div>
 
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-3 flex items-center justify-between">
               <p className="text-sm text-[var(--color-muted)]">
                 Totalt {formatCurrency(snapshot.incomeAmount + snapshot.carryOverAmount)}
               </p>

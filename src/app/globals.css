@@ -110,6 +110,23 @@ button {
   border: 1px solid rgba(255, 123, 123, 0.14);
 }
 
+.icon-action-button {
+  @apply inline-flex h-10 w-10 items-center justify-center rounded-xl border text-sm transition;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--color-ink);
+}
+
+.icon-action-button:disabled {
+  @apply cursor-not-allowed opacity-60;
+}
+
+.icon-action-danger {
+  background: rgba(255, 123, 123, 0.08);
+  color: var(--color-danger);
+  border-color: rgba(255, 123, 123, 0.14);
+}
+
 .pill-tag {
   @apply rounded-full px-2.5 py-1 text-xs font-medium;
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { ChevronRight, Menu, Settings2, WalletCards, X } from "lucide-react";
+import { Menu, Settings2, WalletCards, X } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { formatMonthLabel } from "@/lib/date";
@@ -77,17 +77,14 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
               prefetch
               onClick={() => setIsSidebarOpen(false)}
               className={cn(
-                "group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition",
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
                 isActive
                   ? "bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
                   : "text-[var(--color-muted)] hover:bg-white/4 hover:text-[var(--color-ink)]",
               )}
             >
-              <span className="flex items-center gap-3">
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </span>
-              <ChevronRight className={cn("h-4 w-4", isActive ? "text-[var(--color-ink)]" : "opacity-0")} />
+              <item.icon className="h-4 w-4" />
+              {item.label}
             </Link>
           );
         })}
@@ -95,9 +92,8 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
 
       {isMonthPage && monthKey ? (
         <div className="mt-6 rounded-[20px] border border-[var(--color-line)] bg-[var(--color-elevated)] p-3">
-          <p className="px-1 text-xs uppercase tracking-[0.24em] text-[var(--color-muted)]">Månad</p>
-          <p className="px-1 pt-2 text-sm font-semibold capitalize">{formatMonthLabel(monthKey)}</p>
-          <div className="mt-3 flex flex-col gap-1">
+          <p className="px-1 text-sm font-semibold capitalize">{formatMonthLabel(monthKey)}</p>
+          <div className="mt-2 flex flex-col gap-1">
             {monthSectionItems.map((item) => (
               <Link
                 key={item.id}

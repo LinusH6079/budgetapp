@@ -1,5 +1,6 @@
 import { PayerType } from "@prisma/client";
-import { Plus } from "lucide-react";
+import { ArrowLeft, Lock, LockOpen, Plus } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CategoryBreakdown } from "@/components/category-breakdown";
@@ -12,7 +13,6 @@ import { IncomeCarryOverForm } from "@/components/income-carry-over-form";
 import { LockMonthButton } from "@/components/lock-month-button";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { MonthNotesCard } from "@/components/month-notes-card";
-import { MonthSelector } from "@/components/month-selector";
 import { MonthSummaryCards } from "@/components/month-summary-cards";
 import { WarningBanner } from "@/components/warning-banner";
 import { formatMonthLabel } from "@/lib/date";
@@ -135,16 +135,37 @@ export default async function MonthDetailPage({
       <FlashMessage notice={resolvedSearchParams.notice} error={resolvedSearchParams.error} />
 
       <section id="month-top" className="app-panel px-4 py-4 sm:px-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-[var(--color-muted)]">Månad</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] capitalize">
-              {formatMonthLabel(monthKey)}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-3xl font-semibold tracking-[-0.04em] capitalize">
+                {formatMonthLabel(monthKey)}
+              </h2>
+              <span
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-full border ${
+                  pageData.activeMonth.isLocked
+                    ? "border-[var(--color-line)] bg-[var(--color-elevated)] text-[var(--color-muted)]"
+                    : "border-[var(--color-line)] bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
+                }`}
+                title={pageData.activeMonth.isLocked ? "Låst" : "Öppen"}
+                aria-label={pageData.activeMonth.isLocked ? "Låst" : "Öppen"}
+              >
+                {pageData.activeMonth.isLocked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
+              </span>
+            </div>
             <p className="muted mt-2">{formatDateTime(pageData.activeMonth.updatedAt)}</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <Link
+              href="/app/months"
+              className="action-button action-secondary"
+              prefetch
+              aria-label="Tillbaka till månader"
+              title="Tillbaka till månader"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
             <LockMonthButton
               monthId={pageData.activeMonth.id}
               returnTo={returnTo}
@@ -157,15 +178,16 @@ export default async function MonthDetailPage({
             />
             <form action={createNextMonthAction}>
               <input type="hidden" name="currentMonthKey" value={monthKey} />
-              <FormStatusButton className="action-primary" pendingLabel="Skapar...">
-                Nästa månad
+              <FormStatusButton
+                className="icon-action-button action-primary"
+                pendingLabel=""
+                aria-label="Skapa nästa månad"
+                title="Skapa nästa månad"
+              >
+                <Plus className="h-4 w-4" />
               </FormStatusButton>
             </form>
           </div>
-        </div>
-
-        <div className="mt-4">
-          <MonthSelector months={pageData.allMonths} activeMonthKey={monthKey} />
         </div>
       </section>
 

@@ -1,5 +1,7 @@
-import { toggleMonthLockAction } from "@/server/actions/month-actions";
+import { Lock, LockOpen } from "lucide-react";
+
 import { FormStatusButton } from "@/components/form-status-button";
+import { toggleMonthLockAction } from "@/server/actions/month-actions";
 
 type LockMonthButtonProps = {
   monthId: string;
@@ -14,10 +16,12 @@ export function LockMonthButton({ monthId, returnTo, isLocked }: LockMonthButton
       <input type="hidden" name="returnTo" value={returnTo} />
       <input type="hidden" name="nextLockedState" value={isLocked ? "unlock" : "lock"} />
       <FormStatusButton
-        className="action-secondary"
-        pendingLabel={isLocked ? "Låser upp..." : "Låser..."}
+        className="icon-action-button"
+        pendingLabel=""
+        aria-label={isLocked ? "Lås upp månad" : "Lås månad"}
+        title={isLocked ? "Lås upp månad" : "Lås månad"}
       >
-        {isLocked ? "Lås upp månad" : "Lås månad"}
+        {isLocked ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
       </FormStatusButton>
     </form>
   );

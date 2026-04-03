@@ -9,6 +9,8 @@ type FormStatusButtonProps = {
   pendingLabel?: string;
   className?: string;
   disabled?: boolean;
+  title?: string;
+  "aria-label"?: string;
 };
 
 export function FormStatusButton({
@@ -16,6 +18,8 @@ export function FormStatusButton({
   pendingLabel,
   className,
   disabled,
+  title,
+  "aria-label": ariaLabel,
 }: FormStatusButtonProps) {
   const { pending } = useFormStatus();
 
@@ -24,6 +28,8 @@ export function FormStatusButton({
       disabled={disabled || pending}
       className={cn("action-button", className)}
       aria-busy={pending}
+      aria-label={ariaLabel}
+      title={title}
     >
       {pending ? (
         <>

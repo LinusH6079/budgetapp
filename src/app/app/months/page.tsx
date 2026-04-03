@@ -1,17 +1,18 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Lock, LockOpen, Plus } from "lucide-react";
 
 import { FlashMessage } from "@/components/flash-message";
 import { FormStatusButton } from "@/components/form-status-button";
 import { HouseholdSetupCard } from "@/components/household-setup-card";
 import { ModalLauncher } from "@/components/modal-launcher";
-import { formatMonthLabel, getCurrentMonthKey } from "@/lib/date";
+import { MonthOverflowActions } from "@/components/month-overflow-actions";
+import { compareMonthKeys, formatMonthLabel, getCurrentMonthKey } from "@/lib/date";
 import { requireUser } from "@/lib/session";
 import { createMonthAction } from "@/server/actions/month-actions";
-import { getMonthsForUser } from "@/server/services/budget-months";
+import { getLatestMonthKeyForUser, getMonthsForUser } from "@/server/services/budget-months";
 import { getHouseholdForUser } from "@/server/services/households";
 
-const MONTHS_PER_PAGE = 6;
+const MONTHS_PER_PAGE = 8;
 
 type MonthsPageProps = {
   searchParams: Promise<{
@@ -24,6 +25,7 @@ type MonthsPageProps = {
 export default async function MonthsPage({ searchParams }: MonthsPageProps) {
   const user = await requireUser();
   const household = await getHouseholdForUser(user.id);
+  const latestMonthKey = await getLatestMonthKeyForUser(user.id);
   const { notice, error, page } = await searchParams;
 
   if (!household) {
@@ -35,7 +37,7 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
     );
   }
 
-  const months = await getMonthsForUser(user.id);
+  const months = (await getMonthsForUser(user.id)).sort((a, b) => compareMonthKeys(b.monthKey, a.monthKey));
   const latestMonth = months[0];
   const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
   const pageCount = Math.max(1, Math.ceil(months.length / MONTHS_PER_PAGE));
@@ -48,90 +50,98 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
       <FlashMessage notice={notice} error={error} />
 
       <section className="app-panel px-4 py-4 sm:px-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="section-title">Månader</h2>
-          <span className="text-sm text-[var(--color-muted)]">{months.length}</span>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="section-title">Månader</h2>
+            <p className="muted mt-1">All månadshantering sker här.</p>
+          </div>
+
+          <ModalLauncher
+            title="Ny månad"
+            description="Skapa en ny månad och kopiera återkommande poster om du vill."
+            trigger={
+              <span className="icon-action-button action-primary">
+                <Plus className="h-4 w-4" />
+              </span>
+            }
+            dialogClassName="sm:max-w-xl"
+          >
+            <form action={createMonthAction} className="grid gap-3">
+              <input type="hidden" name="returnTo" value="/app/months" />
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium">Månad</span>
+                <input name="monthKey" defaultValue={getCurrentMonthKey()} placeholder="2026-04" required />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium">Kopiera från</span>
+                <select name="copyRecurringFromMonthId" defaultValue={latestMonth?.id ?? ""}>
+                  <option value="">Ingen</option>
+                  {months.map((month) => (
+                    <option key={month.id} value={month.id}>
+                      {month.monthKey}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <FormStatusButton className="action-primary mt-1 w-full justify-center" pendingLabel="Skapar...">
+                Skapa månad
+              </FormStatusButton>
+            </form>
+          </ModalLauncher>
         </div>
 
-        <div className="overflow-hidden rounded-[20px] border border-[var(--color-line)] bg-[var(--color-elevated)]">
+        <div className="grid gap-2.5">
           {visibleMonths.length > 0 ? (
-            visibleMonths.map((month) => (
-              <Link
-                key={month.id}
-                href={`/app/months/${month.monthKey}`}
-                prefetch
-                className="content-auto flex items-center justify-between gap-3 border-b border-[var(--color-line)] px-4 py-4 transition hover:bg-white/4 last:border-b-0"
-              >
-                <div>
-                  <p className="text-sm font-semibold capitalize">{formatMonthLabel(month.monthKey)}</p>
-                  <p className="mt-1 text-xs text-[var(--color-muted)]">{month.monthKey}</p>
-                </div>
-                <span className="text-sm text-[var(--color-muted)]">Öppna</span>
-              </Link>
-            ))
+            visibleMonths.map((month) => {
+              const isActive = month.monthKey === latestMonthKey;
+
+              return (
+                <article
+                  key={month.id}
+                  className={`rounded-[18px] border px-3.5 py-3 ${
+                    isActive
+                      ? "border-[var(--color-accent-strong)] bg-[var(--color-accent-soft)]"
+                      : "border-[var(--color-line)] bg-[var(--color-elevated)]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Link href={`/app/months/${month.monthKey}`} className="min-w-0 flex-1" prefetch>
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold capitalize">{formatMonthLabel(month.monthKey)}</p>
+                        {isActive ? (
+                          <span className="rounded-full bg-[var(--color-panel)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-ink)]">
+                            Aktiv
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-1 flex items-center gap-2 text-[12px] text-[var(--color-muted)]">
+                        {month.isLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+                        <span>{month.isLocked ? "Låst" : "Öppen"}</span>
+                      </div>
+                    </Link>
+
+                    <Link href={`/app/months/${month.monthKey}`} className="icon-action-button" prefetch>
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+
+                    <MonthOverflowActions
+                      monthId={month.id}
+                      monthKey={month.monthKey}
+                      isLocked={month.isLocked}
+                      returnTo="/app/months"
+                    />
+                  </div>
+                </article>
+              );
+            })
           ) : (
-            <div className="px-4 py-8 text-sm text-[var(--color-muted)]">Inga månader.</div>
+            <div className="rounded-[18px] bg-[var(--color-elevated)] px-4 py-8 text-sm text-[var(--color-muted)]">
+              Inga månader ännu.
+            </div>
           )}
         </div>
-
-        {pageCount > 1 ? (
-          <div className="mt-4 flex items-center justify-between">
-            <Link
-              href={clampedPage > 1 ? `/app/months?page=${clampedPage - 1}` : "/app/months?page=1"}
-              className={`action-button action-secondary ${clampedPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
-              prefetch
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Föregående
-            </Link>
-            <span className="text-sm text-[var(--color-muted)]">
-              {clampedPage}/{pageCount}
-            </span>
-            <Link
-              href={
-                clampedPage < pageCount ? `/app/months?page=${clampedPage + 1}` : `/app/months?page=${pageCount}`
-              }
-              className={`action-button action-secondary ${clampedPage >= pageCount ? "pointer-events-none opacity-50" : ""}`}
-              prefetch
-            >
-              Nästa
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
-        ) : null}
       </section>
-
-      <ModalLauncher
-        title="Ny månad"
-        trigger={
-          <span className="floating-action-button">
-            <Plus className="h-6 w-6" />
-          </span>
-        }
-        triggerClassName="fixed bottom-24 right-4 z-30 sm:right-6 lg:bottom-8"
-      >
-        <form action={createMonthAction} className="grid gap-3">
-          <input type="hidden" name="returnTo" value="/app/months" />
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium">Månad</span>
-            <input name="monthKey" defaultValue={getCurrentMonthKey()} placeholder="2026-04" required />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium">Kopiera från</span>
-            <select name="copyRecurringFromMonthId" defaultValue={latestMonth?.id ?? ""}>
-              <option value="">Ingen</option>
-              {months.map((month) => (
-                <option key={month.id} value={month.id}>
-                  {month.monthKey}
-                </option>
-              ))}
-            </select>
-          </label>
-          <FormStatusButton className="action-primary mt-1 w-full justify-center" pendingLabel="Skapar...">
-            Skapa
-          </FormStatusButton>
-        </form>
-      </ModalLauncher>
     </div>
   );
 }

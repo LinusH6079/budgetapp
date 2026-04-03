@@ -60,10 +60,10 @@ export function AppShell({ children, userName, householdName, latestMonthKey }: 
       isActive: pathname === "/app",
     },
     {
-      href: contextMonthKey ? `/app/months/${contextMonthKey}?tab=month` : "/app/months",
-      label: "Månad",
+      href: "/app/months",
+      label: "Månader",
       icon: WalletCards,
-      isActive: pathname.startsWith("/app/months") && (!pathname.startsWith("/app/months/") || activeTab !== "expenses"),
+      isActive: pathname.startsWith("/app/months") && activeTab !== "expenses",
     },
     {
       href: contextMonthKey ? `/app/months/${contextMonthKey}?tab=expenses` : "/app/months",

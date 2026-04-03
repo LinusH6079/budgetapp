@@ -1,34 +1,25 @@
 import { PayerType } from "@prisma/client";
-import { ArrowLeft, CalendarRange, Lock, LockOpen, Plus } from "lucide-react";
+import { ArrowLeft, Lock, LockOpen, Plus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { DeleteMonthButton } from "@/components/delete-month-button";
 import { ExpenseForm } from "@/components/expense-form";
 import { ExpenseList } from "@/components/expense-list";
 import { FlashMessage } from "@/components/flash-message";
-import { FormStatusButton } from "@/components/form-status-button";
 import { IncomeCarryOverForm } from "@/components/income-carry-over-form";
-import { LockMonthButton } from "@/components/lock-month-button";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { MonthNotesCard } from "@/components/month-notes-card";
-import { MonthSelector } from "@/components/month-selector";
 import { MonthTabs } from "@/components/month-tabs";
-import { compareMonthKeys, formatMonthLabel } from "@/lib/date";
+import { formatMonthLabel } from "@/lib/date";
 import { formatCurrency } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import { formatDateTime } from "@/lib/utils";
-import { createNextMonthAction } from "@/server/actions/month-actions";
-import {
-  filterExpenseItems,
-  getMonthPageData,
-  sortExpenseItems,
-} from "@/server/services/budget-months";
+import { filterExpenseItems, getMonthPageData, sortExpenseItems } from "@/server/services/budget-months";
 import { mapMembersToSlots } from "@/server/services/households";
 
 const EXPENSES_PER_PAGE = 6;
 
-type MonthTabId = "month" | "income" | "expenses" | "notes";
+type MonthTabId = "summary" | "income" | "expenses" | "notes";
 
 type MonthDetailPageProps = {
   params: Promise<{
@@ -52,7 +43,7 @@ function getActiveTab(tab?: string): MonthTabId {
     return tab;
   }
 
-  return "month";
+  return "summary";
 }
 
 function getPositivePage(page?: string) {
@@ -120,13 +111,8 @@ export default async function MonthDetailPage({
     [PayerType.SHARED]: "Gemensamt",
   };
 
-  const monthList = [...pageData.allMonths].sort((a, b) => compareMonthKeys(b.monthKey, a.monthKey));
-  const monthIndex = monthList.findIndex((month) => month.monthKey === monthKey);
-  const newerMonth = monthIndex > 0 ? monthList[monthIndex - 1] : null;
-  const olderMonth = monthIndex >= 0 && monthIndex < monthList.length - 1 ? monthList[monthIndex + 1] : null;
-
   const tabs = [
-    { id: "month" as const, label: "Månad" },
+    { id: "summary" as const, label: "Sammanf." },
     { id: "income" as const, label: "Inkomst" },
     { id: "expenses" as const, label: "Utgifter" },
     { id: "notes" as const, label: "Anteckning" },
@@ -174,9 +160,9 @@ export default async function MonthDetailPage({
     <div className="viewport-page">
       <FlashMessage notice={resolvedSearchParams.notice} error={resolvedSearchParams.error} />
 
-      <Link href="/app" className="action-button action-secondary w-fit" prefetch>
+      <Link href="/app/months" className="action-button action-secondary w-fit" prefetch>
         <ArrowLeft className="h-4 w-4" />
-        Översikt
+        Månader
       </Link>
 
       <section className="app-panel px-4 py-4 sm:px-5">
@@ -199,48 +185,12 @@ export default async function MonthDetailPage({
             </div>
             <p className="muted mt-2">{formatDateTime(pageData.activeMonth.updatedAt)}</p>
           </div>
-
-          <ModalLauncher
-            title="Byt månad"
-            description="Öppna en annan månad utan att lämna den här vyn."
-            trigger={
-              <span className="icon-action-button">
-                <CalendarRange className="h-4 w-4" />
-              </span>
-            }
-          >
-            <MonthSelector
-              months={monthList}
-              activeMonthKey={monthKey}
-              getHref={(targetMonthKey) => `/app/months/${targetMonthKey}?tab=${activeTab}`}
-            />
-          </ModalLauncher>
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <Link
-            href={newerMonth ? `/app/months/${newerMonth.monthKey}?tab=${activeTab}` : "#"}
-            className={`action-button action-secondary justify-center ${!newerMonth ? "pointer-events-none opacity-50" : ""}`}
-            prefetch
-          >
-            Nyare
-          </Link>
-          <div className="rounded-xl bg-[var(--color-elevated)] px-3 py-2 text-center text-sm font-medium capitalize">
-            {formatMonthLabel(monthKey)}
-          </div>
-          <Link
-            href={olderMonth ? `/app/months/${olderMonth.monthKey}?tab=${activeTab}` : "#"}
-            className={`action-button action-secondary justify-center ${!olderMonth ? "pointer-events-none opacity-50" : ""}`}
-            prefetch
-          >
-            Äldre
-          </Link>
         </div>
       </section>
 
       <MonthTabs activeTabId={activeTab} tabs={tabs} />
 
-      {activeTab === "month" ? (
+      {activeTab === "summary" ? (
         <section className="grid gap-4">
           <div className="rounded-[22px] bg-[var(--color-elevated)] px-4 py-4">
             <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-muted)]">Kvar just nu</p>
@@ -267,43 +217,6 @@ export default async function MonthDetailPage({
               <p className="mt-1.5 text-base font-semibold">
                 {unexplained === null ? "Ingen data" : formatCurrency(unexplained)}
               </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <LockMonthButton
-              monthId={pageData.activeMonth.id}
-              returnTo={returnTo}
-              isLocked={pageData.activeMonth.isLocked}
-            />
-            <DeleteMonthButton monthId={pageData.activeMonth.id} monthKey={monthKey} returnTo={returnTo} />
-            <form action={createNextMonthAction}>
-              <input type="hidden" name="currentMonthKey" value={monthKey} />
-              <FormStatusButton
-                className="icon-action-button action-primary"
-                pendingLabel=""
-                aria-label="Skapa nästa månad"
-                title="Skapa nästa månad"
-              >
-                <Plus className="h-4 w-4" />
-              </FormStatusButton>
-            </form>
-          </div>
-
-          <div className="app-panel px-4 py-4 sm:px-5">
-            <div className="grid gap-3 text-sm text-[var(--color-muted)]">
-              <div className="flex items-center justify-between gap-3">
-                <span>Status</span>
-                <span className="font-medium text-[var(--color-ink)]">
-                  {pageData.activeMonth.isLocked ? "Låst månad" : "Öppen för ändringar"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span>Nästa månad</span>
-                <span className="font-medium text-[var(--color-ink)]">
-                  {pageData.nextMonth ? formatMonthLabel(pageData.nextMonth.monthKey) : "Inte skapad"}
-                </span>
-              </div>
             </div>
           </div>
         </section>

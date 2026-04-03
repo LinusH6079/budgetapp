@@ -37,8 +37,8 @@ export function ExpenseItem({
   payerLabels,
 }: ExpenseItemProps) {
   return (
-    <article className="rounded-[18px] border border-[var(--color-line)] bg-[var(--color-elevated)] px-3.5 py-3.5">
-      <div className="flex items-start gap-3">
+    <article className="w-full overflow-hidden rounded-[18px] border border-[var(--color-line)] bg-[var(--color-elevated)] px-3.5 py-3.5">
+      <div className="flex w-full items-start gap-3">
         <form action={toggleExpensePaidAction} className="shrink-0">
           <input type="hidden" name="returnTo" value={returnTo} />
           <input type="hidden" name="monthId" value={monthId} />
@@ -58,8 +58,8 @@ export function ExpenseItem({
         </form>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{expense.name}</p>
               <p className="mt-1 truncate text-[12px] text-[var(--color-muted)]">
                 {expense.category} · {payerLabels[expense.payerType]} ·{" "}
@@ -67,7 +67,7 @@ export function ExpenseItem({
               </p>
             </div>
 
-            <div className="text-right">
+            <div className="shrink-0 text-right">
               <p className="text-lg font-semibold tracking-[-0.03em]">{formatCurrency(expense.amount)}</p>
               <p className="mt-1 text-[12px] text-[var(--color-muted)]">
                 {expense.isPaid && expense.paidAt ? `Betald ${expense.paidAt.toLocaleDateString("sv-SE")}` : "Ej betald"}
@@ -75,7 +75,7 @@ export function ExpenseItem({
             </div>
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <span
               className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
                 expense.isPaid
@@ -86,7 +86,7 @@ export function ExpenseItem({
               {expense.isPaid ? "Betald" : "Obetald"}
             </span>
 
-            <div className="flex items-center gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               <ModalLauncher
                 title="Redigera utgift"
                 description="Justera namn, belopp, kategori eller typ."

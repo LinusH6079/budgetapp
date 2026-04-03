@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { ChevronRight, Home, Menu, Plus, Settings2, WalletCards, X } from "lucide-react";
+import { ChevronRight, Menu, Plus, Settings2, WalletCards, X } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { formatMonthLabel } from "@/lib/date";
@@ -17,7 +17,6 @@ type AppShellProps = {
 };
 
 const primaryNavItems = [
-  { href: "/app", label: "Översikt", icon: Home },
   { href: "/app/months", label: "Månader", icon: WalletCards },
   { href: "/app/household", label: "Hushåll", icon: Settings2 },
 ];
@@ -51,7 +50,7 @@ function getPageTitle(pathname: string, householdName?: string | null) {
     return "Hushåll";
   }
 
-  return householdName || "Översikt";
+  return householdName || "Budgetkompis";
 }
 
 export function AppShell({ children, userName, householdName }: AppShellProps) {
@@ -73,10 +72,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
 
       <nav className="mt-5 flex flex-col gap-2">
         {primaryNavItems.map((item) => {
-          const isActive =
-            item.href === "/app"
-              ? pathname === item.href
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
             <Link

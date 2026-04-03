@@ -74,6 +74,11 @@ export const toggleMonthLockSchema = z.object({
   nextLockedState: z.enum(["lock", "unlock"]),
 });
 
+export const deleteMonthSchema = z.object({
+  monthId: z.string().cuid(),
+  monthKey: z.string().refine(isMonthKey, "Ogiltig månad."),
+});
+
 export const snapshotValueSchema = z.object({
   monthId: z.string().cuid(),
   userId: z.string().cuid(),
@@ -108,6 +113,7 @@ export const toggleExpensePaidSchema = z.object({
 });
 
 const importExpenseSchema = z.object({
+  recurringSourceExpenseId: z.string().cuid().nullable().optional(),
   name: z.string(),
   amount: z.number().int().nonnegative(),
   category: z.string(),

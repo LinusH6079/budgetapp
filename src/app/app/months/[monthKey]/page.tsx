@@ -2,6 +2,7 @@ import { PayerType } from "@prisma/client";
 import { notFound } from "next/navigation";
 
 import { CategoryBreakdown } from "@/components/category-breakdown";
+import { DeleteMonthButton } from "@/components/delete-month-button";
 import { ExpenseList } from "@/components/expense-list";
 import { FlashMessage } from "@/components/flash-message";
 import { FormStatusButton } from "@/components/form-status-button";
@@ -33,6 +34,7 @@ type MonthDetailPageProps = {
     type?: string;
     planning?: string;
     category?: string;
+    payer?: string;
     sort?: string;
   }>;
 };
@@ -63,6 +65,7 @@ export default async function MonthDetailPage({
     type: resolvedSearchParams.type ?? "all",
     planning: resolvedSearchParams.planning ?? "all",
     category: resolvedSearchParams.category ?? "all",
+    payer: resolvedSearchParams.payer ?? "all",
     sort: resolvedSearchParams.sort ?? "dueDate",
   };
 
@@ -146,6 +149,11 @@ export default async function MonthDetailPage({
               monthId={pageData.activeMonth.id}
               returnTo={returnTo}
               isLocked={pageData.activeMonth.isLocked}
+            />
+            <DeleteMonthButton
+              monthId={pageData.activeMonth.id}
+              monthKey={monthKey}
+              returnTo={returnTo}
             />
             <form action={createNextMonthAction}>
               <input type="hidden" name="currentMonthKey" value={monthKey} />

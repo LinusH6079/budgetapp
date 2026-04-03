@@ -34,6 +34,7 @@ type ExpenseListProps = {
     type: string;
     planning: string;
     category: string;
+    payer: string;
     sort: string;
   };
   categories: string[];
@@ -54,10 +55,13 @@ export function ExpenseList({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="section-title">Utgifter</h2>
-          <p className="muted mt-2">Lägg till, filtrera och markera poster som betalda direkt i månaden.</p>
+          <p className="muted mt-2">
+            Lägg till, filtrera och markera poster som betalda direkt i månaden. Återkommande poster
+            synkas automatiskt till nästa månad när den finns.
+          </p>
         </div>
 
-        <form method="get" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <form method="get" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
           <select name="status" defaultValue={currentFilters.status}>
             <option value="all">Alla</option>
             <option value="paid">Betalda</option>
@@ -81,12 +85,20 @@ export function ExpenseList({
               </option>
             ))}
           </select>
+          <select name="payer" defaultValue={currentFilters.payer}>
+            <option value="all">Alla personer</option>
+            {memberOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           <select name="sort" defaultValue={currentFilters.sort}>
             <option value="dueDate">Sortera: förfallodatum</option>
             <option value="amount">Sortera: belopp</option>
             <option value="name">Sortera: namn</option>
           </select>
-          <button className="action-button action-secondary lg:col-span-5">Uppdatera filter</button>
+          <button className="action-button action-secondary lg:col-span-6">Uppdatera filter</button>
         </form>
       </div>
 

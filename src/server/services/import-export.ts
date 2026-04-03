@@ -52,6 +52,7 @@ export async function exportHouseholdDataForUser(userId: string) {
         };
       }),
       expenses: month.expenses.map((expense) => ({
+        recurringSourceExpenseId: expense.recurringSourceExpenseId,
         name: expense.name,
         amount: expense.amount,
         category: expense.category,
@@ -157,6 +158,7 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
         await tx.expense.createMany({
           data: importedMonth.expenses.map((expense) => ({
             budgetMonthId: month.id,
+            recurringSourceExpenseId: expense.recurringSourceExpenseId ?? null,
             name: expense.name,
             amount: expense.amount,
             category: expense.category,

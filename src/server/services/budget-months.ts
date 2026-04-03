@@ -5,6 +5,18 @@ import { budgetMonthDetailsArgs, BudgetMonthWithDetails } from "@/lib/types";
 import { assertMonthEditable } from "@/server/services/access";
 import { getHouseholdForUser, mapMembersToSlots } from "@/server/services/households";
 
+type RecurringExpenseSource = {
+  id: string;
+  name: string;
+  amount: number;
+  category: string;
+  expenseType: "RECURRING" | "ONE_TIME";
+  planningType: "PLANNED" | "UNPLANNED";
+  payerType: "FIRST_PERSON" | "SECOND_PERSON" | "SHARED";
+  dueDate: Date | null;
+  note: string | null;
+};
+
 function dueDateForMonth(sourceDate: Date | null, monthKey: string) {
   if (!sourceDate) {
     return null;
@@ -16,6 +28,29 @@ function dueDateForMonth(sourceDate: Date | null, monthKey: string) {
   return new Date(Date.UTC(year, month - 1, Math.min(originalDay, maxDay), 12));
 }
 
+export function buildRecurringExpenseCopyData(
+  expense: RecurringExpenseSource,
+  targetMonthId: string,
+  targetMonthKey: string,
+  updatedByUserId: string,
+) {
+  return {
+    budgetMonthId: targetMonthId,
+    recurringSourceExpenseId: expense.id,
+    name: expense.name,
+    amount: expense.amount,
+    category: expense.category,
+    expenseType: expense.expenseType,
+    planningType: expense.planningType,
+    payerType: expense.payerType,
+    dueDate: dueDateForMonth(expense.dueDate, targetMonthKey),
+    isPaid: false,
+    paidAt: null,
+    note: expense.note,
+    updatedByUserId,
+  };
+}
+
 export function buildRecurringExpenseCopies(
   month: Pick<BudgetMonthWithDetails, "expenses">,
   targetMonthId: string,
@@ -24,20 +59,9 @@ export function buildRecurringExpenseCopies(
 ) {
   return month.expenses
     .filter((expense) => expense.expenseType === "RECURRING")
-    .map((expense) => ({
-      budgetMonthId: targetMonthId,
-      name: expense.name,
-      amount: expense.amount,
-      category: expense.category,
-      expenseType: expense.expenseType,
-      planningType: expense.planningType,
-      payerType: expense.payerType,
-      dueDate: dueDateForMonth(expense.dueDate, targetMonthKey),
-      isPaid: false,
-      paidAt: null,
-      note: expense.note,
-      updatedByUserId,
-    }));
+    .map((expense) =>
+      buildRecurringExpenseCopyData(expense, targetMonthId, targetMonthKey, updatedByUserId),
+    );
 }
 
 async function requireMonthAccessById(userId: string, monthId: string) {
@@ -347,6 +371,55 @@ export async function toggleMonthLockForUser(input: {
   });
 }
 
+export function getRedirectMonthKeyAfterDeletion(
+  monthKeys: string[],
+  deletedMonthKey: string,
+) {
+  const remainingMonthKeys = monthKeys
+    .filter((monthKey) => monthKey !== deletedMonthKey)
+    .sort(compareMonthKeys);
+
+  const previousMonthKey = [...remainingMonthKeys]
+    .reverse()
+    .find((monthKey) => compareMonthKeys(monthKey, deletedMonthKey) < 0);
+
+  if (previousMonthKey) {
+    return previousMonthKey;
+  }
+
+  return remainingMonthKeys.find((monthKey) => compareMonthKeys(monthKey, deletedMonthKey) > 0) ?? null;
+}
+
+export async function deleteMonthForUser(input: {
+  actorUserId: string;
+  monthId: string;
+}) {
+  const month = await requireMonthAccessById(input.actorUserId, input.monthId);
+  const householdMonthKeys = await db.budgetMonth.findMany({
+    where: {
+      householdId: month.householdId,
+    },
+    select: {
+      monthKey: true,
+    },
+  });
+  const redirectMonthKey = getRedirectMonthKeyAfterDeletion(
+    householdMonthKeys.map((row) => row.monthKey),
+    month.monthKey,
+  );
+
+  await db.budgetMonth.delete({
+    where: {
+      id: input.monthId,
+    },
+  });
+
+  return {
+    deletedMonthKey: month.monthKey,
+    redirectMonthKey,
+  };
+}
+
 export function sortExpenseItems<T extends { amount: number; name: string; dueDate: Date | null }>(
   expenses: T[],
   sort: string,
@@ -383,7 +456,13 @@ export function sortExpenseItems<T extends { amount: number; name: string; dueDa
 }
 
 export function filterExpenseItems<
-  T extends { isPaid: boolean; expenseType: string; category: string; planningType: string },
+  T extends {
+    isPaid: boolean;
+    expenseType: string;
+    category: string;
+    planningType: string;
+    payerType: string;
+  },
 >(
   expenses: T[],
   filters: {
@@ -391,6 +470,7 @@ export function filterExpenseItems<
     type?: string;
     category?: string;
     planning?: string;
+    payer?: string;
   },
 ) {
   return expenses.filter((expense) => {
@@ -411,6 +491,10 @@ export function filterExpenseItems<
     }
 
     if (filters.category && filters.category !== "all" && expense.category !== filters.category) {
+      return false;
+    }
+
+    if (filters.payer && filters.payer !== "all" && expense.payerType !== filters.payer) {
       return false;
     }
 

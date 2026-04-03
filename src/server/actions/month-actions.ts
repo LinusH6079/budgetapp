@@ -2,6 +2,7 @@
 
 import {
   createMonthSchema,
+  deleteMonthSchema,
   snapshotValueSchema,
   toggleMonthLockSchema,
   updateMonthNoteSchema,
@@ -10,6 +11,7 @@ import { requireUser } from "@/lib/session";
 import {
   createMonthForUser,
   createNextMonthForUser,
+  deleteMonthForUser,
   toggleMonthLockForUser,
   updateMonthNoteForUser,
   updateSnapshotValuesForUser,
@@ -60,6 +62,42 @@ export async function createNextMonthAction(formData: FormData) {
       `/app/months/${currentMonthKey}`,
       "error",
       error instanceof Error ? error.message : "Kunde inte skapa nästa månad.",
+    );
+  }
+}
+
+export async function deleteMonthAction(formData: FormData) {
+  const user = await requireUser();
+  const returnTo = String(formData.get("returnTo") || "/app/months");
+  const parsed = deleteMonthSchema.safeParse({
+    monthId: formData.get("monthId"),
+    monthKey: formData.get("monthKey"),
+  });
+
+  if (!parsed.success) {
+    redirectWithMessage(returnTo, "error", "Kunde inte ta bort månaden.");
+  }
+
+  try {
+    const result = await deleteMonthForUser({
+      actorUserId: user.id,
+      monthId: parsed.data.monthId,
+    });
+
+    revalidateBudgetPaths("/app/months");
+
+    const redirectTarget = returnTo.includes(`/app/months/${parsed.data.monthKey}`)
+      ? result.redirectMonthKey
+        ? `/app/months/${result.redirectMonthKey}`
+        : "/app/months"
+      : returnTo;
+
+    redirectWithMessage(redirectTarget, "notice", "Månaden togs bort.");
+  } catch (error) {
+    redirectWithMessage(
+      returnTo,
+      "error",
+      error instanceof Error ? error.message : "Kunde inte ta bort månaden.",
     );
   }
 }

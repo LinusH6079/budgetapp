@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { DeleteMonthButton } from "@/components/delete-month-button";
 import { FlashMessage } from "@/components/flash-message";
 import { FormStatusButton } from "@/components/form-status-button";
 import { HouseholdSetupCard } from "@/components/household-setup-card";
@@ -74,17 +75,27 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
           </div>
           <div className="mt-5 grid gap-3">
             {months.map((month) => (
-              <Link key={month.id} href={`/app/months/${month.monthKey}`} className="surface-card">
+              <div key={month.id} className="surface-card">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="font-semibold">{month.monthKey}</p>
+                    <Link href={`/app/months/${month.monthKey}`} className="font-semibold hover:underline">
+                      {month.monthKey}
+                    </Link>
                     <p className="muted mt-1">Uppdaterad {month.updatedAt.toLocaleDateString("sv-SE")}</p>
                   </div>
-                  <span className="pill-tag bg-[var(--color-panel-strong)]">
-                    {month.isLocked ? "Låst" : "Öppen"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="pill-tag bg-[var(--color-panel-strong)]">
+                      {month.isLocked ? "Låst" : "Öppen"}
+                    </span>
+                    <DeleteMonthButton
+                      monthId={month.id}
+                      monthKey={month.monthKey}
+                      returnTo="/app/months"
+                      compact
+                    />
+                  </div>
                 </div>
-              </Link>
+              </div>
             ))}
             {months.length === 0 ? (
               <p className="surface-card text-sm text-[var(--color-muted)]">

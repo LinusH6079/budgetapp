@@ -117,6 +117,7 @@ model MonthlyPersonSnapshot {
 model Expense {
   id              String       @id @default(cuid())
   budgetMonthId   String
+  recurringSourceExpenseId String?
   name            String
   amount          Int
   category        String
@@ -135,4 +136,6 @@ model Expense {
 
   @@index([budgetMonthId, dueDate])
   @@index([budgetMonthId, category])
+  @@index([recurringSourceExpenseId])
+  @@unique([budgetMonthId, recurringSourceExpenseId])
 }

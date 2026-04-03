@@ -1,6 +1,5 @@
 import { PayerType } from "@prisma/client";
-import { ArrowLeft, Lock, LockOpen, Plus } from "lucide-react";
-import Link from "next/link";
+import { Plus } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { ExpenseForm } from "@/components/expense-form";
@@ -10,10 +9,8 @@ import { IncomeCarryOverForm } from "@/components/income-carry-over-form";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { MonthNotesCard } from "@/components/month-notes-card";
 import { MonthTabs } from "@/components/month-tabs";
-import { formatMonthLabel } from "@/lib/date";
 import { formatCurrency } from "@/lib/money";
 import { requireUser } from "@/lib/session";
-import { formatDateTime } from "@/lib/utils";
 import { filterExpenseItems, getMonthPageData, sortExpenseItems } from "@/server/services/budget-months";
 import { mapMembersToSlots } from "@/server/services/households";
 
@@ -150,34 +147,6 @@ export default async function MonthDetailPage({
   return (
     <div className="viewport-page">
       <FlashMessage notice={resolvedSearchParams.notice} error={resolvedSearchParams.error} />
-
-      <Link href="/app/months" className="action-button action-secondary w-fit" prefetch>
-        <ArrowLeft className="h-4 w-4" />
-        Månader
-      </Link>
-
-      <section className="app-panel px-4 py-4 sm:px-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="eyebrow-label">Månad</p>
-            <div className="mt-2 flex items-center gap-2">
-              <h2 className="text-2xl font-semibold tracking-[-0.04em] capitalize">
-                {formatMonthLabel(monthKey)}
-              </h2>
-              <span
-                className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
-                  pageData.activeMonth.isLocked
-                    ? "border-[var(--color-line)] bg-[var(--color-elevated)] text-[var(--color-muted)]"
-                    : "border-[var(--color-line)] bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
-                }`}
-              >
-                {pageData.activeMonth.isLocked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
-              </span>
-            </div>
-            <p className="mt-2 text-[13px] text-[var(--color-muted)]">{formatDateTime(pageData.activeMonth.updatedAt)}</p>
-          </div>
-        </div>
-      </section>
 
       <MonthTabs activeTabId={activeTab} tabs={tabs} />
 

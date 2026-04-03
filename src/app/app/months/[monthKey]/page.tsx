@@ -1,4 +1,5 @@
 import { PayerType } from "@prisma/client";
+import { Plus } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { CategoryBreakdown } from "@/components/category-breakdown";
@@ -131,7 +132,7 @@ export default async function MonthDetailPage({
     <>
       <FlashMessage notice={resolvedSearchParams.notice} error={resolvedSearchParams.error} />
 
-      <section className="app-panel px-5 py-5 sm:px-6">
+      <section id="month-top" className="app-panel scroll-mt-24 px-5 py-5 sm:px-6 lg:scroll-mt-10">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-[var(--color-accent)]">Aktiv månad</p>
@@ -169,37 +170,57 @@ export default async function MonthDetailPage({
         </div>
       </section>
 
-      <WarningBanner warnings={warnings} />
+      <section id="month-status" className="scroll-mt-24 lg:scroll-mt-10">
+        <WarningBanner warnings={warnings} />
+      </section>
 
-      <MonthSummaryCards summary={dashboardSummary} />
+      <section id="month-summary" className="scroll-mt-24 lg:scroll-mt-10">
+        <MonthSummaryCards summary={dashboardSummary} />
+      </section>
 
-      <IncomeCarryOverForm
-        monthId={pageData.activeMonth.id}
-        returnTo={returnTo}
-        isLocked={pageData.activeMonth.isLocked}
-        personSnapshots={pageData.activeMonth.personSnapshots}
-      />
-
-      <ExpenseList
-        monthId={pageData.activeMonth.id}
-        returnTo={returnTo}
-        isLocked={pageData.activeMonth.isLocked}
-        expenses={filteredExpenses}
-        memberOptions={memberOptions}
-        payerLabels={payerLabels}
-        currentFilters={filters}
-        categories={categories}
-      />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <CategoryBreakdown categories={pageData.summary.categories} />
-        <MonthNotesCard
+      <section id="month-household" className="scroll-mt-24 lg:scroll-mt-10">
+        <IncomeCarryOverForm
           monthId={pageData.activeMonth.id}
-          note={pageData.activeMonth.note}
           returnTo={returnTo}
           isLocked={pageData.activeMonth.isLocked}
+          personSnapshots={pageData.activeMonth.personSnapshots}
         />
+      </section>
+
+      <section id="month-expenses" className="scroll-mt-24 lg:scroll-mt-10">
+        <ExpenseList
+          monthId={pageData.activeMonth.id}
+          returnTo={returnTo}
+          isLocked={pageData.activeMonth.isLocked}
+          expenses={filteredExpenses}
+          memberOptions={memberOptions}
+          payerLabels={payerLabels}
+          currentFilters={filters}
+          categories={categories}
+        />
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section id="month-categories" className="scroll-mt-24 lg:scroll-mt-10">
+          <CategoryBreakdown categories={pageData.summary.categories} />
+        </section>
+        <section id="month-notes" className="scroll-mt-24 lg:scroll-mt-10">
+          <MonthNotesCard
+            monthId={pageData.activeMonth.id}
+            note={pageData.activeMonth.note}
+            returnTo={returnTo}
+            isLocked={pageData.activeMonth.isLocked}
+          />
+        </section>
       </div>
+
+      <a
+        href="#new-expense"
+        className="fixed bottom-6 right-4 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--color-accent-strong),var(--color-accent))] text-[#021412] shadow-[0_20px_45px_rgba(31,214,193,0.28)] transition hover:scale-[1.03] sm:right-6 lg:bottom-8"
+        aria-label="Lägg till ny utgift"
+      >
+        <Plus className="h-6 w-6" />
+      </a>
     </>
   );
 }

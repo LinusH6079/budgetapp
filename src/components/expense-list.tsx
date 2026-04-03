@@ -102,7 +102,7 @@ export function ExpenseList({
         </form>
       </div>
 
-      <details className="ghost-panel mt-5 px-4 py-4" open>
+      <details id="new-expense" className="ghost-panel mt-5 scroll-mt-28 px-4 py-4" open>
         <summary className="cursor-pointer text-base font-semibold">Ny utgift</summary>
         <div className="mt-4">
           <ExpenseForm

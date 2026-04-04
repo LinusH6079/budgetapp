@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { PendingLink } from "@/components/pending-link";
 import { cn } from "@/lib/utils";
 
 type MonthTabsProps = {
@@ -16,7 +15,7 @@ export function MonthTabs({ tabs, activeTabId }: MonthTabsProps) {
     <div className="rounded-[18px] bg-[var(--color-elevated)] p-1">
       <div className="grid grid-cols-4 gap-1">
         {tabs.map((tab) => (
-          <Link
+          <PendingLink
             key={tab.id}
             href={tab.href}
             prefetch
@@ -28,7 +27,7 @@ export function MonthTabs({ tabs, activeTabId }: MonthTabsProps) {
             )}
           >
             {tab.label}
-          </Link>
+          </PendingLink>
         ))}
       </div>
     </div>

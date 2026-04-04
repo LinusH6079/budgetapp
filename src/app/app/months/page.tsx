@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ChevronRight, Lock, LockOpen, Plus } from "lucide-react";
 
 import { FlashMessage } from "@/components/flash-message";
@@ -6,6 +5,7 @@ import { FormStatusButton } from "@/components/form-status-button";
 import { HouseholdSetupCard } from "@/components/household-setup-card";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { MonthOverflowActions } from "@/components/month-overflow-actions";
+import { PendingLink } from "@/components/pending-link";
 import { compareMonthKeys, formatMonthLabel, getCurrentMonthKey } from "@/lib/date";
 import { requireUser } from "@/lib/session";
 import { createMonthAction } from "@/server/actions/month-actions";
@@ -105,7 +105,7 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Link href={`/app/months/${month.monthKey}`} className="min-w-0 flex-1" prefetch>
+                    <PendingLink href={`/app/months/${month.monthKey}`} className="min-w-0 flex-1" prefetch>
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-semibold capitalize">{formatMonthLabel(month.monthKey)}</p>
                         {isActive ? (
@@ -119,11 +119,11 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
                         {month.isLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
                         <span>{month.isLocked ? "Låst" : "Öppen"}</span>
                       </div>
-                    </Link>
+                    </PendingLink>
 
-                    <Link href={`/app/months/${month.monthKey}`} className="icon-action-button" prefetch>
+                    <PendingLink href={`/app/months/${month.monthKey}`} className="icon-action-button" prefetch>
                       <ChevronRight className="h-4 w-4" />
-                    </Link>
+                    </PendingLink>
 
                     <MonthOverflowActions
                       monthId={month.id}

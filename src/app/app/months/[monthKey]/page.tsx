@@ -14,8 +14,6 @@ import { requireUser } from "@/lib/session";
 import { filterExpenseItems, getMonthPageData, sortExpenseItems } from "@/server/services/budget-months";
 import { mapMembersToSlots } from "@/server/services/households";
 
-const EXPENSES_PER_PAGE = 6;
-
 type MonthTabId = "summary" | "income" | "expenses" | "notes";
 
 type MonthDetailPageProps = {
@@ -30,7 +28,6 @@ type MonthDetailPageProps = {
     type?: string;
     category?: string;
     payer?: string;
-    expensePage?: string;
   }>;
 };
 
@@ -40,10 +37,6 @@ function getActiveTab(tab?: string): MonthTabId {
   }
 
   return "summary";
-}
-
-function getPositivePage(page?: string) {
-  return Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
 }
 
 export default async function MonthDetailPage({
@@ -68,6 +61,8 @@ export default async function MonthDetailPage({
     }
   }
 
+  query.delete("expensePage");
+
   const returnTo = `/app/months/${monthKey}${query.toString() ? `?${query.toString()}` : ""}`;
   const filters = {
     status: resolvedSearchParams.status ?? "all",
@@ -76,11 +71,7 @@ export default async function MonthDetailPage({
     payer: resolvedSearchParams.payer ?? "all",
   };
 
-  const allFilteredExpenses = sortExpenseItems(filterExpenseItems(pageData.activeMonth.expenses, filters), "amount");
-  const expensePageCount = Math.max(1, Math.ceil(allFilteredExpenses.length / EXPENSES_PER_PAGE));
-  const currentExpensePage = Math.min(getPositivePage(resolvedSearchParams.expensePage), expensePageCount);
-  const expenseStart = (currentExpensePage - 1) * EXPENSES_PER_PAGE;
-  const pagedExpenses = allFilteredExpenses.slice(expenseStart, expenseStart + EXPENSES_PER_PAGE);
+  const filteredExpenses = sortExpenseItems(filterExpenseItems(pageData.activeMonth.expenses, filters), "amount");
 
   const orderedMembers = mapMembersToSlots(pageData.household);
   const memberOptions = [
@@ -107,23 +98,12 @@ export default async function MonthDetailPage({
   ].map((tab) => {
     const tabQuery = new URLSearchParams(query);
     tabQuery.set("tab", tab.id);
-    if (tab.id !== "expenses") {
-      tabQuery.delete("expensePage");
-    }
 
     return {
       ...tab,
       href: `/app/months/${monthKey}?${tabQuery.toString()}`,
     };
   });
-
-  const previousExpenseQuery = new URLSearchParams(query);
-  previousExpenseQuery.set("tab", "expenses");
-  previousExpenseQuery.set("expensePage", String(Math.max(1, currentExpensePage - 1)));
-
-  const nextExpenseQuery = new URLSearchParams(query);
-  nextExpenseQuery.set("tab", "expenses");
-  nextExpenseQuery.set("expensePage", String(Math.min(expensePageCount, currentExpensePage + 1)));
 
   const quickFilters = [
     { label: "Alla", status: "all" },
@@ -133,7 +113,6 @@ export default async function MonthDetailPage({
     const filterQuery = new URLSearchParams(query);
     filterQuery.set("tab", "expenses");
     filterQuery.set("status", filter.status);
-    filterQuery.set("expensePage", "1");
 
     return {
       label: filter.label,
@@ -173,7 +152,7 @@ export default async function MonthDetailPage({
               <p className="stat-value">{formatCurrency(pageData.summary.remainingPlanned)}</p>
             </div>
             <div className="stat-tile">
-              <p className="eyebrow-label">Oförklarat</p>
+              <p className="eyebrow-label">Utgifter som ej blev loggade</p>
               <p className="stat-value">{unexplained === null ? "Ingen data" : formatCurrency(unexplained)}</p>
             </div>
           </div>
@@ -195,19 +174,13 @@ export default async function MonthDetailPage({
             monthId={pageData.activeMonth.id}
             returnTo={returnTo}
             isLocked={pageData.activeMonth.isLocked}
-            expenses={pagedExpenses}
+            expenses={filteredExpenses}
             memberOptions={memberOptions}
             payerLabels={payerLabels}
             currentFilters={filters}
             categories={[...new Set(pageData.activeMonth.expenses.map((expense) => expense.category))].sort((a, b) =>
               a.localeCompare(b, "sv"),
             )}
-            pageInfo={{
-              currentPage: currentExpensePage,
-              pageCount: expensePageCount,
-              previousHref: `/app/months/${monthKey}?${previousExpenseQuery.toString()}`,
-              nextHref: `/app/months/${monthKey}?${nextExpenseQuery.toString()}`,
-            }}
             quickFilters={quickFilters}
           />
 

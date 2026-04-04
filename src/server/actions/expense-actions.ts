@@ -117,3 +117,42 @@ export async function toggleExpensePaidAction(formData: FormData) {
     parsed.data.nextPaidState === "paid" ? "Utgiften markerades som betald." : "Utgiften markerades som obetald.",
   );
 }
+
+export async function toggleExpensePaidOptimisticAction(input: {
+  expenseId: string;
+  monthId: string;
+  nextPaidState: "paid" | "unpaid";
+  returnTo?: string;
+}) {
+  const user = await requireUser();
+  const parsed = toggleExpensePaidSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      message: "Kunde inte ändra betalstatus.",
+    };
+  }
+
+  try {
+    const expense = await setExpensePaidStateForUser({
+      actorUserId: user.id,
+      monthId: parsed.data.monthId,
+      expenseId: parsed.data.expenseId,
+      nextPaidState: parsed.data.nextPaidState,
+    });
+
+    revalidateBudgetPaths(input.returnTo);
+
+    return {
+      ok: true as const,
+      isPaid: expense.isPaid,
+      paidAt: expense.paidAt ? expense.paidAt.toISOString() : null,
+    };
+  } catch (error) {
+    return {
+      ok: false as const,
+      message: error instanceof Error ? error.message : "Kunde inte ändra betalstatus.",
+    };
+  }
+}

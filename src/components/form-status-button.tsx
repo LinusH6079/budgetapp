@@ -34,7 +34,7 @@ export function FormStatusButton({
       {pending ? (
         <>
           <span className="spinner" aria-hidden="true" />
-          <span>{pendingLabel ?? "Sparar..."}</span>
+          {pendingLabel !== "" ? <span>{pendingLabel ?? "Sparar..."}</span> : null}
         </>
       ) : (
         children

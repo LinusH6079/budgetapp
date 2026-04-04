@@ -1,9 +1,11 @@
-import Link from "next/link";
+"use client";
+
 import { PayerType } from "@prisma/client";
-import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 
 import { ExpenseItem } from "@/components/expense-item";
 import { ModalLauncher } from "@/components/modal-launcher";
+import { PendingLink } from "@/components/pending-link";
 
 type ExpenseListProps = {
   monthId: string;
@@ -16,6 +18,7 @@ type ExpenseListProps = {
     category: string;
     expenseType: "RECURRING" | "ONE_TIME";
     payerType: PayerType;
+    dueDate: Date | null;
     isPaid: boolean;
     paidAt: Date | null;
     updatedAt: Date;
@@ -35,12 +38,6 @@ type ExpenseListProps = {
     payer: string;
   };
   categories: string[];
-  pageInfo: {
-    currentPage: number;
-    pageCount: number;
-    previousHref: string;
-    nextHref: string;
-  };
   quickFilters: Array<{
     label: string;
     href: string;
@@ -57,7 +54,6 @@ export function ExpenseList({
   payerLabels,
   currentFilters,
   categories,
-  pageInfo,
   quickFilters,
 }: ExpenseListProps) {
   return (
@@ -78,9 +74,12 @@ export function ExpenseList({
               </span>
             }
           >
-            <form method="get" className="grid gap-3">
+            <form
+              method="get"
+              className="grid gap-3"
+              onSubmit={() => window.dispatchEvent(new CustomEvent("app:navigation-start"))}
+            >
               <input type="hidden" name="tab" value="expenses" />
-              <input type="hidden" name="expensePage" value="1" />
               <label className="block">
                 <span className="mb-1.5 block text-sm font-medium">Status</span>
                 <select name="status" defaultValue={currentFilters.status}>
@@ -126,7 +125,7 @@ export function ExpenseList({
 
         <div className="mt-4 flex flex-wrap gap-2">
           {quickFilters.map((filter) => (
-            <Link
+            <PendingLink
               key={filter.label}
               href={filter.href}
               prefetch
@@ -137,51 +136,33 @@ export function ExpenseList({
               }`}
             >
               {filter.label}
-            </Link>
+            </PendingLink>
           ))}
         </div>
       </div>
 
-      <div className="grid gap-2.5">
-        {expenses.length > 0 ? (
-          expenses.map((expense) => (
-            <ExpenseItem
-              key={expense.id}
-              expense={expense}
-              monthId={monthId}
-              returnTo={returnTo}
-              isLocked={isLocked}
-              payerLabels={payerLabels}
-            />
-          ))
-        ) : (
-          <div className="app-panel px-4 py-6 text-sm text-[var(--color-muted)]">
-            Inga utgifter matchar filtret just nu.
+      {expenses.length > 0 ? (
+        <div className="app-panel px-2.5 py-2.5 sm:px-3 sm:py-3">
+          <div className="max-h-[min(62dvh,680px)] overflow-y-auto overscroll-contain pr-1 no-scrollbar">
+            <div className="grid gap-2">
+              {expenses.map((expense) => (
+                <ExpenseItem
+                  key={`${expense.id}-${expense.isPaid ? "paid" : "unpaid"}-${expense.paidAt?.toISOString() ?? "none"}`}
+                  expense={expense}
+                  monthId={monthId}
+                  returnTo={returnTo}
+                  isLocked={isLocked}
+                  payerLabels={payerLabels}
+                />
+              ))}
+            </div>
           </div>
-        )}
-      </div>
-
-      {pageInfo.pageCount > 1 ? (
-        <div className="app-panel flex items-center justify-between px-4 py-3 sm:px-5">
-          <Link
-            href={pageInfo.previousHref}
-            className={`action-button action-secondary ${pageInfo.currentPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
-            prefetch
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
-          <span className="text-sm text-[var(--color-muted)]">
-            Sida {pageInfo.currentPage} av {pageInfo.pageCount}
-          </span>
-          <Link
-            href={pageInfo.nextHref}
-            className={`action-button action-secondary ${pageInfo.currentPage >= pageInfo.pageCount ? "pointer-events-none opacity-50" : ""}`}
-            prefetch
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Link>
         </div>
-      ) : null}
+      ) : (
+        <div className="app-panel px-4 py-6 text-sm text-[var(--color-muted)]">
+          Inga utgifter matchar filtret just nu.
+        </div>
+      )}
     </section>
   );
 }

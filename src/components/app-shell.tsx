@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, LogOut, MoreHorizontal, Settings2, WalletCards } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
+import { NavigationProgress } from "@/components/navigation-progress";
+import { PendingLink } from "@/components/pending-link";
 import { formatMonthLabel } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/server/actions/auth-actions";
@@ -82,7 +83,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
-            <Link
+            <PendingLink
               key={item.href}
               href={item.href}
               prefetch
@@ -95,7 +96,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
             >
               <item.icon className="h-4 w-4" />
               {item.label}
-            </Link>
+            </PendingLink>
           );
         })}
       </nav>
@@ -112,6 +113,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
 
   return (
     <div className="min-h-screen">
+      <NavigationProgress />
       <div className="lg:hidden">
         <header className="mobile-top-chrome sticky top-0 z-40 border-b border-[var(--color-line)] px-4 py-3.5 backdrop-blur">
           <div className="mx-auto flex max-w-[680px] items-center justify-between gap-3">
@@ -138,7 +140,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
         <nav className="mobile-bottom-nav mobile-bottom-chrome fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-line)] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur">
           <div className="mx-auto grid max-w-sm grid-cols-3 gap-2">
             {mobileNavItems.map((item) => (
-              <Link
+              <PendingLink
                 key={item.href}
                 href={item.href}
                 prefetch
@@ -151,7 +153,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
               >
                 <item.icon className="h-4 w-4" />
                 <span>{item.label}</span>
-              </Link>
+              </PendingLink>
             ))}
           </div>
         </nav>

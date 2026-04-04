@@ -109,7 +109,7 @@ export default async function AppHomePage({ searchParams }: AppHomePageProps) {
           />
           <OverviewStat label="Obetalda" value={`${summary.unpaidCount} st`} />
           <OverviewStat
-            label="Oförklarat"
+            label="Utgifter som ej blev loggade"
             value={unexplained === null ? "Ingen data" : formatCurrency(unexplained)}
             tone={unexplained && unexplained > 0 ? "danger" : "default"}
           />

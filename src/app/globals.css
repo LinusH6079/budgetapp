@@ -18,8 +18,8 @@
   --color-danger-soft: rgba(255, 123, 123, 0.12);
   --color-warning: #f3c77a;
   --color-warning-soft: rgba(243, 199, 122, 0.12);
-  --color-chrome-top: linear-gradient(90deg, rgba(8, 10, 10, 0.96) 0%, rgba(20, 83, 45, 0.26) 100%);
-  --color-chrome-bottom: linear-gradient(90deg, rgba(8, 10, 10, 0.97) 0%, rgba(22, 101, 52, 0.3) 100%);
+  --color-chrome-top: linear-gradient(90deg, rgba(10, 10, 11, 0.98) 0%, rgba(19, 20, 24, 0.96) 100%);
+  --color-chrome-bottom: linear-gradient(90deg, rgba(12, 12, 13, 0.98) 0%, rgba(22, 23, 28, 0.96) 100%);
 }
 
 html {

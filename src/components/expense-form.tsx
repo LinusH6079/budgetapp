@@ -22,7 +22,11 @@ type ExpenseFormProps = {
 
 export function ExpenseForm({ monthId, returnTo, isLocked, expense }: ExpenseFormProps) {
   return (
-    <form action={saveExpenseAction} className="grid gap-2.5">
+    <form
+      action={saveExpenseAction}
+      className="grid gap-2.5"
+      onSubmit={() => window.dispatchEvent(new CustomEvent("app:navigation-start"))}
+    >
       <input type="hidden" name="monthId" value={monthId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <input type="hidden" name="expenseId" value={expense?.id ?? ""} />
@@ -67,7 +71,7 @@ export function ExpenseForm({ monthId, returnTo, isLocked, expense }: ExpenseFor
 
       <FormStatusButton
         disabled={isLocked}
-        className="action-primary mt-1"
+        className="action-primary mt-1 w-full justify-center"
         pendingLabel={expense ? "Sparar..." : "Lägger till..."}
       >
         {expense ? "Spara" : "Lägg till"}

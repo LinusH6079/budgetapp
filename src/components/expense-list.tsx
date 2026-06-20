@@ -2,6 +2,7 @@
 
 import { PayerType } from "@prisma/client";
 import { SlidersHorizontal } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { ExpenseItem } from "@/components/expense-item";
 import { ModalLauncher } from "@/components/modal-launcher";
@@ -35,7 +36,6 @@ type ExpenseListProps = {
     status: string;
     type: string;
     category: string;
-    payer: string;
   };
   categories: string[];
   quickFilters: Array<{
@@ -56,6 +56,22 @@ export function ExpenseList({
   categories,
   quickFilters,
 }: ExpenseListProps) {
+  const [activePayers, setActivePayers] = useState<PayerType[]>([]);
+
+  const visibleExpenses = useMemo(() => {
+    if (activePayers.length === 0) {
+      return expenses;
+    }
+
+    return expenses.filter((expense) => activePayers.includes(expense.payerType));
+  }, [activePayers, expenses]);
+
+  const togglePayer = (payer: PayerType) => {
+    setActivePayers((current) =>
+      current.includes(payer) ? current.filter((value) => value !== payer) : [...current, payer],
+    );
+  };
+
   return (
     <section className="grid gap-3">
       <div className="app-panel px-4 py-4 sm:px-5">
@@ -107,17 +123,6 @@ export function ExpenseList({
                   ))}
                 </select>
               </label>
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Betalas av</span>
-                <select name="payer" defaultValue={currentFilters.payer}>
-                  <option value="all">Alla personer</option>
-                  {memberOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <button className="action-button action-primary w-full justify-center">Visa utgifter</button>
             </form>
           </ModalLauncher>
@@ -139,13 +144,34 @@ export function ExpenseList({
             </PendingLink>
           ))}
         </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {memberOptions.map((option) => {
+            const isActive = activePayers.includes(option.value);
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => togglePayer(option.value)}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  isActive
+                    ? "bg-[var(--color-accent-strong)] text-[#09090b]"
+                    : "bg-[var(--color-elevated)] text-[var(--color-muted)]"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {expenses.length > 0 ? (
+      {visibleExpenses.length > 0 ? (
         <div className="app-panel px-2.5 py-2.5 sm:px-3 sm:py-3">
           <div className="max-h-[min(62dvh,680px)] overflow-y-auto overscroll-contain pr-1 no-scrollbar">
             <div className="grid gap-2">
-              {expenses.map((expense) => (
+              {visibleExpenses.map((expense) => (
                 <ExpenseItem
                   key={`${expense.id}-${expense.isPaid ? "paid" : "unpaid"}-${expense.paidAt?.toISOString() ?? "none"}`}
                   expense={expense}

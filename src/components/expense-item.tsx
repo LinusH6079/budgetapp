@@ -35,7 +35,7 @@ type ExpenseItemProps = {
 
 function formatShortDate(date: Date | null) {
   if (!date) {
-    return "Ingen dag";
+    return null;
   }
 
   return new Intl.DateTimeFormat("sv-SE", {
@@ -67,7 +67,10 @@ export function ExpenseItem({
 
   const secondaryText = useMemo(() => {
     const paidLabel = optimisticPaid && optimisticPaidAt ? `Betald ${formatShortDate(optimisticPaidAt)}` : "Obetald";
-    return `${formatShortDate(expense.dueDate)} · ${expense.category} · ${payerLabels[expense.payerType]} · ${paidLabel}`;
+    const parts = [formatShortDate(expense.dueDate), expense.category, payerLabels[expense.payerType], paidLabel].filter(
+      (value): value is string => Boolean(value),
+    );
+    return parts.join(" · ");
   }, [expense.category, expense.dueDate, expense.payerType, optimisticPaid, optimisticPaidAt, payerLabels]);
 
   const togglePaid = () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -23,11 +24,16 @@ export function ModalLauncher({
   children,
 }: ModalLauncherProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (!isOpen) {
       return;
     }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -36,17 +42,33 @@ export function ModalLauncher({
     };
 
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [isOpen]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setIsOpen(false);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [pathname, searchParams]);
 
   return (
     <>
-      <button type="button" onClick={() => setIsOpen(true)} className={triggerClassName}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className={cn("touch-manipulation", triggerClassName)}
+      >
         {trigger}
       </button>
 
       {isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(0,0,0,0.58)] p-3 sm:items-center sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(0,0,0,0.62)] p-3 sm:items-center sm:p-6">
           <button type="button" aria-label="Stäng" className="absolute inset-0" onClick={() => setIsOpen(false)} />
 
           <div
@@ -54,6 +76,9 @@ export function ModalLauncher({
               "app-panel relative z-10 w-full max-w-lg overflow-hidden rounded-[24px] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)] sm:px-5",
               dialogClassName,
             )}
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
           >
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-white/10 sm:hidden" />
 

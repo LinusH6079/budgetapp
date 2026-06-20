@@ -39,6 +39,26 @@ function getActiveTab(tab?: string): MonthTabId {
   return "summary";
 }
 
+function SummaryPersonBreakdown({
+  items,
+}: {
+  items: Array<{
+    name: string;
+    value: string;
+  }>;
+}) {
+  return (
+    <div className="mt-2 grid gap-1">
+      {items.map((item) => (
+        <div key={item.name} className="flex items-center justify-between gap-3 text-[11px] text-[var(--color-muted)]">
+          <span className="truncate">{item.name}</span>
+          <span className="shrink-0 font-medium text-[var(--color-ink)]/82">{item.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default async function MonthDetailPage({
   params,
   searchParams,
@@ -62,13 +82,13 @@ export default async function MonthDetailPage({
   }
 
   query.delete("expensePage");
+  query.delete("payer");
 
   const returnTo = `/app/months/${monthKey}${query.toString() ? `?${query.toString()}` : ""}`;
   const filters = {
     status: resolvedSearchParams.status ?? "all",
     type: resolvedSearchParams.type ?? "all",
     category: resolvedSearchParams.category ?? "all",
-    payer: resolvedSearchParams.payer ?? "all",
   };
 
   const filteredExpenses = sortExpenseItems(filterExpenseItems(pageData.activeMonth.expenses, filters), "amount");
@@ -122,6 +142,28 @@ export default async function MonthDetailPage({
   });
 
   const unexplained = pageData.previousSummary?.unexplainedDifferenceFromPreviousMonth ?? null;
+  const perPersonAvailable = pageData.summary.perPerson.map((person) => ({
+    name: person.name,
+    value: formatCurrency(person.income + person.carryOver),
+  }));
+  const perPersonRemainingActual = pageData.summary.perPerson.map((person) => ({
+    name: person.name,
+    value: formatCurrency(person.remainingActual),
+  }));
+  const perPersonRemainingPlanned = pageData.summary.perPerson.map((person) => ({
+    name: person.name,
+    value: formatCurrency(person.remainingPlanned),
+  }));
+  const perPersonUnexplained = pageData.summary.perPerson
+    .filter(
+      (person) =>
+        person.unexplainedDifferenceFromPreviousMonth !== null &&
+        person.unexplainedDifferenceFromPreviousMonth !== undefined,
+    )
+    .map((person) => ({
+      name: person.name,
+      value: formatCurrency(person.unexplainedDifferenceFromPreviousMonth ?? 0),
+    }));
 
   return (
     <div className="viewport-page">
@@ -136,12 +178,14 @@ export default async function MonthDetailPage({
             <p className="mt-1 text-[2rem] font-semibold tracking-[-0.05em]">
               {formatCurrency(pageData.summary.remainingActual)}
             </p>
+            <SummaryPersonBreakdown items={perPersonRemainingActual} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="stat-tile">
               <p className="eyebrow-label">Tillgängligt</p>
               <p className="stat-value">{formatCurrency(pageData.summary.totalAvailable)}</p>
+              <SummaryPersonBreakdown items={perPersonAvailable} />
             </div>
             <div className="stat-tile">
               <p className="eyebrow-label">Obetalda</p>
@@ -150,10 +194,12 @@ export default async function MonthDetailPage({
             <div className="stat-tile">
               <p className="eyebrow-label">Planerat kvar</p>
               <p className="stat-value">{formatCurrency(pageData.summary.remainingPlanned)}</p>
+              <SummaryPersonBreakdown items={perPersonRemainingPlanned} />
             </div>
             <div className="stat-tile">
               <p className="eyebrow-label">Utgifter som ej blev loggade</p>
               <p className="stat-value">{unexplained === null ? "Ingen data" : formatCurrency(unexplained)}</p>
+              {perPersonUnexplained.length > 0 ? <SummaryPersonBreakdown items={perPersonUnexplained} /> : null}
             </div>
           </div>
         </section>
@@ -193,7 +239,7 @@ export default async function MonthDetailPage({
                 <Plus className="h-6 w-6" />
               </span>
             }
-            triggerClassName="fixed bottom-24 right-4 z-30 sm:right-6 lg:bottom-8"
+            triggerClassName="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 z-30 sm:right-6 lg:bottom-8"
           >
             <ExpenseForm
               monthId={pageData.activeMonth.id}

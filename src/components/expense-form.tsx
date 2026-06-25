@@ -1,3 +1,5 @@
+"use client";
+
 import { ExpenseType, PayerType } from "@prisma/client";
 
 import { FormStatusButton } from "@/components/form-status-button";

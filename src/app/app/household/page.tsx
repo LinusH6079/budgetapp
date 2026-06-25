@@ -5,20 +5,25 @@ import { FlashMessage } from "@/components/flash-message";
 import { HouseholdSetupCard } from "@/components/household-setup-card";
 import { InviteCard } from "@/components/invite-card";
 import { db } from "@/lib/db";
+import { formatMonthLabel } from "@/lib/date";
+import { formatCurrency } from "@/lib/money";
 import { requireUser } from "@/lib/session";
+import { swishSearchSchema } from "@/lib/validations";
+import { getExpensesBySwishIdForUser } from "@/server/services/expenses";
 import { getHouseholdForUser, mapMembersToSlots } from "@/server/services/households";
 
 type HouseholdPageProps = {
   searchParams: Promise<{
     notice?: string;
     error?: string;
+    swishId?: string;
   }>;
 };
 
 export default async function HouseholdPage({ searchParams }: HouseholdPageProps) {
   const user = await requireUser();
   const household = await getHouseholdForUser(user.id);
-  const { notice, error } = await searchParams;
+  const { notice, error, swishId } = await searchParams;
 
   if (!household) {
     return (
@@ -48,6 +53,14 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
   const protocol = headersList.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
   const baseUrl = `${protocol}://${host}`;
   const inviteUrl = latestInvite ? `${baseUrl}/register?invite=${latestInvite.code}` : null;
+  const parsedSwishSearch = swishId ? swishSearchSchema.safeParse({ swishId }) : null;
+  const swishSearchResult =
+    parsedSwishSearch && parsedSwishSearch.success
+      ? await getExpensesBySwishIdForUser({
+          actorUserId: user.id,
+          swishId: parsedSwishSearch.data.swishId,
+        })
+      : null;
 
   return (
     <div className="viewport-page">
@@ -90,6 +103,62 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
 
         <ExportImportCard exportUrl="/api/export" returnTo="/app/household" />
       </div>
+
+      <section className="app-panel px-4 py-4 sm:px-5">
+        <p className="eyebrow-label">Swish-sök</p>
+        <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em]">Hitta utgifter via Swish ID</h2>
+
+        <form method="get" className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium">Swish ID</span>
+            <input name="swishId" defaultValue={swishId ?? ""} placeholder="SWISH-2026-001" />
+          </label>
+          <button className="action-button action-primary self-end justify-center">Sök</button>
+        </form>
+
+        {parsedSwishSearch && !parsedSwishSearch.success ? (
+          <p className="mt-3 text-sm text-[var(--color-danger)]">
+            {parsedSwishSearch.error.issues[0]?.message ?? "Ogiltigt Swish ID."}
+          </p>
+        ) : null}
+
+        {swishSearchResult ? (
+          <div className="mt-4 rounded-[18px] border border-[var(--color-line)] bg-[var(--color-elevated)] px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Swish {swishSearchResult.swishId}</p>
+                <p className="mt-1 text-[12px] text-[var(--color-muted)]">
+                  {swishSearchResult.expenses.length} utgifter hittades
+                </p>
+              </div>
+              <p className="text-base font-semibold">{formatCurrency(swishSearchResult.totalAmount)}</p>
+            </div>
+
+            <div className="mt-4 grid gap-2.5">
+              {swishSearchResult.expenses.length > 0 ? (
+                swishSearchResult.expenses.map((expense) => (
+                  <div
+                    key={expense.id}
+                    className="rounded-[16px] border border-[var(--color-line)] bg-[rgba(255,255,255,0.02)] px-3.5 py-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{expense.name}</p>
+                        <p className="mt-1 text-[12px] text-[var(--color-muted)]">
+                          {formatMonthLabel(expense.budgetMonth.monthKey)} · {expense.category}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-sm font-semibold">{formatCurrency(expense.amount)}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-[var(--color-muted)]">Ingen utgift hittades för det ID:t.</p>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }

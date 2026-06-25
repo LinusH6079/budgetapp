@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getNextMonthKey } from "@/lib/date";
 import { assertMonthEditable } from "@/server/services/access";
 import { buildRecurringExpenseCopyData } from "@/server/services/budget-months";
+import { getHouseholdForUser } from "@/server/services/households";
 
 async function requireExpenseAccess(actorUserId: string, monthId: string) {
   const month = await db.budgetMonth.findUnique({
@@ -233,7 +234,108 @@ export async function setExpensePaidStateForUser(input: {
     data: {
       isPaid: input.nextPaidState === "paid",
       paidAt: input.nextPaidState === "paid" ? new Date() : null,
+      swishId: input.nextPaidState === "paid" ? undefined : null,
       updatedByUserId: input.actorUserId,
     },
   });
+}
+
+export async function settleExpensesWithSwishForUser(input: {
+  actorUserId: string;
+  monthId: string;
+  expenseIds: string[];
+  swishId: string;
+}) {
+  const month = await requireExpenseAccess(input.actorUserId, input.monthId);
+  assertMonthEditable(month.isLocked);
+
+  return db.$transaction(async (tx) => {
+    const expenses = await tx.expense.findMany({
+      where: {
+        budgetMonthId: input.monthId,
+        id: {
+          in: input.expenseIds,
+        },
+      },
+      select: {
+        id: true,
+        amount: true,
+        isPaid: true,
+      },
+    });
+
+    if (expenses.length !== input.expenseIds.length) {
+      throw new Error("Någon av utgifterna hittades inte.");
+    }
+
+    if (expenses.some((expense) => expense.isPaid)) {
+      throw new Error("Det går bara att Swish-markera obetalda utgifter.");
+    }
+
+    const paidAt = new Date();
+    const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+    await tx.expense.updateMany({
+      where: {
+        id: {
+          in: input.expenseIds,
+        },
+      },
+      data: {
+        isPaid: true,
+        paidAt,
+        swishId: input.swishId,
+        updatedByUserId: input.actorUserId,
+      },
+    });
+
+    return {
+      count: expenses.length,
+      totalAmount,
+      paidAt,
+      swishId: input.swishId,
+    };
+  });
+}
+
+export async function getExpensesBySwishIdForUser(input: {
+  actorUserId: string;
+  swishId: string;
+}) {
+  const household = await getHouseholdForUser(input.actorUserId);
+
+  if (!household) {
+    throw new Error("Du behöver ett hushåll innan du kan söka på Swish ID.");
+  }
+
+  const expenses = await db.expense.findMany({
+    where: {
+      swishId: input.swishId,
+      budgetMonth: {
+        householdId: household.id,
+      },
+    },
+    include: {
+      budgetMonth: {
+        select: {
+          monthKey: true,
+        },
+      },
+      updatedByUser: true,
+    },
+    orderBy: [
+      {
+        paidAt: "desc",
+      },
+      {
+        createdAt: "desc",
+      },
+    ],
+  });
+
+  return {
+    swishId: input.swishId,
+    totalAmount: expenses.reduce((sum, expense) => sum + expense.amount, 0),
+    expenses,
+  };
 }

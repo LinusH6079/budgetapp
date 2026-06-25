@@ -106,8 +106,29 @@ export const toggleExpensePaidSchema = z.object({
   nextPaidState: z.enum(["paid", "unpaid"]),
 });
 
+export const settleExpensesWithSwishSchema = z.object({
+  monthId: z.string().cuid(),
+  expenseIds: z.array(z.string().cuid()).min(1, "Välj minst en utgift."),
+  swishId: z
+    .string()
+    .trim()
+    .min(1, "Ange ett Swish ID.")
+    .max(64, "Swish ID är för långt.")
+    .transform((value) => value.toUpperCase()),
+});
+
+export const swishSearchSchema = z.object({
+  swishId: z
+    .string()
+    .trim()
+    .min(1, "Ange ett Swish ID.")
+    .max(64, "Swish ID är för långt.")
+    .transform((value) => value.toUpperCase()),
+});
+
 const importExpenseSchema = z.object({
   recurringSourceExpenseId: z.string().cuid().nullable().optional(),
+  swishId: z.string().nullable().optional(),
   name: z.string(),
   amount: z.number().int().nonnegative(),
   category: z.string(),

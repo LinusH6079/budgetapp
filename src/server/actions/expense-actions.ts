@@ -3,11 +3,13 @@
 import {
   deleteExpenseSchema,
   expenseSchema,
+  settleExpensesWithSwishSchema,
   toggleExpensePaidSchema,
 } from "@/lib/validations";
 import { requireUser } from "@/lib/session";
 import {
   deleteExpenseForUser,
+  settleExpensesWithSwishForUser,
   setExpensePaidStateForUser,
   upsertExpenseForUser,
 } from "@/server/services/expenses";
@@ -153,6 +155,47 @@ export async function toggleExpensePaidOptimisticAction(input: {
     return {
       ok: false as const,
       message: error instanceof Error ? error.message : "Kunde inte ändra betalstatus.",
+    };
+  }
+}
+
+export async function settleExpensesWithSwishAction(input: {
+  monthId: string;
+  expenseIds: string[];
+  swishId: string;
+  returnTo?: string;
+}) {
+  const user = await requireUser();
+  const parsed = settleExpensesWithSwishSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      message: parsed.error.issues[0]?.message ?? "Kunde inte markera utgifterna.",
+    };
+  }
+
+  try {
+    const result = await settleExpensesWithSwishForUser({
+      actorUserId: user.id,
+      monthId: parsed.data.monthId,
+      expenseIds: parsed.data.expenseIds,
+      swishId: parsed.data.swishId,
+    });
+
+    revalidateBudgetPaths(input.returnTo);
+
+    return {
+      ok: true as const,
+      count: result.count,
+      totalAmount: result.totalAmount,
+      swishId: result.swishId,
+      paidAt: result.paidAt.toISOString(),
+    };
+  } catch (error) {
+    return {
+      ok: false as const,
+      message: error instanceof Error ? error.message : "Kunde inte markera utgifterna.",
     };
   }
 }

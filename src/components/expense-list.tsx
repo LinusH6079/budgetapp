@@ -2,11 +2,14 @@
 
 import { PayerType } from "@prisma/client";
 import { SlidersHorizontal } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { ExpenseItem } from "@/components/expense-item";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { PendingLink } from "@/components/pending-link";
+import { formatCurrency } from "@/lib/money";
+import { settleExpensesWithSwishAction } from "@/server/actions/expense-actions";
 
 type ExpenseListProps = {
   monthId: string;
@@ -22,6 +25,7 @@ type ExpenseListProps = {
     dueDate: Date | null;
     isPaid: boolean;
     paidAt: Date | null;
+    swishId: string | null;
     updatedAt: Date;
     updatedByUser: {
       name: string;
@@ -56,7 +60,14 @@ export function ExpenseList({
   categories,
   quickFilters,
 }: ExpenseListProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [activePayers, setActivePayers] = useState<PayerType[]>([]);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
+  const [swishId, setSwishId] = useState("");
+  const [settleError, setSettleError] = useState<string | null>(null);
+  const [settleNotice, setSettleNotice] = useState<string | null>(null);
 
   const visibleExpenses = useMemo(() => {
     if (activePayers.length === 0) {
@@ -66,10 +77,65 @@ export function ExpenseList({
     return expenses.filter((expense) => activePayers.includes(expense.payerType));
   }, [activePayers, expenses]);
 
+  const selectedExpenses = useMemo(
+    () => visibleExpenses.filter((expense) => selectedExpenseIds.includes(expense.id)),
+    [selectedExpenseIds, visibleExpenses],
+  );
+
+  const selectedTotal = selectedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const selectableExpenseCount = visibleExpenses.filter((expense) => !expense.isPaid).length;
+
   const togglePayer = (payer: PayerType) => {
     setActivePayers((current) =>
       current.includes(payer) ? current.filter((value) => value !== payer) : [...current, payer],
     );
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode((current) => {
+      const nextValue = !current;
+      if (!nextValue) {
+        setSelectedExpenseIds([]);
+        setSwishId("");
+        setSettleError(null);
+      }
+      return nextValue;
+    });
+  };
+
+  const toggleExpenseSelection = (expenseId: string) => {
+    setSelectedExpenseIds((current) =>
+      current.includes(expenseId) ? current.filter((id) => id !== expenseId) : [...current, expenseId],
+    );
+  };
+
+  const settleSelectedExpenses = () => {
+    if (isPending || selectedExpenseIds.length === 0) {
+      return;
+    }
+
+    setSettleError(null);
+    setSettleNotice(null);
+
+    startTransition(async () => {
+      const result = await settleExpensesWithSwishAction({
+        monthId,
+        expenseIds: selectedExpenseIds,
+        swishId,
+        returnTo,
+      });
+
+      if (!result.ok) {
+        setSettleError(result.message ?? "Kunde inte markera utgifterna.");
+        return;
+      }
+
+      setSelectionMode(false);
+      setSelectedExpenseIds([]);
+      setSwishId("");
+      setSettleNotice(`Swish ${result.swishId} sparades för ${result.count} utgifter.`);
+      router.refresh();
+    });
   };
 
   return (
@@ -81,51 +147,66 @@ export function ExpenseList({
             <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em]">Alla poster</h2>
           </div>
 
-          <ModalLauncher
-            title="Filter"
-            description="Justera vilka utgifter som visas."
-            trigger={
-              <span className="icon-action-button">
-                <SlidersHorizontal className="h-4 w-4" />
-              </span>
-            }
-          >
-            <form
-              method="get"
-              className="grid gap-3"
-              onSubmit={() => window.dispatchEvent(new CustomEvent("app:navigation-start"))}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleSelectionMode}
+              disabled={isLocked || selectableExpenseCount === 0}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                selectionMode
+                  ? "bg-[var(--color-accent-strong)] text-[#09090b]"
+                  : "bg-[var(--color-elevated)] text-[var(--color-ink)]"
+              } ${isLocked || selectableExpenseCount === 0 ? "opacity-50" : ""}`}
             >
-              <input type="hidden" name="tab" value="expenses" />
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Status</span>
-                <select name="status" defaultValue={currentFilters.status}>
-                  <option value="all">Alla</option>
-                  <option value="paid">Betalda</option>
-                  <option value="unpaid">Obetalda</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Typ</span>
-                <select name="type" defaultValue={currentFilters.type}>
-                  <option value="all">Alla typer</option>
-                  <option value="RECURRING">Återkommande</option>
-                  <option value="ONE_TIME">Engångs</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Kategori</span>
-                <select name="category" defaultValue={currentFilters.category}>
-                  <option value="all">Alla kategorier</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button className="action-button action-primary w-full justify-center">Visa utgifter</button>
-            </form>
-          </ModalLauncher>
+              {selectionMode ? "Avsluta" : "Välj flera"}
+            </button>
+
+            <ModalLauncher
+              title="Filter"
+              description="Justera vilka utgifter som visas."
+              trigger={
+                <span className="icon-action-button">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </span>
+              }
+            >
+              <form
+                method="get"
+                className="grid gap-3"
+                onSubmit={() => window.dispatchEvent(new CustomEvent("app:navigation-start"))}
+              >
+                <input type="hidden" name="tab" value="expenses" />
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium">Status</span>
+                  <select name="status" defaultValue={currentFilters.status}>
+                    <option value="all">Alla</option>
+                    <option value="paid">Betalda</option>
+                    <option value="unpaid">Obetalda</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium">Typ</span>
+                  <select name="type" defaultValue={currentFilters.type}>
+                    <option value="all">Alla typer</option>
+                    <option value="RECURRING">Återkommande</option>
+                    <option value="ONE_TIME">Engångs</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium">Kategori</span>
+                  <select name="category" defaultValue={currentFilters.category}>
+                    <option value="all">Alla kategorier</option>
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button className="action-button action-primary w-full justify-center">Visa utgifter</button>
+              </form>
+            </ModalLauncher>
+          </div>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -165,6 +246,51 @@ export function ExpenseList({
             );
           })}
         </div>
+
+        {selectionMode ? (
+          <div className="mt-4 rounded-[18px] border border-[var(--color-line)] bg-[var(--color-elevated)] px-3.5 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Swish-markera flera</p>
+                <p className="mt-1 text-[12px] text-[var(--color-muted)]">
+                  Välj utgifter, se totalsumman och spara samma Swish ID som du använder utanför appen.
+                </p>
+              </div>
+              <span className="rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-ink)]">
+                {selectedExpenseIds.length} valda
+              </span>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-sm text-[var(--color-muted)]">Summa att swisha</p>
+              <p className="text-base font-semibold">{formatCurrency(selectedTotal)}</p>
+            </div>
+
+            <label className="mt-3 block">
+              <span className="mb-1.5 block text-sm font-medium">Swish ID</span>
+              <input
+                value={swishId}
+                onChange={(event) => setSwishId(event.target.value)}
+                placeholder="SWISH-2026-001"
+                disabled={isPending}
+              />
+            </label>
+
+            {settleError ? <p className="mt-2 text-[12px] font-medium text-[var(--color-danger)]">{settleError}</p> : null}
+            {settleNotice ? (
+              <p className="mt-2 text-[12px] font-medium text-[var(--color-ink)]/80">{settleNotice}</p>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={settleSelectedExpenses}
+              disabled={isPending || selectedExpenseIds.length === 0 || swishId.trim().length === 0}
+              className="action-button action-primary mt-3 w-full justify-center"
+            >
+              {isPending ? "Markerar..." : "Markera valda som klara"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {visibleExpenses.length > 0 ? (
@@ -173,12 +299,15 @@ export function ExpenseList({
             <div className="grid gap-2">
               {visibleExpenses.map((expense) => (
                 <ExpenseItem
-                  key={`${expense.id}-${expense.isPaid ? "paid" : "unpaid"}-${expense.paidAt?.toISOString() ?? "none"}`}
+                  key={`${expense.id}-${expense.isPaid ? "paid" : "unpaid"}-${expense.paidAt?.toISOString() ?? "none"}-${expense.swishId ?? "no-swish"}`}
                   expense={expense}
                   monthId={monthId}
                   returnTo={returnTo}
                   isLocked={isLocked}
                   payerLabels={payerLabels}
+                  selectionMode={selectionMode}
+                  isSelected={selectedExpenseIds.includes(expense.id)}
+                  onToggleSelect={toggleExpenseSelection}
                 />
               ))}
             </div>

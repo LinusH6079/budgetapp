@@ -118,6 +118,7 @@ model Expense {
   id              String       @id @default(cuid())
   budgetMonthId   String
   recurringSourceExpenseId String?
+  swishId         String?
   name            String
   amount          Int
   category        String
@@ -136,6 +137,8 @@ model Expense {
 
   @@index([budgetMonthId, dueDate])
   @@index([budgetMonthId, category])
+  @@index([budgetMonthId, swishId])
   @@index([recurringSourceExpenseId])
+  @@index([swishId])
   @@unique([budgetMonthId, recurringSourceExpenseId])
 }

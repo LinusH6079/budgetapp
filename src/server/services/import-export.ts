@@ -53,6 +53,7 @@ export async function exportHouseholdDataForUser(userId: string) {
       }),
       expenses: month.expenses.map((expense) => ({
         recurringSourceExpenseId: expense.recurringSourceExpenseId,
+        swishId: expense.swishId,
         name: expense.name,
         amount: expense.amount,
         category: expense.category,
@@ -159,6 +160,7 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
           data: importedMonth.expenses.map((expense) => ({
             budgetMonthId: month.id,
             recurringSourceExpenseId: expense.recurringSourceExpenseId ?? null,
+            swishId: expense.swishId ?? null,
             name: expense.name,
             amount: expense.amount,
             category: expense.category,

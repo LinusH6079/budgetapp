@@ -54,13 +54,13 @@ model Household {
 }
 
 model HouseholdMember {
-  id          String         @id @default(cuid())
+  id          String        @id @default(cuid())
   householdId String
-  userId      String         @unique
+  userId      String        @unique
   role        HouseholdRole
-  joinedAt    DateTime       @default(now())
-  household   Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt    DateTime      @default(now())
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([householdId])
 }
@@ -115,30 +115,32 @@ model MonthlyPersonSnapshot {
 }
 
 model Expense {
-  id              String       @id @default(cuid())
-  budgetMonthId   String
+  id                       String       @id @default(cuid())
+  budgetMonthId            String
   recurringSourceExpenseId String?
-  swishId         String?
-  name            String
-  amount          Int
-  category        String
-  expenseType     ExpenseType
-  planningType    PlanningType @default(PLANNED)
-  payerType       PayerType
-  dueDate         DateTime?
-  isPaid          Boolean      @default(false)
-  paidAt          DateTime?
-  note            String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  updatedByUserId String?
-  budgetMonth     BudgetMonth  @relation(fields: [budgetMonthId], references: [id], onDelete: Cascade)
-  updatedByUser   User?        @relation("ExpenseUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  swishId                  String?
+  name                     String
+  amount                   Int
+  category                 String
+  expenseType              ExpenseType
+  planningType             PlanningType @default(PLANNED)
+  payerType                PayerType
+  dueDate                  DateTime?
+  isPaid                   Boolean      @default(false)
+  paidAt                   DateTime?
+  firstPersonPaidAt        DateTime?
+  secondPersonPaidAt       DateTime?
+  note                     String?
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+  updatedByUserId          String?
+  budgetMonth              BudgetMonth  @relation(fields: [budgetMonthId], references: [id], onDelete: Cascade)
+  updatedByUser            User?        @relation("ExpenseUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
+  @@unique([budgetMonthId, recurringSourceExpenseId])
   @@index([budgetMonthId, dueDate])
   @@index([budgetMonthId, category])
   @@index([budgetMonthId, swishId])
   @@index([recurringSourceExpenseId])
   @@index([swishId])
-  @@unique([budgetMonthId, recurringSourceExpenseId])
 }

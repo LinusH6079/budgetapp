@@ -46,25 +46,6 @@ async function requireExpenseInMonth(expenseId: string, monthId: string) {
   return expense;
 }
 
-function getActorPayerType(
-  members: Array<{
-    userId: string;
-  }>,
-  actorUserId: string,
-) {
-  const actorIndex = members.findIndex((member) => member.userId === actorUserId);
-
-  if (actorIndex === 0) {
-    return PayerType.FIRST_PERSON;
-  }
-
-  if (actorIndex === 1) {
-    return PayerType.SECOND_PERSON;
-  }
-
-  throw new Error("Kunde inte koppla utgiften till rätt person.");
-}
-
 async function syncRecurringExpenseToNextMonth(input: {
   tx: Prisma.TransactionClient;
   actorUserId: string;
@@ -137,6 +118,7 @@ export async function upsertExpenseForUser(input: {
   amount: number;
   category: string;
   expenseType: "RECURRING" | "ONE_TIME";
+  payerType: "FIRST_PERSON" | "SECOND_PERSON" | "SHARED";
 }) {
   const month = await requireExpenseAccess(input.actorUserId, input.monthId);
   assertMonthEditable(month.isLocked);
@@ -148,16 +130,51 @@ export async function upsertExpenseForUser(input: {
       existingExpense = await requireExpenseInMonth(input.expenseId, input.monthId);
     }
 
+    if (
+      input.payerType === PayerType.SECOND_PERSON &&
+      month.household.members.length < 2
+    ) {
+      throw new Error("Den andra personen har inte gått med i hushållet ännu.");
+    }
+
+    const legacyPaidAt = existingExpense?.isPaid
+      ? existingExpense.paidAt ?? new Date()
+      : null;
+    const existingFirstPaidAt =
+      existingExpense?.payerType === PayerType.SHARED
+        ? existingExpense.firstPersonPaidAt ?? legacyPaidAt
+        : existingExpense?.payerType === PayerType.FIRST_PERSON
+          ? legacyPaidAt
+          : null;
+    const existingSecondPaidAt =
+      existingExpense?.payerType === PayerType.SHARED
+        ? existingExpense.secondPersonPaidAt ?? legacyPaidAt
+        : existingExpense?.payerType === PayerType.SECOND_PERSON
+          ? legacyPaidAt
+          : null;
+    const firstPersonPaidAt =
+      input.payerType === PayerType.SECOND_PERSON ? null : existingFirstPaidAt;
+    const secondPersonPaidAt =
+      input.payerType === PayerType.FIRST_PERSON ? null : existingSecondPaidAt;
+    const isPaid =
+      input.payerType === PayerType.SHARED
+        ? Boolean(firstPersonPaidAt && secondPersonPaidAt)
+        : input.payerType === PayerType.FIRST_PERSON
+          ? Boolean(firstPersonPaidAt)
+          : Boolean(secondPersonPaidAt);
+
     const expensePayload = {
       name: input.name,
       amount: input.amount,
       category: input.category,
       expenseType: input.expenseType,
       planningType: existingExpense?.planningType ?? PlanningType.PLANNED,
-      payerType: existingExpense?.payerType ?? getActorPayerType(month.household.members, input.actorUserId),
+      payerType: input.payerType,
       dueDate: null,
-      isPaid: existingExpense?.isPaid ?? false,
-      paidAt: existingExpense?.paidAt ?? null,
+      isPaid,
+      paidAt: isPaid ? existingExpense?.paidAt ?? new Date() : null,
+      firstPersonPaidAt,
+      secondPersonPaidAt,
       note: null,
       updatedByUserId: input.actorUserId,
     } as const;
@@ -222,10 +239,47 @@ export async function setExpensePaidStateForUser(input: {
   monthId: string;
   expenseId: string;
   nextPaidState: "paid" | "unpaid";
+  targetPayerType?: "FIRST_PERSON" | "SECOND_PERSON";
 }) {
   const month = await requireExpenseAccess(input.actorUserId, input.monthId);
   assertMonthEditable(month.isLocked);
-  await requireExpenseInMonth(input.expenseId, input.monthId);
+  const expense = await requireExpenseInMonth(input.expenseId, input.monthId);
+  const nextPaidAt = input.nextPaidState === "paid" ? new Date() : null;
+
+  if (expense.payerType === PayerType.SHARED) {
+    if (!input.targetPayerType) {
+      throw new Error("Välj vilken persons del som ska ändras.");
+    }
+
+    const legacyPaidAt = expense.isPaid ? expense.paidAt ?? new Date() : null;
+    const firstPersonPaidAt =
+      input.targetPayerType === PayerType.FIRST_PERSON
+        ? nextPaidAt
+        : expense.firstPersonPaidAt ?? legacyPaidAt;
+    const secondPersonPaidAt =
+      input.targetPayerType === PayerType.SECOND_PERSON
+        ? nextPaidAt
+        : expense.secondPersonPaidAt ?? legacyPaidAt;
+    const isPaid = Boolean(firstPersonPaidAt && secondPersonPaidAt);
+
+    return db.expense.update({
+      where: {
+        id: input.expenseId,
+      },
+      data: {
+        isPaid,
+        paidAt: isPaid ? new Date() : null,
+        firstPersonPaidAt,
+        secondPersonPaidAt,
+        swishId: isPaid ? undefined : null,
+        updatedByUserId: input.actorUserId,
+      },
+    });
+  }
+
+  if (input.targetPayerType && input.targetPayerType !== expense.payerType) {
+    throw new Error("Personen är inte tilldelad den här utgiften.");
+  }
 
   return db.expense.update({
     where: {
@@ -233,7 +287,11 @@ export async function setExpensePaidStateForUser(input: {
     },
     data: {
       isPaid: input.nextPaidState === "paid",
-      paidAt: input.nextPaidState === "paid" ? new Date() : null,
+      paidAt: nextPaidAt,
+      firstPersonPaidAt:
+        expense.payerType === PayerType.FIRST_PERSON ? nextPaidAt : null,
+      secondPersonPaidAt:
+        expense.payerType === PayerType.SECOND_PERSON ? nextPaidAt : null,
       swishId: input.nextPaidState === "paid" ? undefined : null,
       updatedByUserId: input.actorUserId,
     },
@@ -261,6 +319,7 @@ export async function settleExpensesWithSwishForUser(input: {
         id: true,
         amount: true,
         isPaid: true,
+        payerType: true,
       },
     });
 
@@ -275,19 +334,25 @@ export async function settleExpensesWithSwishForUser(input: {
     const paidAt = new Date();
     const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
 
-    await tx.expense.updateMany({
-      where: {
-        id: {
-          in: input.expenseIds,
-        },
-      },
-      data: {
-        isPaid: true,
-        paidAt,
-        swishId: input.swishId,
-        updatedByUserId: input.actorUserId,
-      },
-    });
+    await Promise.all(
+      expenses.map((expense) =>
+        tx.expense.update({
+          where: {
+            id: expense.id,
+          },
+          data: {
+            isPaid: true,
+            paidAt,
+            firstPersonPaidAt:
+              expense.payerType === PayerType.SECOND_PERSON ? null : paidAt,
+            secondPersonPaidAt:
+              expense.payerType === PayerType.FIRST_PERSON ? null : paidAt,
+            swishId: input.swishId,
+            updatedByUserId: input.actorUserId,
+          },
+        }),
+      ),
+    );
 
     return {
       count: expenses.length,

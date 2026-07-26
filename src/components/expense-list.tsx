@@ -25,6 +25,8 @@ type ExpenseListProps = {
     dueDate: Date | null;
     isPaid: boolean;
     paidAt: Date | null;
+    firstPersonPaidAt: Date | null;
+    secondPersonPaidAt: Date | null;
     swishId: string | null;
     updatedAt: Date;
     updatedByUser: {
@@ -33,8 +35,9 @@ type ExpenseListProps = {
   }>;
   memberOptions: Array<{
     label: string;
-    value: PayerType;
+    value: "FIRST_PERSON" | "SECOND_PERSON";
   }>;
+  currentUserPayerType: "FIRST_PERSON" | "SECOND_PERSON";
   payerLabels: Record<PayerType, string>;
   currentFilters: {
     status: string;
@@ -55,6 +58,7 @@ export function ExpenseList({
   isLocked,
   expenses,
   memberOptions,
+  currentUserPayerType,
   payerLabels,
   currentFilters,
   categories,
@@ -74,7 +78,11 @@ export function ExpenseList({
       return expenses;
     }
 
-    return expenses.filter((expense) => activePayers.includes(expense.payerType));
+    return expenses.filter(
+      (expense) =>
+        expense.payerType === PayerType.SHARED ||
+        activePayers.includes(expense.payerType),
+    );
   }, [activePayers, expenses]);
 
   const selectedExpenses = useMemo(
@@ -299,12 +307,14 @@ export function ExpenseList({
             <div className="grid gap-2">
               {visibleExpenses.map((expense) => (
                 <ExpenseItem
-                  key={`${expense.id}-${expense.isPaid ? "paid" : "unpaid"}-${expense.paidAt?.toISOString() ?? "none"}-${expense.swishId ?? "no-swish"}`}
+                  key={`${expense.id}-${expense.isPaid ? "paid" : "unpaid"}-${expense.paidAt?.toISOString() ?? "none"}-${expense.firstPersonPaidAt?.toISOString() ?? "first-open"}-${expense.secondPersonPaidAt?.toISOString() ?? "second-open"}-${expense.swishId ?? "no-swish"}`}
                   expense={expense}
                   monthId={monthId}
                   returnTo={returnTo}
                   isLocked={isLocked}
                   payerLabels={payerLabels}
+                  memberOptions={memberOptions}
+                  currentUserPayerType={currentUserPayerType}
                   selectionMode={selectionMode}
                   isSelected={selectedExpenseIds.includes(expense.id)}
                   onToggleSelect={toggleExpenseSelection}

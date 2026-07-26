@@ -93,6 +93,7 @@ export const expenseSchema = z.object({
   amount: moneyField,
   category: z.string().trim().min(1, "Kategori krävs.").max(50, "Kategorin är för lång."),
   expenseType: z.nativeEnum(ExpenseType),
+  payerType: z.nativeEnum(PayerType),
 });
 
 export const deleteExpenseSchema = z.object({
@@ -104,6 +105,9 @@ export const toggleExpensePaidSchema = z.object({
   expenseId: z.string().cuid(),
   monthId: z.string().cuid(),
   nextPaidState: z.enum(["paid", "unpaid"]),
+  targetPayerType: z
+    .enum([PayerType.FIRST_PERSON, PayerType.SECOND_PERSON])
+    .optional(),
 });
 
 export const settleExpensesWithSwishSchema = z.object({
@@ -138,6 +142,8 @@ const importExpenseSchema = z.object({
   dueDate: z.string().nullable(),
   isPaid: z.boolean(),
   paidAt: z.string().nullable(),
+  firstPersonPaidAt: z.string().nullable().optional(),
+  secondPersonPaidAt: z.string().nullable().optional(),
   note: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

@@ -26,6 +26,7 @@ export async function saveExpenseAction(formData: FormData) {
     amount: formData.get("amount"),
     category: formData.get("category"),
     expenseType: formData.get("expenseType"),
+    payerType: formData.get("payerType"),
   });
 
   if (!parsed.success) {
@@ -41,6 +42,7 @@ export async function saveExpenseAction(formData: FormData) {
       amount: parsed.data.amount,
       category: parsed.data.category,
       expenseType: parsed.data.expenseType,
+      payerType: parsed.data.payerType,
     });
   } catch (error) {
     redirectWithMessage(
@@ -91,6 +93,7 @@ export async function toggleExpensePaidAction(formData: FormData) {
     expenseId: formData.get("expenseId"),
     monthId: formData.get("monthId"),
     nextPaidState: formData.get("nextPaidState"),
+    targetPayerType: formData.get("targetPayerType") || undefined,
   });
 
   if (!parsed.success) {
@@ -103,6 +106,7 @@ export async function toggleExpensePaidAction(formData: FormData) {
       monthId: parsed.data.monthId,
       expenseId: parsed.data.expenseId,
       nextPaidState: parsed.data.nextPaidState,
+      targetPayerType: parsed.data.targetPayerType,
     });
   } catch (error) {
     redirectWithMessage(
@@ -124,6 +128,7 @@ export async function toggleExpensePaidOptimisticAction(input: {
   expenseId: string;
   monthId: string;
   nextPaidState: "paid" | "unpaid";
+  targetPayerType?: "FIRST_PERSON" | "SECOND_PERSON";
   returnTo?: string;
 }) {
   const user = await requireUser();
@@ -142,6 +147,7 @@ export async function toggleExpensePaidOptimisticAction(input: {
       monthId: parsed.data.monthId,
       expenseId: parsed.data.expenseId,
       nextPaidState: parsed.data.nextPaidState,
+      targetPayerType: parsed.data.targetPayerType,
     });
 
     revalidateBudgetPaths(input.returnTo);
@@ -150,6 +156,8 @@ export async function toggleExpensePaidOptimisticAction(input: {
       ok: true as const,
       isPaid: expense.isPaid,
       paidAt: expense.paidAt ? expense.paidAt.toISOString() : null,
+      firstPersonPaidAt: expense.firstPersonPaidAt?.toISOString() ?? null,
+      secondPersonPaidAt: expense.secondPersonPaidAt?.toISOString() ?? null,
     };
   } catch (error) {
     return {

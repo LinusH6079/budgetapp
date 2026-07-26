@@ -7,6 +7,8 @@ export type BudgetExpenseLike = {
   planningType: PlanningType;
   payerType: PayerType;
   isPaid: boolean;
+  firstPersonPaidAt?: Date | null;
+  secondPersonPaidAt?: Date | null;
   dueDate: Date | null;
 };
 
@@ -41,6 +43,7 @@ export type PersonSummary = {
   income: number;
   carryOver: number;
   plannedExpenses: number;
+  totalExpenses: number;
   paidExpenses: number;
   remainingPlanned: number;
   remainingActual: number;
@@ -61,6 +64,34 @@ function amountForPerson(payerType: PayerType, amount: number, slot: PersonSlot)
   }
 
   return slot === "SECOND_PERSON" ? amount : 0;
+}
+
+function isPaidForPerson(expense: BudgetExpenseLike, slot: PersonSlot) {
+  if (expense.payerType === PayerType.SHARED) {
+    if (expense.isPaid && !expense.firstPersonPaidAt && !expense.secondPersonPaidAt) {
+      return true;
+    }
+
+    return slot === "FIRST_PERSON"
+      ? expense.firstPersonPaidAt !== null && expense.firstPersonPaidAt !== undefined
+      : expense.secondPersonPaidAt !== null && expense.secondPersonPaidAt !== undefined;
+  }
+
+  return expense.isPaid;
+}
+
+function paidAmount(expense: BudgetExpenseLike) {
+  if (expense.payerType !== PayerType.SHARED) {
+    return expense.isPaid ? expense.amount : 0;
+  }
+
+  return (["FIRST_PERSON", "SECOND_PERSON"] as const).reduce(
+    (sum, slot) =>
+      isPaidForPerson(expense, slot)
+        ? sum + amountForPerson(expense.payerType, expense.amount, slot)
+        : sum,
+    0,
+  );
 }
 
 export function totalIncome(input: BudgetComputationInput) {
@@ -88,11 +119,15 @@ export function unplannedExpensesTotal(input: BudgetComputationInput) {
 }
 
 export function paidExpensesTotal(input: BudgetComputationInput) {
-  return input.expenses.reduce((sum, expense) => (expense.isPaid ? sum + expense.amount : sum), 0);
+  return input.expenses.reduce((sum, expense) => sum + paidAmount(expense), 0);
 }
 
 export function unpaidExpensesTotal(input: BudgetComputationInput) {
-  return input.expenses.reduce((sum, expense) => (!expense.isPaid ? sum + expense.amount : sum), 0);
+  return input.expenses.reduce((sum, expense) => sum + expense.amount - paidAmount(expense), 0);
+}
+
+export function expensesTotal(input: BudgetComputationInput) {
+  return input.expenses.reduce((sum, expense) => sum + expense.amount, 0);
 }
 
 export function remainingPlanned(input: BudgetComputationInput) {
@@ -137,8 +172,12 @@ export function perPersonTotals(input: BudgetComputationInput): PersonSummary[] 
 
       return sum + amountForPerson(expense.payerType, expense.amount, member.slot);
     }, 0);
+    const totalExpenses = input.expenses.reduce(
+      (sum, expense) => sum + amountForPerson(expense.payerType, expense.amount, member.slot),
+      0,
+    );
     const paidExpenses = input.expenses.reduce((sum, expense) => {
-      if (!expense.isPaid) {
+      if (!isPaidForPerson(expense, member.slot)) {
         return sum;
       }
 
@@ -154,6 +193,7 @@ export function perPersonTotals(input: BudgetComputationInput): PersonSummary[] 
       income,
       carryOver,
       plannedExpenses,
+      totalExpenses,
       paidExpenses,
       remainingPlanned: available - plannedExpenses,
       remainingActual: available - paidExpenses,
@@ -181,6 +221,7 @@ export function buildMonthSummary(input: BudgetComputationInput) {
     totalAvailable: totalAvailable(input),
     totalPlannedExpenses: plannedExpensesTotal(input),
     totalUnplannedExpenses: unplannedExpensesTotal(input),
+    totalExpenses: expensesTotal(input),
     totalPaidExpenses: paidExpensesTotal(input),
     totalUnpaidExpenses: unpaidExpensesTotal(input),
     remainingPlanned: remainingPlanned(input),

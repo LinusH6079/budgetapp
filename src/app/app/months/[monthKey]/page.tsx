@@ -94,20 +94,22 @@ export default async function MonthDetailPage({
   const filteredExpenses = sortExpenseItems(filterExpenseItems(pageData.activeMonth.expenses, filters), "amount");
 
   const orderedMembers = mapMembersToSlots(pageData.household);
-  const memberOptions = [
-    {
-      label: orderedMembers[0] ? `${orderedMembers[0].name} (Person 1)` : "Person 1",
-      value: PayerType.FIRST_PERSON,
-    },
-    {
-      label: orderedMembers[1] ? `${orderedMembers[1].name} (Person 2)` : "Person 2",
-      value: PayerType.SECOND_PERSON,
-    },
-  ];
+  const memberOptions = orderedMembers.map((member) => ({
+    label: member.name,
+    value:
+      member.slot === "FIRST_PERSON"
+        ? PayerType.FIRST_PERSON
+        : PayerType.SECOND_PERSON,
+  }));
+  const currentUserPayerType =
+    orderedMembers.find((member) => member.userId === user.id)?.slot ===
+    "SECOND_PERSON"
+      ? PayerType.SECOND_PERSON
+      : PayerType.FIRST_PERSON;
   const payerLabels: Record<PayerType, string> = {
-    [PayerType.FIRST_PERSON]: memberOptions[0].label,
-    [PayerType.SECOND_PERSON]: memberOptions[1].label,
-    [PayerType.SHARED]: "Gemensamt",
+    [PayerType.FIRST_PERSON]: memberOptions[0]?.label ?? "Person 1",
+    [PayerType.SECOND_PERSON]: memberOptions[1]?.label ?? "Person 2",
+    [PayerType.SHARED]: "Båda",
   };
 
   const tabs = [
@@ -150,6 +152,10 @@ export default async function MonthDetailPage({
     name: person.name,
     value: formatCurrency(person.remainingActual),
   }));
+  const perPersonExpenses = pageData.summary.perPerson.map((person) => ({
+    name: person.name,
+    value: formatCurrency(person.totalExpenses),
+  }));
   const perPersonRemainingPlanned = pageData.summary.perPerson.map((person) => ({
     name: person.name,
     value: formatCurrency(person.remainingPlanned),
@@ -188,6 +194,11 @@ export default async function MonthDetailPage({
               <SummaryPersonBreakdown items={perPersonAvailable} />
             </div>
             <div className="stat-tile">
+              <p className="eyebrow-label">Totala utgifter</p>
+              <p className="stat-value">{formatCurrency(pageData.summary.totalExpenses)}</p>
+              <SummaryPersonBreakdown items={perPersonExpenses} />
+            </div>
+            <div className="stat-tile">
               <p className="eyebrow-label">Obetalda</p>
               <p className="stat-value">{pageData.summary.unpaidCount} st</p>
             </div>
@@ -222,6 +233,7 @@ export default async function MonthDetailPage({
             isLocked={pageData.activeMonth.isLocked}
             expenses={filteredExpenses}
             memberOptions={memberOptions}
+            currentUserPayerType={currentUserPayerType}
             payerLabels={payerLabels}
             currentFilters={filters}
             categories={[...new Set(pageData.activeMonth.expenses.map((expense) => expense.category))].sort((a, b) =>
@@ -245,6 +257,8 @@ export default async function MonthDetailPage({
               monthId={pageData.activeMonth.id}
               returnTo={returnTo}
               isLocked={pageData.activeMonth.isLocked}
+              memberOptions={memberOptions}
+              currentUserPayerType={currentUserPayerType}
             />
           </ModalLauncher>
         </>

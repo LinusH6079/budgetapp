@@ -47,6 +47,8 @@ export function buildRecurringExpenseCopyData(
     dueDate: dueDateForMonth(expense.dueDate, targetMonthKey),
     isPaid: false,
     paidAt: null,
+    firstPersonPaidAt: null,
+    secondPersonPaidAt: null,
     note: expense.note,
     updatedByUserId,
   };

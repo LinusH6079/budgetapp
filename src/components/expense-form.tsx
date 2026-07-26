@@ -1,6 +1,8 @@
 "use client";
 
 import { ExpenseType, PayerType } from "@prisma/client";
+import { Check } from "lucide-react";
+import { useState } from "react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { formatEditableAmount } from "@/lib/money";
@@ -20,9 +22,45 @@ type ExpenseFormProps = {
     isPaid: boolean;
     paidAt: Date | null;
   };
+  memberOptions: Array<{
+    label: string;
+    value: "FIRST_PERSON" | "SECOND_PERSON";
+  }>;
+  currentUserPayerType: "FIRST_PERSON" | "SECOND_PERSON";
 };
 
-export function ExpenseForm({ monthId, returnTo, isLocked, expense }: ExpenseFormProps) {
+export function ExpenseForm({
+  monthId,
+  returnTo,
+  isLocked,
+  expense,
+  memberOptions,
+  currentUserPayerType,
+}: ExpenseFormProps) {
+  const initialPayers =
+    expense?.payerType === PayerType.SHARED
+      ? memberOptions.map((option) => option.value)
+      : [expense?.payerType ?? currentUserPayerType];
+  const [selectedPayers, setSelectedPayers] = useState<
+    Array<"FIRST_PERSON" | "SECOND_PERSON">
+  >(initialPayers);
+  const payerType =
+    selectedPayers.length === 2 ? PayerType.SHARED : selectedPayers[0];
+
+  const togglePayer = (
+    value: "FIRST_PERSON" | "SECOND_PERSON",
+  ) => {
+    setSelectedPayers((current) => {
+      if (current.includes(value)) {
+        return current.length === 1
+          ? current
+          : current.filter((payer) => payer !== value);
+      }
+
+      return [...current, value];
+    });
+  };
+
   return (
     <form
       action={saveExpenseAction}
@@ -32,6 +70,7 @@ export function ExpenseForm({ monthId, returnTo, isLocked, expense }: ExpenseFor
       <input type="hidden" name="monthId" value={monthId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <input type="hidden" name="expenseId" value={expense?.id ?? ""} />
+      <input type="hidden" name="payerType" value={payerType} />
 
       <div className="grid gap-2.5 sm:grid-cols-2">
         <label className="block sm:col-span-2">
@@ -69,6 +108,46 @@ export function ExpenseForm({ monthId, returnTo, isLocked, expense }: ExpenseFor
             <option value={ExpenseType.RECURRING}>Återkommande</option>
           </select>
         </label>
+
+        <fieldset className="sm:col-span-2">
+          <legend className="mb-1.5 text-sm font-medium">Tilldelad</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {memberOptions.map((option) => {
+              const selected = selectedPayers.includes(option.value);
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => togglePayer(option.value)}
+                  disabled={isLocked}
+                  aria-pressed={selected}
+                  className={`flex min-h-11 items-center justify-between gap-2 rounded-[12px] border px-3 text-left text-sm font-medium transition ${
+                    selected
+                      ? "border-[rgba(244,244,245,0.34)] bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
+                      : "border-[var(--color-line)] bg-[var(--color-elevated)] text-[var(--color-muted)]"
+                  }`}
+                >
+                  <span className="truncate">{option.label}</span>
+                  <span
+                    className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                      selected
+                        ? "bg-[var(--color-accent-strong)] text-[#09090b]"
+                        : "border border-[var(--color-line)]"
+                    }`}
+                  >
+                    {selected ? <Check className="h-3 w-3" /> : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {selectedPayers.length === 2 ? (
+            <p className="mt-1.5 text-[11px] text-[var(--color-muted)]">
+              Beloppet delas lika mellan båda.
+            </p>
+          ) : null}
+        </fieldset>
       </div>
 
       <FormStatusButton

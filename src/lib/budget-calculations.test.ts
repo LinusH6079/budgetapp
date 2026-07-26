@@ -57,6 +57,7 @@ describe("budget calculations", () => {
     expect(summary.totalAvailable).toBe(580000);
     expect(summary.totalPlannedExpenses).toBe(100000);
     expect(summary.totalUnplannedExpenses).toBe(5000);
+    expect(summary.totalExpenses).toBe(105000);
     expect(summary.totalPaidExpenses).toBe(105000);
     expect(summary.remainingActual).toBe(475000);
     expect(summary.unexplainedDifferenceFromPreviousMonth).toBe(448000);
@@ -85,5 +86,37 @@ describe("budget calculations", () => {
 
     expect(summary.perPerson[0]?.paidExpenses).toBe(15000);
     expect(summary.perPerson[1]?.paidExpenses).toBe(15000);
+    expect(summary.perPerson[0]?.totalExpenses).toBe(15000);
+    expect(summary.perPerson[1]?.totalExpenses).toBe(15000);
+  });
+
+  it("räknar en gemensam utgift delvis betald per person", () => {
+    const summary = buildMonthSummary({
+      monthKey: "2026-04",
+      orderedMembers,
+      snapshots: [
+        { userId: "u1", incomeAmount: 100000, carryOverAmount: 0 },
+        { userId: "u2", incomeAmount: 100000, carryOverAmount: 0 },
+      ],
+      expenses: [
+        {
+          id: "e1",
+          amount: 30001,
+          category: "Boende",
+          planningType: "PLANNED",
+          payerType: "SHARED",
+          isPaid: false,
+          firstPersonPaidAt: new Date("2026-04-01"),
+          secondPersonPaidAt: null,
+          dueDate: null,
+        },
+      ],
+    });
+
+    expect(summary.totalExpenses).toBe(30001);
+    expect(summary.totalPaidExpenses).toBe(15000);
+    expect(summary.totalUnpaidExpenses).toBe(15001);
+    expect(summary.perPerson[0]?.paidExpenses).toBe(15000);
+    expect(summary.perPerson[1]?.paidExpenses).toBe(0);
   });
 });

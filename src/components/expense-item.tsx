@@ -22,6 +22,8 @@ type ExpenseItemProps = {
     dueDate: Date | null;
     isPaid: boolean;
     paidAt: Date | null;
+    firstPersonPaidAt: Date | null;
+    secondPersonPaidAt: Date | null;
     swishId: string | null;
     updatedAt: Date;
     updatedByUser: {
@@ -32,6 +34,11 @@ type ExpenseItemProps = {
   returnTo: string;
   isLocked: boolean;
   payerLabels: Record<PayerType, string>;
+  memberOptions: Array<{
+    label: string;
+    value: "FIRST_PERSON" | "SECOND_PERSON";
+  }>;
+  currentUserPayerType: "FIRST_PERSON" | "SECOND_PERSON";
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (expenseId: string) => void;
@@ -54,6 +61,8 @@ export function ExpenseItem({
   returnTo,
   isLocked,
   payerLabels,
+  memberOptions,
+  currentUserPayerType,
   selectionMode = false,
   isSelected = false,
   onToggleSelect,
@@ -61,6 +70,16 @@ export function ExpenseItem({
   const [isPending, startTransition] = useTransition();
   const [optimisticPaid, setOptimisticPaid] = useState(expense.isPaid);
   const [optimisticPaidAt, setOptimisticPaidAt] = useState<Date | null>(expense.paidAt);
+  const legacySharedPaidAt =
+    expense.payerType === PayerType.SHARED && expense.isPaid
+      ? expense.paidAt ?? new Date()
+      : null;
+  const [optimisticFirstPaidAt, setOptimisticFirstPaidAt] = useState<Date | null>(
+    expense.firstPersonPaidAt ?? legacySharedPaidAt,
+  );
+  const [optimisticSecondPaidAt, setOptimisticSecondPaidAt] = useState<Date | null>(
+    expense.secondPersonPaidAt ?? legacySharedPaidAt,
+  );
   const [optimisticSwishId, setOptimisticSwishId] = useState<string | null>(expense.swishId);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -74,8 +93,14 @@ export function ExpenseItem({
   }, [errorMessage]);
 
   const secondaryText = useMemo(() => {
+    const completedShares =
+      Number(Boolean(optimisticFirstPaidAt)) + Number(Boolean(optimisticSecondPaidAt));
     const paidLabel =
-      optimisticPaid && optimisticPaidAt ? `Betald ${formatShortDate(optimisticPaidAt)}` : "Obetald";
+      expense.payerType === PayerType.SHARED && !optimisticPaid
+        ? `${completedShares} av 2 klara`
+        : optimisticPaid && optimisticPaidAt
+          ? `Betald ${formatShortDate(optimisticPaidAt)}`
+          : "Obetald";
 
     const parts = [
       formatShortDate(expense.dueDate),
@@ -85,23 +110,60 @@ export function ExpenseItem({
     ].filter((value): value is string => Boolean(value));
 
     return parts.join(" · ");
-  }, [expense.category, expense.dueDate, expense.payerType, optimisticPaid, optimisticPaidAt, optimisticSwishId, payerLabels]);
+  }, [
+    expense.category,
+    expense.dueDate,
+    expense.payerType,
+    optimisticFirstPaidAt,
+    optimisticPaid,
+    optimisticPaidAt,
+    optimisticSecondPaidAt,
+    optimisticSwishId,
+    payerLabels,
+  ]);
 
-  const togglePaid = () => {
+  const togglePaid = (
+    targetPayerType?: "FIRST_PERSON" | "SECOND_PERSON",
+  ) => {
     if (isLocked || isPending || selectionMode) {
       return;
     }
 
-    const nextPaid = !optimisticPaid;
+    const targetPaidAt =
+      targetPayerType === PayerType.FIRST_PERSON
+        ? optimisticFirstPaidAt
+        : targetPayerType === PayerType.SECOND_PERSON
+          ? optimisticSecondPaidAt
+          : optimisticPaidAt;
+    const nextPaid = !targetPaidAt;
     const previousPaid = optimisticPaid;
     const previousPaidAt = optimisticPaidAt;
+    const previousFirstPaidAt = optimisticFirstPaidAt;
+    const previousSecondPaidAt = optimisticSecondPaidAt;
     const previousSwishId = optimisticSwishId;
     const nextPaidAt = nextPaid ? new Date() : null;
 
     setErrorMessage(null);
-    setOptimisticPaid(nextPaid);
-    setOptimisticPaidAt(nextPaidAt);
-    if (!nextPaid) {
+    if (expense.payerType === PayerType.SHARED && targetPayerType) {
+      const nextFirstPaidAt =
+        targetPayerType === PayerType.FIRST_PERSON
+          ? nextPaidAt
+          : optimisticFirstPaidAt;
+      const nextSecondPaidAt =
+        targetPayerType === PayerType.SECOND_PERSON
+          ? nextPaidAt
+          : optimisticSecondPaidAt;
+      const allPaid = Boolean(nextFirstPaidAt && nextSecondPaidAt);
+
+      setOptimisticFirstPaidAt(nextFirstPaidAt);
+      setOptimisticSecondPaidAt(nextSecondPaidAt);
+      setOptimisticPaid(allPaid);
+      setOptimisticPaidAt(allPaid ? new Date() : null);
+    } else {
+      setOptimisticPaid(nextPaid);
+      setOptimisticPaidAt(nextPaidAt);
+    }
+    if (!nextPaid || expense.payerType === PayerType.SHARED) {
       setOptimisticSwishId(null);
     }
 
@@ -110,12 +172,15 @@ export function ExpenseItem({
         monthId,
         expenseId: expense.id,
         nextPaidState: nextPaid ? "paid" : "unpaid",
+        targetPayerType,
         returnTo,
       });
 
       if (!result.ok) {
         setOptimisticPaid(previousPaid);
         setOptimisticPaidAt(previousPaidAt);
+        setOptimisticFirstPaidAt(previousFirstPaidAt);
+        setOptimisticSecondPaidAt(previousSecondPaidAt);
         setOptimisticSwishId(previousSwishId);
         setErrorMessage(result.message ?? "Kunde inte ändra betalstatus.");
         return;
@@ -123,6 +188,12 @@ export function ExpenseItem({
 
       setOptimisticPaid(result.isPaid);
       setOptimisticPaidAt(result.paidAt ? new Date(result.paidAt) : null);
+      setOptimisticFirstPaidAt(
+        result.firstPersonPaidAt ? new Date(result.firstPersonPaidAt) : null,
+      );
+      setOptimisticSecondPaidAt(
+        result.secondPersonPaidAt ? new Date(result.secondPersonPaidAt) : null,
+      );
       if (!result.isPaid) {
         setOptimisticSwishId(null);
       }
@@ -130,6 +201,47 @@ export function ExpenseItem({
   };
 
   const canSelect = selectionMode && !optimisticPaid && !isLocked;
+  const completedSharedParts =
+    Number(Boolean(optimisticFirstPaidAt)) +
+    Number(Boolean(optimisticSecondPaidAt));
+
+  const renderSharedPaidButton = (
+    payerType: "FIRST_PERSON" | "SECOND_PERSON",
+  ) => {
+    const member = memberOptions.find((option) => option.value === payerType);
+    const paidAt =
+      payerType === PayerType.FIRST_PERSON
+        ? optimisticFirstPaidAt
+        : optimisticSecondPaidAt;
+    const initial = member?.label.trim().charAt(0).toLocaleUpperCase("sv") || "?";
+
+    return (
+      <button
+        key={payerType}
+        type="button"
+        onClick={() => togglePaid(payerType)}
+        disabled={isLocked || isPending}
+        className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold transition ${
+          paidAt
+            ? "border-[rgba(34,197,94,0.55)] bg-[rgba(34,197,94,0.16)] text-white"
+            : "border-[var(--color-line)] bg-[var(--color-accent-strong)] text-[#09090b]"
+        } ${isPending ? "opacity-85" : ""}`}
+        aria-label={
+          paidAt
+            ? `Markera ${member?.label ?? "person"} som inte klar`
+            : `Markera ${member?.label ?? "person"} som klar`
+        }
+        title={member?.label}
+      >
+        {initial}
+        {paidAt ? (
+          <span className="absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-[var(--color-elevated)] bg-[#22c55e] text-white">
+            <Check className="h-2.5 w-2.5 stroke-[3]" />
+          </span>
+        ) : null}
+      </button>
+    );
+  };
 
   return (
     <article
@@ -162,10 +274,15 @@ export function ExpenseItem({
           >
             {isSelected ? <SquareCheckBig className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
           </button>
+        ) : expense.payerType === PayerType.SHARED ? (
+          <div className="flex shrink-0 items-center gap-1">
+            {renderSharedPaidButton(PayerType.FIRST_PERSON)}
+            {renderSharedPaidButton(PayerType.SECOND_PERSON)}
+          </div>
         ) : (
           <button
             type="button"
-            onClick={togglePaid}
+            onClick={() => togglePaid()}
             disabled={isLocked || isPending}
             className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition ${
               optimisticPaid
@@ -194,7 +311,12 @@ export function ExpenseItem({
                   : "bg-[var(--color-warning-soft)] text-[var(--color-warning)]"
               }`}
             >
-              {optimisticPaid ? "Betald" : "Obetald"}
+              {optimisticPaid
+                ? "Betald"
+                : expense.payerType === PayerType.SHARED &&
+                    completedSharedParts > 0
+                  ? "Delvis"
+                  : "Obetald"}
             </span>
             <p className="truncate text-[11px] text-[var(--color-muted)]">{secondaryText}</p>
           </div>
@@ -212,7 +334,14 @@ export function ExpenseItem({
                 </span>
               }
             >
-              <ExpenseForm monthId={monthId} returnTo={returnTo} isLocked={isLocked} expense={expense} />
+              <ExpenseForm
+                monthId={monthId}
+                returnTo={returnTo}
+                isLocked={isLocked}
+                expense={expense}
+                memberOptions={memberOptions}
+                currentUserPayerType={currentUserPayerType}
+              />
             </ModalLauncher>
 
             <form action={deleteExpenseAction}>

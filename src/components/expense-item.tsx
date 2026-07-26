@@ -1,7 +1,7 @@
 "use client";
 
 import { PayerType } from "@prisma/client";
-import { Check, Circle, Pencil, SquareCheckBig, Trash2 } from "lucide-react";
+import { Check, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { FormStatusButton } from "@/components/form-status-button";
@@ -58,6 +58,17 @@ function formatShortDate(date: Date | null) {
     month: "short",
   }).format(date);
 }
+
+function personOpenColor(
+  payerType: "FIRST_PERSON" | "SECOND_PERSON",
+) {
+  return payerType === PayerType.FIRST_PERSON
+    ? "border-[rgba(167,243,208,0.72)] bg-[#a7f3d0] text-[#052e2b]"
+    : "border-[rgba(196,181,253,0.72)] bg-[#c4b5fd] text-[#24164f]";
+}
+
+const completedPersonColor =
+  "border-[rgba(34,197,94,0.78)] bg-[#22c55e] text-white shadow-[0_6px_16px_rgba(34,197,94,0.18)]";
 
 export function ExpenseItem({
   expense,
@@ -213,6 +224,15 @@ export function ExpenseItem({
   const completedSharedParts =
     Number(Boolean(optimisticFirstPaidAt)) +
     Number(Boolean(optimisticSecondPaidAt));
+  const singlePayerType =
+    expense.payerType === PayerType.SECOND_PERSON
+      ? PayerType.SECOND_PERSON
+      : PayerType.FIRST_PERSON;
+  const singleMember = memberOptions.find(
+    (option) => option.value === singlePayerType,
+  );
+  const singleInitial =
+    singleMember?.label.trim().charAt(0).toLocaleUpperCase("sv") || "?";
 
   const renderSharedPaidButton = (
     payerType: "FIRST_PERSON" | "SECOND_PERSON",
@@ -232,8 +252,8 @@ export function ExpenseItem({
         disabled={isLocked || isPending}
         className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold transition ${
           paidAt
-            ? "border-[rgba(34,197,94,0.55)] bg-[rgba(34,197,94,0.16)] text-white"
-            : "border-[var(--color-line)] bg-[var(--color-accent-strong)] text-[#09090b]"
+            ? completedPersonColor
+            : personOpenColor(payerType)
         } ${isPending ? "opacity-85" : ""}`}
         aria-label={
           paidAt
@@ -244,7 +264,7 @@ export function ExpenseItem({
       >
         {initial}
         {paidAt ? (
-          <span className="absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-[var(--color-elevated)] bg-[#22c55e] text-white">
+          <span className="absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-[var(--color-elevated)] bg-[#f4f4f5] text-[#15803d]">
             <Check className="h-2.5 w-2.5 stroke-[3]" />
           </span>
         ) : null}
@@ -276,11 +296,9 @@ export function ExpenseItem({
         }
         disabled={disabled}
         className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold transition ${
-          selected
-            ? "border-[rgba(244,244,245,0.48)] bg-[var(--color-accent-strong)] text-[#09090b]"
-            : paidAt
-              ? "border-[rgba(34,197,94,0.35)] bg-[rgba(34,197,94,0.12)] text-[var(--color-muted)]"
-              : "border-[var(--color-line)] bg-[rgba(255,255,255,0.05)] text-[var(--color-ink)]"
+          selected || paidAt
+            ? completedPersonColor
+            : personOpenColor(payerType)
         } ${disabled ? "opacity-55" : ""}`}
         aria-label={`${selected ? "Ta bort" : "Lägg till"} ${member?.label ?? "person"}s halva`}
         title={`${member?.label ?? "Person"} · ${formatCurrency(
@@ -288,8 +306,8 @@ export function ExpenseItem({
         )}`}
       >
         {initial}
-        {selected ? (
-          <span className="absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-[var(--color-elevated)] bg-[#22c55e] text-white">
+        {selected || paidAt ? (
+          <span className="absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-[var(--color-elevated)] bg-[#f4f4f5] text-[#15803d]">
             <Check className="h-2.5 w-2.5 stroke-[3]" />
           </span>
         ) : null}
@@ -328,14 +346,19 @@ export function ExpenseItem({
               }
             }}
             disabled={!canSelect}
-            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition ${
-              isSelected
-                ? "bg-[var(--color-accent-strong)] text-[#09090b]"
-                : "bg-[rgba(255,255,255,0.05)] text-[var(--color-muted)]"
+            className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold transition ${
+              isSelected || optimisticPaid
+                ? completedPersonColor
+                : personOpenColor(singlePayerType)
             } ${!canSelect ? "opacity-50" : ""}`}
             aria-label={isSelected ? "Ta bort från Swish-markering" : "Lägg till i Swish-markering"}
           >
-            {isSelected ? <SquareCheckBig className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+            {singleInitial}
+            {isSelected || optimisticPaid ? (
+              <span className="absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-[var(--color-elevated)] bg-[#f4f4f5] text-[#15803d]">
+                <Check className="h-2.5 w-2.5 stroke-[3]" />
+              </span>
+            ) : null}
           </button>
         ) : expense.payerType === PayerType.SHARED ? (
           <div className="flex shrink-0 items-center gap-1">
@@ -347,16 +370,23 @@ export function ExpenseItem({
             type="button"
             onClick={() => togglePaid()}
             disabled={isLocked || isPending}
-            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition ${
+            className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold transition ${
               optimisticPaid
-                ? "bg-[#22c55e] text-white shadow-[0_8px_18px_rgba(34,197,94,0.22)]"
-                : "bg-[var(--color-accent-strong)] text-[#09090b]"
+                ? completedPersonColor
+                : personOpenColor(singlePayerType)
             } ${isPending ? "opacity-85" : ""}`}
             aria-busy={isPending}
             aria-label={optimisticPaid ? "Markera som obetald" : "Markera som betald"}
-            title={optimisticPaid ? "Markera som obetald" : "Markera som betald"}
+            title={`${singleMember?.label ?? "Person"} · ${
+              optimisticPaid ? "Betald" : "Obetald"
+            }`}
           >
-            {isPending ? <span className="spinner h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" />}
+            {singleInitial}
+            {optimisticPaid ? (
+              <span className="absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-[var(--color-elevated)] bg-[#f4f4f5] text-[#15803d]">
+                <Check className="h-2.5 w-2.5 stroke-[3]" />
+              </span>
+            ) : null}
           </button>
         )}
 

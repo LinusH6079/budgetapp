@@ -2,7 +2,7 @@
 
 import { PayerType } from "@prisma/client";
 import { Check, Pencil, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { ModalLauncher } from "@/components/modal-launcher";
@@ -82,7 +82,6 @@ export function ExpenseItem({
   selectedParts = [],
   onToggleSelect,
 }: ExpenseItemProps) {
-  const [isPending, startTransition] = useTransition();
   const [optimisticPaid, setOptimisticPaid] = useState(expense.isPaid);
   const [optimisticPaidAt, setOptimisticPaidAt] = useState<Date | null>(expense.paidAt);
   const legacySharedPaidAt =
@@ -97,6 +96,20 @@ export function ExpenseItem({
   );
   const [optimisticSwishId, setOptimisticSwishId] = useState<string | null>(expense.swishId);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSavingPaidState, setIsSavingPaidState] = useState(false);
+  const confirmedPaidState = useRef({
+    paid: expense.isPaid,
+    paidAt: expense.paidAt,
+    firstPaidAt: expense.firstPersonPaidAt ?? legacySharedPaidAt,
+    secondPaidAt: expense.secondPersonPaidAt ?? legacySharedPaidAt,
+    swishId: expense.swishId,
+  });
+  const desiredPaidState = useRef({
+    paid: expense.isPaid,
+    first: Boolean(expense.firstPersonPaidAt ?? legacySharedPaidAt),
+    second: Boolean(expense.secondPersonPaidAt ?? legacySharedPaidAt),
+  });
+  const isFlushingPaidState = useRef(false);
 
   useEffect(() => {
     if (!errorMessage) {
@@ -137,82 +150,125 @@ export function ExpenseItem({
     payerLabels,
   ]);
 
-  const togglePaid = (
-    targetPayerType?: "FIRST_PERSON" | "SECOND_PERSON",
-  ) => {
-    if (isLocked || isPending || selectionMode) {
+  const applyConfirmedPaidState = () => {
+    const confirmed = confirmedPaidState.current;
+    setOptimisticPaid(confirmed.paid);
+    setOptimisticPaidAt(confirmed.paidAt);
+    setOptimisticFirstPaidAt(confirmed.firstPaidAt);
+    setOptimisticSecondPaidAt(confirmed.secondPaidAt);
+    setOptimisticSwishId(confirmed.swishId);
+  };
+
+  const flushPaidState = async () => {
+    if (isFlushingPaidState.current) {
       return;
     }
 
-    const targetPaidAt =
-      targetPayerType === PayerType.FIRST_PERSON
-        ? optimisticFirstPaidAt
-        : targetPayerType === PayerType.SECOND_PERSON
-          ? optimisticSecondPaidAt
-          : optimisticPaidAt;
-    const nextPaid = !targetPaidAt;
-    const previousPaid = optimisticPaid;
-    const previousPaidAt = optimisticPaidAt;
-    const previousFirstPaidAt = optimisticFirstPaidAt;
-    const previousSecondPaidAt = optimisticSecondPaidAt;
-    const previousSwishId = optimisticSwishId;
-    const nextPaidAt = nextPaid ? new Date() : null;
+    isFlushingPaidState.current = true;
+    setIsSavingPaidState(true);
+
+    try {
+      while (true) {
+        const confirmed = confirmedPaidState.current;
+        const desired = desiredPaidState.current;
+        let targetPayerType: "FIRST_PERSON" | "SECOND_PERSON" | undefined;
+        let nextPaid: boolean;
+
+        if (expense.payerType === PayerType.SHARED) {
+          const confirmedFirst = Boolean(confirmed.firstPaidAt);
+          const confirmedSecond = Boolean(confirmed.secondPaidAt);
+
+          if (confirmedFirst !== desired.first) {
+            targetPayerType = PayerType.FIRST_PERSON;
+            nextPaid = desired.first;
+          } else if (confirmedSecond !== desired.second) {
+            targetPayerType = PayerType.SECOND_PERSON;
+            nextPaid = desired.second;
+          } else {
+            applyConfirmedPaidState();
+            break;
+          }
+        } else if (confirmed.paid !== desired.paid) {
+          nextPaid = desired.paid;
+        } else {
+          applyConfirmedPaidState();
+          break;
+        }
+
+        const result = await toggleExpensePaidOptimisticAction({
+          monthId,
+          expenseId: expense.id,
+          nextPaidState: nextPaid ? "paid" : "unpaid",
+          targetPayerType,
+          returnTo,
+        });
+
+        if (!result.ok) {
+          desiredPaidState.current = {
+            paid: confirmed.paid,
+            first: Boolean(confirmed.firstPaidAt),
+            second: Boolean(confirmed.secondPaidAt),
+          };
+          applyConfirmedPaidState();
+          setErrorMessage(result.message ?? "Kunde inte ändra betalstatus.");
+          break;
+        }
+
+        confirmedPaidState.current = {
+          paid: result.isPaid,
+          paidAt: result.paidAt ? new Date(result.paidAt) : null,
+          firstPaidAt: result.firstPersonPaidAt
+            ? new Date(result.firstPersonPaidAt)
+            : null,
+          secondPaidAt: result.secondPersonPaidAt
+            ? new Date(result.secondPersonPaidAt)
+            : null,
+          swishId:
+            !result.isPaid || expense.payerType === PayerType.SHARED
+              ? null
+              : confirmed.swishId,
+        };
+      }
+    } finally {
+      isFlushingPaidState.current = false;
+      setIsSavingPaidState(false);
+    }
+  };
+
+  const togglePaid = (
+    targetPayerType?: "FIRST_PERSON" | "SECOND_PERSON",
+  ) => {
+    if (isLocked || selectionMode) {
+      return;
+    }
 
     setErrorMessage(null);
+    const desired = desiredPaidState.current;
+    const toggledAt = new Date();
+
     if (expense.payerType === PayerType.SHARED && targetPayerType) {
-      const nextFirstPaidAt =
-        targetPayerType === PayerType.FIRST_PERSON
-          ? nextPaidAt
-          : optimisticFirstPaidAt;
-      const nextSecondPaidAt =
-        targetPayerType === PayerType.SECOND_PERSON
-          ? nextPaidAt
-          : optimisticSecondPaidAt;
-      const allPaid = Boolean(nextFirstPaidAt && nextSecondPaidAt);
-
-      setOptimisticFirstPaidAt(nextFirstPaidAt);
-      setOptimisticSecondPaidAt(nextSecondPaidAt);
-      setOptimisticPaid(allPaid);
-      setOptimisticPaidAt(allPaid ? new Date() : null);
-    } else {
-      setOptimisticPaid(nextPaid);
-      setOptimisticPaidAt(nextPaidAt);
-    }
-    if (!nextPaid || expense.payerType === PayerType.SHARED) {
-      setOptimisticSwishId(null);
-    }
-
-    startTransition(async () => {
-      const result = await toggleExpensePaidOptimisticAction({
-        monthId,
-        expenseId: expense.id,
-        nextPaidState: nextPaid ? "paid" : "unpaid",
-        targetPayerType,
-        returnTo,
-      });
-
-      if (!result.ok) {
-        setOptimisticPaid(previousPaid);
-        setOptimisticPaidAt(previousPaidAt);
-        setOptimisticFirstPaidAt(previousFirstPaidAt);
-        setOptimisticSecondPaidAt(previousSecondPaidAt);
-        setOptimisticSwishId(previousSwishId);
-        setErrorMessage(result.message ?? "Kunde inte ändra betalstatus.");
-        return;
+      if (targetPayerType === PayerType.FIRST_PERSON) {
+        desired.first = !desired.first;
+        setOptimisticFirstPaidAt(desired.first ? toggledAt : null);
+      } else {
+        desired.second = !desired.second;
+        setOptimisticSecondPaidAt(desired.second ? toggledAt : null);
       }
 
-      setOptimisticPaid(result.isPaid);
-      setOptimisticPaidAt(result.paidAt ? new Date(result.paidAt) : null);
-      setOptimisticFirstPaidAt(
-        result.firstPersonPaidAt ? new Date(result.firstPersonPaidAt) : null,
-      );
-      setOptimisticSecondPaidAt(
-        result.secondPersonPaidAt ? new Date(result.secondPersonPaidAt) : null,
-      );
-      if (!result.isPaid) {
+      desired.paid = desired.first && desired.second;
+      setOptimisticPaid(desired.paid);
+      setOptimisticPaidAt(desired.paid ? toggledAt : null);
+      setOptimisticSwishId(null);
+    } else {
+      desired.paid = !desired.paid;
+      setOptimisticPaid(desired.paid);
+      setOptimisticPaidAt(desired.paid ? toggledAt : null);
+      if (!desired.paid) {
         setOptimisticSwishId(null);
       }
-    });
+    }
+
+    void flushPaidState();
   };
 
   const canSelect =
@@ -249,12 +305,13 @@ export function ExpenseItem({
         key={payerType}
         type="button"
         onClick={() => togglePaid(payerType)}
-        disabled={isLocked || isPending}
+        disabled={isLocked}
         className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold transition ${
           paidAt
             ? completedPersonColor
             : personOpenColor(payerType)
-        } ${isPending ? "opacity-85" : ""}`}
+        }`}
+        aria-busy={isSavingPaidState}
         aria-label={
           paidAt
             ? `Markera ${member?.label ?? "person"} som inte klar`
@@ -369,13 +426,13 @@ export function ExpenseItem({
           <button
             type="button"
             onClick={() => togglePaid()}
-            disabled={isLocked || isPending}
+            disabled={isLocked}
             className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold transition ${
               optimisticPaid
                 ? completedPersonColor
                 : personOpenColor(singlePayerType)
-            } ${isPending ? "opacity-85" : ""}`}
-            aria-busy={isPending}
+            }`}
+            aria-busy={isSavingPaidState}
             aria-label={optimisticPaid ? "Markera som obetald" : "Markera som betald"}
             title={`${singleMember?.label ?? "Person"} · ${
               optimisticPaid ? "Betald" : "Obetald"

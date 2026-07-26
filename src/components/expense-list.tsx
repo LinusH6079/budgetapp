@@ -341,7 +341,7 @@ export function ExpenseList({
             <div className="grid gap-2">
               {visibleExpenses.map((expense) => (
                 <ExpenseItem
-                  key={`${expense.id}-${expense.isPaid ? "paid" : "unpaid"}-${expense.paidAt?.toISOString() ?? "none"}-${expense.firstPersonPaidAt?.toISOString() ?? "first-open"}-${expense.secondPersonPaidAt?.toISOString() ?? "second-open"}-${expense.swishId ?? "no-swish"}`}
+                  key={expense.id}
                   expense={expense}
                   monthId={monthId}
                   returnTo={returnTo}

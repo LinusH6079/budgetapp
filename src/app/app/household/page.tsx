@@ -48,6 +48,9 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
   });
 
   const members = mapMembersToSlots(household);
+  const memberNameBySlot = new Map(
+    members.map((member) => [member.slot, member.name]),
+  );
   const headersList = await headers();
   const host = headersList.get("x-forwarded-host") ?? headersList.get("host") ?? "localhost:3000";
   const protocol = headersList.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
@@ -145,10 +148,16 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold">{expense.name}</p>
                         <p className="mt-1 text-[12px] text-[var(--color-muted)]">
-                          {formatMonthLabel(expense.budgetMonth.monthKey)} · {expense.category}
+                          {formatMonthLabel(expense.budgetMonth.monthKey)} · {expense.category} ·{" "}
+                          {expense.settlementPayerType === "SHARED"
+                            ? "Båda"
+                            : memberNameBySlot.get(expense.settlementPayerType) ??
+                              "Person"}
                         </p>
                       </div>
-                      <p className="shrink-0 text-sm font-semibold">{formatCurrency(expense.amount)}</p>
+                      <p className="shrink-0 text-sm font-semibold">
+                        {formatCurrency(expense.settlementAmount)}
+                      </p>
                     </div>
                   </div>
                 ))

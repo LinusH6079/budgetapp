@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { ModalLauncher } from "@/components/modal-launcher";
+import { expensePartAmount } from "@/lib/budget-calculations";
 import { formatCurrency } from "@/lib/money";
 import { deleteExpenseAction, toggleExpensePaidOptimisticAction } from "@/server/actions/expense-actions";
 
@@ -40,8 +41,11 @@ type ExpenseItemProps = {
   }>;
   currentUserPayerType: "FIRST_PERSON" | "SECOND_PERSON";
   selectionMode?: boolean;
-  isSelected?: boolean;
-  onToggleSelect?: (expenseId: string) => void;
+  selectedParts?: Array<"FIRST_PERSON" | "SECOND_PERSON" | "FULL">;
+  onToggleSelect?: (selection: {
+    expenseId: string;
+    targetPayerType?: "FIRST_PERSON" | "SECOND_PERSON";
+  }) => void;
 };
 
 function formatShortDate(date: Date | null) {
@@ -64,7 +68,7 @@ export function ExpenseItem({
   memberOptions,
   currentUserPayerType,
   selectionMode = false,
-  isSelected = false,
+  selectedParts = [],
   onToggleSelect,
 }: ExpenseItemProps) {
   const [isPending, startTransition] = useTransition();
@@ -200,7 +204,12 @@ export function ExpenseItem({
     });
   };
 
-  const canSelect = selectionMode && !optimisticPaid && !isLocked;
+  const canSelect =
+    selectionMode &&
+    expense.payerType !== PayerType.SHARED &&
+    !optimisticPaid &&
+    !isLocked;
+  const isSelected = selectedParts.length > 0;
   const completedSharedParts =
     Number(Boolean(optimisticFirstPaidAt)) +
     Number(Boolean(optimisticSecondPaidAt));
@@ -243,6 +252,51 @@ export function ExpenseItem({
     );
   };
 
+  const renderSharedSelectionButton = (
+    payerType: "FIRST_PERSON" | "SECOND_PERSON",
+  ) => {
+    const member = memberOptions.find((option) => option.value === payerType);
+    const paidAt =
+      payerType === PayerType.FIRST_PERSON
+        ? optimisticFirstPaidAt
+        : optimisticSecondPaidAt;
+    const selected = selectedParts.includes(payerType);
+    const initial = member?.label.trim().charAt(0).toLocaleUpperCase("sv") || "?";
+    const disabled = Boolean(paidAt) || isLocked;
+
+    return (
+      <button
+        key={payerType}
+        type="button"
+        onClick={() =>
+          onToggleSelect?.({
+            expenseId: expense.id,
+            targetPayerType: payerType,
+          })
+        }
+        disabled={disabled}
+        className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[13px] font-semibold transition ${
+          selected
+            ? "border-[rgba(244,244,245,0.48)] bg-[var(--color-accent-strong)] text-[#09090b]"
+            : paidAt
+              ? "border-[rgba(34,197,94,0.35)] bg-[rgba(34,197,94,0.12)] text-[var(--color-muted)]"
+              : "border-[var(--color-line)] bg-[rgba(255,255,255,0.05)] text-[var(--color-ink)]"
+        } ${disabled ? "opacity-55" : ""}`}
+        aria-label={`${selected ? "Ta bort" : "Lägg till"} ${member?.label ?? "person"}s halva`}
+        title={`${member?.label ?? "Person"} · ${formatCurrency(
+          expensePartAmount(expense.amount, payerType),
+        )}`}
+      >
+        {initial}
+        {selected ? (
+          <span className="absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-[var(--color-elevated)] bg-[#22c55e] text-white">
+            <Check className="h-2.5 w-2.5 stroke-[3]" />
+          </span>
+        ) : null}
+      </button>
+    );
+  };
+
   return (
     <article
       className={`w-full overflow-hidden rounded-[16px] border px-3 py-2.5 transition-[background-color,border-color,transform] duration-200 ${
@@ -252,16 +306,25 @@ export function ExpenseItem({
             ? "border-[rgba(34,197,94,0.28)] bg-[rgba(20,83,45,0.16)]"
             : "border-[var(--color-line)] bg-[var(--color-elevated)]"
       } ${canSelect ? "cursor-pointer" : ""}`}
-      onClick={canSelect && onToggleSelect ? () => onToggleSelect(expense.id) : undefined}
+      onClick={
+        canSelect && onToggleSelect
+          ? () => onToggleSelect({ expenseId: expense.id })
+          : undefined
+      }
     >
       <div className="flex items-center gap-2.5">
-        {selectionMode ? (
+        {selectionMode && expense.payerType === PayerType.SHARED ? (
+          <div className="flex shrink-0 items-center gap-1">
+            {renderSharedSelectionButton(PayerType.FIRST_PERSON)}
+            {renderSharedSelectionButton(PayerType.SECOND_PERSON)}
+          </div>
+        ) : selectionMode ? (
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
               if (canSelect && onToggleSelect) {
-                onToggleSelect(expense.id);
+                onToggleSelect({ expenseId: expense.id });
               }
             }}
             disabled={!canSelect}

@@ -20,6 +20,18 @@ export type BudgetPersonSnapshotLike = {
 
 export type PersonSlot = "FIRST_PERSON" | "SECOND_PERSON";
 
+export function expensePartAmount(
+  amount: number,
+  payerType?: PersonSlot,
+) {
+  if (!payerType) {
+    return amount;
+  }
+
+  const firstHalf = Math.floor(amount / 2);
+  return payerType === "FIRST_PERSON" ? firstHalf : amount - firstHalf;
+}
+
 export type OrderedMember = {
   userId: string;
   name: string;

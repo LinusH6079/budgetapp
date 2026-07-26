@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildMonthSummary } from "@/lib/budget-calculations";
+import {
+  buildMonthSummary,
+  expensePartAmount,
+} from "@/lib/budget-calculations";
 
 describe("budget calculations", () => {
   const orderedMembers = [
@@ -118,5 +121,16 @@ describe("budget calculations", () => {
     expect(summary.totalUnpaidExpenses).toBe(15001);
     expect(summary.perPerson[0]?.paidExpenses).toBe(15000);
     expect(summary.perPerson[1]?.paidExpenses).toBe(0);
+  });
+});
+
+describe("expensePartAmount", () => {
+  it("delar alltid hela beloppet 50/50 utan att tappa avrundningsören", () => {
+    expect(expensePartAmount(10001, "FIRST_PERSON")).toBe(5000);
+    expect(expensePartAmount(10001, "SECOND_PERSON")).toBe(5001);
+    expect(
+      expensePartAmount(10001, "FIRST_PERSON") +
+        expensePartAmount(10001, "SECOND_PERSON"),
+    ).toBe(10001);
   });
 });

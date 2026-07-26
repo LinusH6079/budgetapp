@@ -49,6 +49,8 @@ export function buildRecurringExpenseCopyData(
     paidAt: null,
     firstPersonPaidAt: null,
     secondPersonPaidAt: null,
+    firstPersonSwishId: null,
+    secondPersonSwishId: null,
     note: expense.note,
     updatedByUserId,
   };

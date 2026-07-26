@@ -169,7 +169,10 @@ export async function toggleExpensePaidOptimisticAction(input: {
 
 export async function settleExpensesWithSwishAction(input: {
   monthId: string;
-  expenseIds: string[];
+  selections: Array<{
+    expenseId: string;
+    targetPayerType?: "FIRST_PERSON" | "SECOND_PERSON";
+  }>;
   swishId: string;
   returnTo?: string;
 }) {
@@ -187,7 +190,7 @@ export async function settleExpensesWithSwishAction(input: {
     const result = await settleExpensesWithSwishForUser({
       actorUserId: user.id,
       monthId: parsed.data.monthId,
-      expenseIds: parsed.data.expenseIds,
+      selections: parsed.data.selections,
       swishId: parsed.data.swishId,
     });
 

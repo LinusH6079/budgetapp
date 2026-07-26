@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { ExpenseItem } from "@/components/expense-item";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { PendingLink } from "@/components/pending-link";
+import { expensePartAmount } from "@/lib/budget-calculations";
 import { formatCurrency } from "@/lib/money";
 import { settleExpensesWithSwishAction } from "@/server/actions/expense-actions";
 
@@ -28,6 +29,8 @@ type ExpenseListProps = {
     firstPersonPaidAt: Date | null;
     secondPersonPaidAt: Date | null;
     swishId: string | null;
+    firstPersonSwishId: string | null;
+    secondPersonSwishId: string | null;
     updatedAt: Date;
     updatedByUser: {
       name: string;
@@ -52,6 +55,15 @@ type ExpenseListProps = {
   }>;
 };
 
+type SwishSelection = {
+  expenseId: string;
+  targetPayerType?: "FIRST_PERSON" | "SECOND_PERSON";
+};
+
+function selectionKey(selection: SwishSelection) {
+  return `${selection.expenseId}:${selection.targetPayerType ?? "FULL"}`;
+}
+
 export function ExpenseList({
   monthId,
   returnTo,
@@ -68,7 +80,7 @@ export function ExpenseList({
   const [isPending, startTransition] = useTransition();
   const [activePayers, setActivePayers] = useState<PayerType[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
+  const [selectedParts, setSelectedParts] = useState<SwishSelection[]>([]);
   const [swishId, setSwishId] = useState("");
   const [settleError, setSettleError] = useState<string | null>(null);
   const [settleNotice, setSettleNotice] = useState<string | null>(null);
@@ -85,13 +97,32 @@ export function ExpenseList({
     );
   }, [activePayers, expenses]);
 
-  const selectedExpenses = useMemo(
-    () => visibleExpenses.filter((expense) => selectedExpenseIds.includes(expense.id)),
-    [selectedExpenseIds, visibleExpenses],
-  );
+  const selectedTotal = selectedParts.reduce((sum, selection) => {
+    const expense = expenses.find(
+      (candidate) => candidate.id === selection.expenseId,
+    );
 
-  const selectedTotal = selectedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const selectableExpenseCount = visibleExpenses.filter((expense) => !expense.isPaid).length;
+    if (!expense) {
+      return sum;
+    }
+
+    if (expense.payerType !== PayerType.SHARED) {
+      return sum + expense.amount;
+    }
+
+    return sum + expensePartAmount(expense.amount, selection.targetPayerType);
+  }, 0);
+  const selectableExpenseCount = visibleExpenses.reduce((count, expense) => {
+    if (expense.payerType !== PayerType.SHARED) {
+      return count + Number(!expense.isPaid);
+    }
+
+    return (
+      count +
+      Number(!expense.firstPersonPaidAt) +
+      Number(!expense.secondPersonPaidAt)
+    );
+  }, 0);
 
   const togglePayer = (payer: PayerType) => {
     setActivePayers((current) =>
@@ -103,7 +134,7 @@ export function ExpenseList({
     setSelectionMode((current) => {
       const nextValue = !current;
       if (!nextValue) {
-        setSelectedExpenseIds([]);
+        setSelectedParts([]);
         setSwishId("");
         setSettleError(null);
       }
@@ -111,14 +142,17 @@ export function ExpenseList({
     });
   };
 
-  const toggleExpenseSelection = (expenseId: string) => {
-    setSelectedExpenseIds((current) =>
-      current.includes(expenseId) ? current.filter((id) => id !== expenseId) : [...current, expenseId],
+  const toggleExpenseSelection = (selection: SwishSelection) => {
+    const key = selectionKey(selection);
+    setSelectedParts((current) =>
+      current.some((part) => selectionKey(part) === key)
+        ? current.filter((part) => selectionKey(part) !== key)
+        : [...current, selection],
     );
   };
 
   const settleSelectedExpenses = () => {
-    if (isPending || selectedExpenseIds.length === 0) {
+    if (isPending || selectedParts.length === 0) {
       return;
     }
 
@@ -128,7 +162,7 @@ export function ExpenseList({
     startTransition(async () => {
       const result = await settleExpensesWithSwishAction({
         monthId,
-        expenseIds: selectedExpenseIds,
+        selections: selectedParts,
         swishId,
         returnTo,
       });
@@ -139,9 +173,9 @@ export function ExpenseList({
       }
 
       setSelectionMode(false);
-      setSelectedExpenseIds([]);
+      setSelectedParts([]);
       setSwishId("");
-      setSettleNotice(`Swish ${result.swishId} sparades för ${result.count} utgifter.`);
+      setSettleNotice(`Swish ${result.swishId} sparades för ${result.count} delar.`);
       router.refresh();
     });
   };
@@ -261,11 +295,11 @@ export function ExpenseList({
               <div>
                 <p className="text-sm font-semibold">Swish-markera flera</p>
                 <p className="mt-1 text-[12px] text-[var(--color-muted)]">
-                  Välj utgifter, se totalsumman och spara samma Swish ID som du använder utanför appen.
+                  Välj hela utgifter eller en persons halva och spara samma Swish ID som du använder utanför appen.
                 </p>
               </div>
               <span className="rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-ink)]">
-                {selectedExpenseIds.length} valda
+                {selectedParts.length} valda
               </span>
             </div>
 
@@ -292,7 +326,7 @@ export function ExpenseList({
             <button
               type="button"
               onClick={settleSelectedExpenses}
-              disabled={isPending || selectedExpenseIds.length === 0 || swishId.trim().length === 0}
+              disabled={isPending || selectedParts.length === 0 || swishId.trim().length === 0}
               className="action-button action-primary mt-3 w-full justify-center"
             >
               {isPending ? "Markerar..." : "Markera valda som klara"}
@@ -316,7 +350,9 @@ export function ExpenseList({
                   memberOptions={memberOptions}
                   currentUserPayerType={currentUserPayerType}
                   selectionMode={selectionMode}
-                  isSelected={selectedExpenseIds.includes(expense.id)}
+                  selectedParts={selectedParts
+                    .filter((part) => part.expenseId === expense.id)
+                    .map((part) => part.targetPayerType ?? "FULL")}
                   onToggleSelect={toggleExpenseSelection}
                 />
               ))}

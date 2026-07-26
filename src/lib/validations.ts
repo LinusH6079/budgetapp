@@ -112,7 +112,29 @@ export const toggleExpensePaidSchema = z.object({
 
 export const settleExpensesWithSwishSchema = z.object({
   monthId: z.string().cuid(),
-  expenseIds: z.array(z.string().cuid()).min(1, "Välj minst en utgift."),
+  selections: z
+    .array(
+      z.object({
+        expenseId: z.string().cuid(),
+        targetPayerType: z
+          .enum([PayerType.FIRST_PERSON, PayerType.SECOND_PERSON])
+          .optional(),
+      }),
+    )
+    .min(1, "Välj minst en utgift eller persondel.")
+    .superRefine((selections, ctx) => {
+      const keys = selections.map(
+        (selection) =>
+          `${selection.expenseId}:${selection.targetPayerType ?? "FULL"}`,
+      );
+
+      if (new Set(keys).size !== keys.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Samma utgiftsdel kan bara väljas en gång.",
+        });
+      }
+    }),
   swishId: z
     .string()
     .trim()
@@ -144,6 +166,8 @@ const importExpenseSchema = z.object({
   paidAt: z.string().nullable(),
   firstPersonPaidAt: z.string().nullable().optional(),
   secondPersonPaidAt: z.string().nullable().optional(),
+  firstPersonSwishId: z.string().nullable().optional(),
+  secondPersonSwishId: z.string().nullable().optional(),
   note: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

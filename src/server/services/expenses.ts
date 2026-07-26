@@ -2,6 +2,7 @@ import { Prisma, PayerType, PlanningType } from "@prisma/client";
 
 import { db } from "@/lib/db";
 import { getNextMonthKey } from "@/lib/date";
+import { expensePartAmount } from "@/lib/budget-calculations";
 import { assertMonthEditable } from "@/server/services/access";
 import { buildRecurringExpenseCopyData } from "@/server/services/budget-months";
 import { getHouseholdForUser } from "@/server/services/households";
@@ -156,6 +157,14 @@ export async function upsertExpenseForUser(input: {
       input.payerType === PayerType.SECOND_PERSON ? null : existingFirstPaidAt;
     const secondPersonPaidAt =
       input.payerType === PayerType.FIRST_PERSON ? null : existingSecondPaidAt;
+    const firstPersonSwishId =
+      input.payerType === PayerType.SECOND_PERSON
+        ? null
+        : existingExpense?.firstPersonSwishId ?? null;
+    const secondPersonSwishId =
+      input.payerType === PayerType.FIRST_PERSON
+        ? null
+        : existingExpense?.secondPersonSwishId ?? null;
     const isPaid =
       input.payerType === PayerType.SHARED
         ? Boolean(firstPersonPaidAt && secondPersonPaidAt)
@@ -175,6 +184,8 @@ export async function upsertExpenseForUser(input: {
       paidAt: isPaid ? existingExpense?.paidAt ?? new Date() : null,
       firstPersonPaidAt,
       secondPersonPaidAt,
+      firstPersonSwishId,
+      secondPersonSwishId,
       note: null,
       updatedByUserId: input.actorUserId,
     } as const;
@@ -271,7 +282,15 @@ export async function setExpensePaidStateForUser(input: {
         paidAt: isPaid ? new Date() : null,
         firstPersonPaidAt,
         secondPersonPaidAt,
-        swishId: isPaid ? undefined : null,
+        firstPersonSwishId:
+          input.targetPayerType === PayerType.FIRST_PERSON && !nextPaidAt
+            ? null
+            : undefined,
+        secondPersonSwishId:
+          input.targetPayerType === PayerType.SECOND_PERSON && !nextPaidAt
+            ? null
+            : undefined,
+        swishId: null,
         updatedByUserId: input.actorUserId,
       },
     });
@@ -292,6 +311,8 @@ export async function setExpensePaidStateForUser(input: {
         expense.payerType === PayerType.FIRST_PERSON ? nextPaidAt : null,
       secondPersonPaidAt:
         expense.payerType === PayerType.SECOND_PERSON ? nextPaidAt : null,
+      firstPersonSwishId: null,
+      secondPersonSwishId: null,
       swishId: input.nextPaidState === "paid" ? undefined : null,
       updatedByUserId: input.actorUserId,
     },
@@ -301,61 +322,149 @@ export async function setExpensePaidStateForUser(input: {
 export async function settleExpensesWithSwishForUser(input: {
   actorUserId: string;
   monthId: string;
-  expenseIds: string[];
+  selections: Array<{
+    expenseId: string;
+    targetPayerType?: "FIRST_PERSON" | "SECOND_PERSON";
+  }>;
   swishId: string;
 }) {
   const month = await requireExpenseAccess(input.actorUserId, input.monthId);
   assertMonthEditable(month.isLocked);
 
   return db.$transaction(async (tx) => {
+    const expenseIds = [
+      ...new Set(input.selections.map((selection) => selection.expenseId)),
+    ];
     const expenses = await tx.expense.findMany({
       where: {
         budgetMonthId: input.monthId,
         id: {
-          in: input.expenseIds,
+          in: expenseIds,
         },
-      },
-      select: {
-        id: true,
-        amount: true,
-        isPaid: true,
-        payerType: true,
       },
     });
 
-    if (expenses.length !== input.expenseIds.length) {
+    if (expenses.length !== expenseIds.length) {
       throw new Error("Någon av utgifterna hittades inte.");
     }
 
-    if (expenses.some((expense) => expense.isPaid)) {
-      throw new Error("Det går bara att Swish-markera obetalda utgifter.");
+    const paidAt = new Date();
+    const states = new Map(
+      expenses.map((expense) => [
+        expense.id,
+        {
+          expense,
+          firstPersonPaidAt:
+            expense.firstPersonPaidAt ??
+            (expense.payerType === PayerType.SHARED && expense.isPaid
+              ? expense.paidAt
+              : null),
+          secondPersonPaidAt:
+            expense.secondPersonPaidAt ??
+            (expense.payerType === PayerType.SHARED && expense.isPaid
+              ? expense.paidAt
+              : null),
+          firstPersonSwishId: expense.firstPersonSwishId,
+          secondPersonSwishId: expense.secondPersonSwishId,
+          selectedSingle: false,
+        },
+      ]),
+    );
+    let totalAmount = 0;
+
+    for (const selection of input.selections) {
+      const state = states.get(selection.expenseId);
+
+      if (!state) {
+        throw new Error("Utgiften hittades inte.");
+      }
+
+      if (state.expense.payerType === PayerType.SHARED) {
+        if (!selection.targetPayerType) {
+          throw new Error("Välj vilken persons halva som ska Swish-markeras.");
+        }
+
+        if (selection.targetPayerType === PayerType.FIRST_PERSON) {
+          if (state.firstPersonPaidAt) {
+            throw new Error("Den valda delen är redan betald.");
+          }
+          state.firstPersonPaidAt = paidAt;
+          state.firstPersonSwishId = input.swishId;
+          totalAmount += expensePartAmount(
+            state.expense.amount,
+            PayerType.FIRST_PERSON,
+          );
+        } else {
+          if (state.secondPersonPaidAt) {
+            throw new Error("Den valda delen är redan betald.");
+          }
+          state.secondPersonPaidAt = paidAt;
+          state.secondPersonSwishId = input.swishId;
+          totalAmount += expensePartAmount(
+            state.expense.amount,
+            PayerType.SECOND_PERSON,
+          );
+        }
+      } else {
+        if (
+          selection.targetPayerType &&
+          selection.targetPayerType !== state.expense.payerType
+        ) {
+          throw new Error("Personen är inte tilldelad den här utgiften.");
+        }
+        if (state.expense.isPaid || state.selectedSingle) {
+          throw new Error("Den valda utgiften är redan betald.");
+        }
+        state.selectedSingle = true;
+        totalAmount += state.expense.amount;
+      }
     }
 
-    const paidAt = new Date();
-    const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-
     await Promise.all(
-      expenses.map((expense) =>
-        tx.expense.update({
+      [...states.values()].map((state) => {
+        const isShared = state.expense.payerType === PayerType.SHARED;
+        const isPaid = isShared
+          ? Boolean(state.firstPersonPaidAt && state.secondPersonPaidAt)
+          : state.selectedSingle;
+        const sharedSwishId =
+          isShared &&
+          state.firstPersonSwishId &&
+          state.firstPersonSwishId === state.secondPersonSwishId
+            ? state.firstPersonSwishId
+            : null;
+
+        return tx.expense.update({
           where: {
-            id: expense.id,
+            id: state.expense.id,
           },
           data: {
-            isPaid: true,
-            paidAt,
-            firstPersonPaidAt:
-              expense.payerType === PayerType.SECOND_PERSON ? null : paidAt,
-            secondPersonPaidAt:
-              expense.payerType === PayerType.FIRST_PERSON ? null : paidAt,
-            swishId: input.swishId,
+            isPaid,
+            paidAt: isPaid ? paidAt : null,
+            firstPersonPaidAt: isShared
+              ? state.firstPersonPaidAt
+              : state.expense.payerType === PayerType.FIRST_PERSON
+                ? paidAt
+                : null,
+            secondPersonPaidAt: isShared
+              ? state.secondPersonPaidAt
+              : state.expense.payerType === PayerType.SECOND_PERSON
+                ? paidAt
+                : null,
+            firstPersonSwishId: isShared
+              ? state.firstPersonSwishId
+              : null,
+            secondPersonSwishId: isShared
+              ? state.secondPersonSwishId
+              : null,
+            swishId: isShared ? sharedSwishId : input.swishId,
             updatedByUserId: input.actorUserId,
           },
-        }),
-      ),
+        });
+      }),
     );
 
     return {
-      count: expenses.length,
+      count: input.selections.length,
       totalAmount,
       paidAt,
       swishId: input.swishId,
@@ -375,7 +484,11 @@ export async function getExpensesBySwishIdForUser(input: {
 
   const expenses = await db.expense.findMany({
     where: {
-      swishId: input.swishId,
+      OR: [
+        { swishId: input.swishId },
+        { firstPersonSwishId: input.swishId },
+        { secondPersonSwishId: input.swishId },
+      ],
       budgetMonth: {
         householdId: household.id,
       },
@@ -398,9 +511,40 @@ export async function getExpensesBySwishIdForUser(input: {
     ],
   });
 
+  const matches = expenses.map((expense) => {
+    const firstMatches = expense.firstPersonSwishId === input.swishId;
+    const secondMatches = expense.secondPersonSwishId === input.swishId;
+    const matchedByWholeExpense = expense.swishId === input.swishId;
+    if (
+      expense.payerType === PayerType.SHARED &&
+      !matchedByWholeExpense &&
+      firstMatches !== secondMatches
+    ) {
+      return {
+        ...expense,
+        settlementAmount: expensePartAmount(
+          expense.amount,
+          firstMatches ? PayerType.FIRST_PERSON : PayerType.SECOND_PERSON,
+        ),
+        settlementPayerType: firstMatches
+          ? PayerType.FIRST_PERSON
+          : PayerType.SECOND_PERSON,
+      };
+    }
+
+    return {
+      ...expense,
+      settlementAmount: expense.amount,
+      settlementPayerType: expense.payerType,
+    };
+  });
+
   return {
     swishId: input.swishId,
-    totalAmount: expenses.reduce((sum, expense) => sum + expense.amount, 0),
-    expenses,
+    totalAmount: matches.reduce(
+      (sum, expense) => sum + expense.settlementAmount,
+      0,
+    ),
+    expenses: matches,
   };
 }

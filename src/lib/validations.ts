@@ -98,7 +98,10 @@ export const spendingPaceSettingsSchema = z.object({
 });
 
 export const spendingPaceEntrySchema = z.object({
-  amount: moneyField,
+  amount: moneyField.refine(
+    (value) => value > 0,
+    "Beloppet måste vara större än 0.",
+  ),
 });
 
 export const expenseSchema = z.object({

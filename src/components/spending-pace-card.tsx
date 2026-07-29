@@ -1,4 +1,4 @@
-import { Settings2 } from "lucide-react";
+import { RotateCcw, Settings2 } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { ModalLauncher } from "@/components/modal-launcher";
@@ -7,6 +7,7 @@ import type { CalendarDate } from "@/lib/pay-cycle";
 import {
   saveCurrentWeekSpendingAction,
   saveSpendingPaceSettingsAction,
+  undoLatestCurrentWeekSpendingAction,
 } from "@/server/actions/spending-pace-actions";
 
 type SpendingPaceCardProps = {
@@ -15,8 +16,7 @@ type SpendingPaceCardProps = {
       monthlyLimit: number;
       weeklyLimit: number;
     } | null;
-    entries: Array<{
-      id: string;
+    weeklyTotals: Array<{
       weekStartKey: string;
       amount: number;
     }>;
@@ -30,8 +30,14 @@ type SpendingPaceCardProps = {
         position: number;
         isWeekBoundary: boolean;
       }>;
+      weeks: Array<{
+        label: string;
+        start: number;
+        end: number;
+      }>;
     };
     currentWeekAmount: number;
+    latestCurrentWeekAddition: number | null;
     spent: number;
     remaining: number | null;
     weekRemaining: number | null;
@@ -53,6 +59,18 @@ function formatWeekStart(key: string) {
 
 function clampPercentage(value: number) {
   return Math.min(100, Math.max(0, value));
+}
+
+function markerTransform(percentage: number) {
+  if (percentage < 18) {
+    return "translateX(0)";
+  }
+
+  if (percentage > 82) {
+    return "translateX(-100%)";
+  }
+
+  return "translateX(-50%)";
 }
 
 export function SpendingPaceCard({ data }: SpendingPaceCardProps) {
@@ -192,53 +210,86 @@ export function SpendingPaceCard({ data }: SpendingPaceCardProps) {
           </div>
 
           <div className="mt-4">
-            <div className="relative h-7 overflow-visible rounded-full border border-[var(--color-line)] bg-[rgba(255,255,255,0.035)]">
-              <div
-                className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ${
-                  isOverMonthlyLimit
-                    ? "bg-[rgba(239,68,68,0.52)]"
-                    : "bg-[rgba(167,243,208,0.42)]"
-                }`}
-                style={{ width: `${clampPercentage(actualPercentage)}%` }}
-              />
-
-              {data.cycle.ticks.map((tick) => (
+            <div className="flex h-5 overflow-hidden text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+              {data.cycle.weeks.map((week) => (
                 <span
-                  key={`${tick.position}-${tick.isWeekBoundary}`}
-                  className={`absolute bottom-0 top-0 z-10 w-px ${
-                    tick.isWeekBoundary
-                      ? "bg-white/35"
-                      : "!top-2 bg-white/10"
-                  }`}
-                  style={{ left: `${tick.position}%` }}
-                  aria-hidden="true"
-                />
+                  key={`${week.label}-${week.start}`}
+                  className="flex items-center justify-center border-l border-white/20 first:border-l-0"
+                  style={{ width: `${week.end - week.start}%` }}
+                >
+                  {week.label}
+                </span>
               ))}
+            </div>
 
+            <div className="relative mt-1 h-[70px]">
+              <div
+                className="absolute top-0 z-30"
+                style={{
+                  left: `${clampPercentage(actualPercentage)}%`,
+                  transform: markerTransform(actualPercentage),
+                }}
+              >
+                <span
+                  className={`block whitespace-nowrap rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${
+                    isOverMonthlyLimit
+                      ? "bg-[#ef4444] text-white"
+                      : "bg-[#6ee7b7] text-[#07120e]"
+                  }`}
+                >
+                  Spenderat {formatCurrency(data.spent)}
+                </span>
+              </div>
               <span
-                className="absolute -top-1 z-20 h-9 w-0.5 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.32)]"
-                style={{ left: `${clampPercentage(expectedPercentage)}%` }}
-                aria-hidden="true"
-              />
-              <span
-                className={`absolute -top-0.5 z-20 h-8 w-1 rounded-full ${
+                className={`absolute top-4 z-20 h-[45px] w-0.5 ${
                   isOverMonthlyLimit ? "bg-[#ef4444]" : "bg-[#6ee7b7]"
                 }`}
                 style={{ left: `${clampPercentage(actualPercentage)}%` }}
                 aria-hidden="true"
               />
+
+              <div
+                className="absolute top-7 z-30"
+                style={{
+                  left: `${clampPercentage(expectedPercentage)}%`,
+                  transform: markerTransform(expectedPercentage),
+                }}
+              >
+                <span className="block whitespace-nowrap rounded-md border border-white/15 bg-[#282828] px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                  Idag {formatCurrency(expectedAmount)}
+                </span>
+              </div>
+              <span
+                className="absolute top-[42px] z-20 h-[17px] w-0.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.25)]"
+                style={{ left: `${clampPercentage(expectedPercentage)}%` }}
+                aria-hidden="true"
+              />
+
+              <div className="absolute inset-x-0 bottom-0 h-7 overflow-hidden rounded-full border border-[var(--color-line)] bg-[rgba(255,255,255,0.035)]">
+                <div
+                  className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ${
+                    isOverMonthlyLimit
+                      ? "bg-[rgba(239,68,68,0.52)]"
+                      : "bg-[rgba(167,243,208,0.42)]"
+                  }`}
+                  style={{ width: `${clampPercentage(actualPercentage)}%` }}
+                />
+
+                {data.cycle.ticks.map((tick) => (
+                  <span
+                    key={`${tick.position}-${tick.isWeekBoundary}`}
+                    className={`absolute bottom-0 top-0 z-10 w-px ${
+                      tick.isWeekBoundary
+                        ? "w-0.5 bg-white/55"
+                        : "!top-2 bg-white/20"
+                    }`}
+                    style={{ left: `${tick.position}%` }}
+                    aria-hidden="true"
+                  />
+                ))}
+              </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--color-muted)]">
-              <span>
-                <i className="mr-1.5 inline-block h-2 w-1 rounded-full bg-[#6ee7b7]" />
-                Faktiskt spenderat
-              </span>
-              <span>
-                <i className="mr-1.5 inline-block h-2 w-0.5 bg-white" />
-                Dagens riktmärke {formatCurrency(expectedAmount)}
-              </span>
-            </div>
             <p
               className={`mt-2 text-[12px] font-medium ${
                 paceDifference < 0
@@ -249,9 +300,6 @@ export function SpendingPaceCard({ data }: SpendingPaceCardProps) {
               {paceDifference >= 0
                 ? `${formatCurrency(paceDifference)} under dagens takt`
                 : `${formatCurrency(Math.abs(paceDifference))} över dagens takt`}
-            </p>
-            <p className="mt-1 text-[10px] text-[var(--color-muted)]">
-              Tunna streck = dagar · kraftigare streck = nya veckor
             </p>
           </div>
 
@@ -288,12 +336,12 @@ export function SpendingPaceCard({ data }: SpendingPaceCardProps) {
             >
               <label className="min-w-0 flex-1">
                 <span className="mb-1.5 block text-[11px] font-medium text-[var(--color-muted)]">
-                  Veckans spenderade belopp
+                  Lägg till spenderat
                 </span>
                 <input
                   name="amount"
                   inputMode="decimal"
-                  defaultValue={formatEditableAmount(data.currentWeekAmount)}
+                  defaultValue=""
                   placeholder="0"
                   required
                 />
@@ -301,17 +349,32 @@ export function SpendingPaceCard({ data }: SpendingPaceCardProps) {
               <FormStatusButton
                 className="action-primary h-[46px] shrink-0 justify-center px-4"
                 pendingLabel=""
-                aria-label="Spara veckobelopp"
+                aria-label="Lägg till veckobelopp"
               >
-                Spara
+                Lägg till
               </FormStatusButton>
             </form>
 
-            {data.entries.length > 0 ? (
+            {data.latestCurrentWeekAddition !== null ? (
+              <form
+                action={undoLatestCurrentWeekSpendingAction}
+                className="mt-2"
+              >
+                <FormStatusButton
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-[var(--color-muted)] transition-colors hover:bg-white/5 hover:text-white"
+                  pendingLabel="Ångrar..."
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Ångra senaste +{formatCurrency(data.latestCurrentWeekAddition)}
+                </FormStatusButton>
+              </form>
+            ) : null}
+
+            {data.weeklyTotals.length > 0 ? (
               <div className="mt-3 flex gap-1.5 overflow-x-auto no-scrollbar">
-                {data.entries.map((entry) => (
+                {data.weeklyTotals.map((entry) => (
                   <span
-                    key={entry.id}
+                    key={entry.weekStartKey}
                     className="shrink-0 rounded-full bg-white/5 px-2.5 py-1 text-[10px] text-[var(--color-muted)]"
                   >
                     {formatWeekStart(entry.weekStartKey)} ·{" "}

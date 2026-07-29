@@ -135,6 +135,36 @@ export function getPayCycle(now = new Date()) {
       isWeekBoundary: boundaryWeekday === 1,
     };
   });
+  const weekBoundaries = [
+    { dayNumber: 0, date: startDate },
+    ...ticks
+      .map((tick, index) => ({
+        tick,
+        dayNumber: index + 1,
+        date: addCalendarDays(startDate, index + 1),
+      }))
+      .filter((entry) => entry.tick.isWeekBoundary)
+      .map(({ dayNumber, date }) => ({ dayNumber, date })),
+    { dayNumber: totalDays, date: endDate },
+  ];
+  const weeks = weekBoundaries.slice(0, -1).map((boundary, index) => {
+    const nextBoundary = weekBoundaries[index + 1];
+    const date = new Date(
+      Date.UTC(boundary.date.year, boundary.date.month - 1, boundary.date.day),
+    );
+    const day = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    const weekNumber = Math.ceil(
+      ((date.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
+    );
+
+    return {
+      label: `v. ${weekNumber}`,
+      start: (boundary.dayNumber / totalDays) * 100,
+      end: ((nextBoundary?.dayNumber ?? totalDays) / totalDays) * 100,
+    };
+  });
 
   return {
     today,
@@ -150,5 +180,6 @@ export function getPayCycle(now = new Date()) {
     elapsedDays,
     expectedFraction: elapsedDays / totalDays,
     ticks,
+    weeks,
   };
 }

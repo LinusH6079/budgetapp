@@ -8,6 +8,7 @@ import {
 import {
   saveCurrentWeekSpendingForUser,
   saveSpendingPaceSettingsForUser,
+  undoLatestCurrentWeekSpendingForUser,
 } from "@/server/services/spending-pace";
 
 import { redirectWithMessage, revalidateBudgetPaths } from "./shared";
@@ -73,5 +74,24 @@ export async function saveCurrentWeekSpendingAction(formData: FormData) {
   }
 
   revalidateBudgetPaths("/app");
-  redirectWithMessage("/app", "notice", "Veckans spenderade belopp sparades.");
+  redirectWithMessage("/app", "notice", "Beloppet lades till på veckan.");
+}
+
+export async function undoLatestCurrentWeekSpendingAction() {
+  const user = await requireUser();
+
+  try {
+    await undoLatestCurrentWeekSpendingForUser({
+      userId: user.id,
+    });
+  } catch (error) {
+    redirectWithMessage(
+      "/app",
+      "error",
+      error instanceof Error ? error.message : "Kunde inte ångra beloppet.",
+    );
+  }
+
+  revalidateBudgetPaths("/app");
+  redirectWithMessage("/app", "notice", "Senaste veckobeloppet ångrades.");
 }

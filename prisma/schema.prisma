@@ -81,8 +81,7 @@ model SpendingPaceEntry {
   household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   updatedByUser   User?     @relation("SpendingPaceEntryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
-  @@unique([householdId, cycleStartKey, weekStartKey])
-  @@index([householdId, cycleStartKey])
+  @@index([householdId, cycleStartKey, weekStartKey])
 }
 
 model HouseholdMember {

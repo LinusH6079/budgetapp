@@ -26,12 +26,37 @@ export async function getSpendingPaceForUser(
         householdId: household.id,
         cycleStartKey,
       },
-      orderBy: {
-        weekStartKey: "asc",
-      },
+      orderBy: [
+        {
+          weekStartKey: "asc",
+        },
+        {
+          createdAt: "asc",
+        },
+        {
+          id: "asc",
+        },
+      ],
     }),
   ]);
   const spent = entries.reduce((sum, entry) => sum + entry.amount, 0);
+  const currentWeekEntries = entries.filter(
+    (entry) => entry.weekStartKey === weekStartKey,
+  );
+  const currentWeekAmount = currentWeekEntries.reduce(
+    (sum, entry) => sum + entry.amount,
+    0,
+  );
+  const weeklyTotals = Object.entries(
+    entries.reduce<Record<string, number>>((totals, entry) => {
+      totals[entry.weekStartKey] =
+        (totals[entry.weekStartKey] ?? 0) + entry.amount;
+      return totals;
+    }, {}),
+  ).map(([entryWeekStartKey, amount]) => ({
+    weekStartKey: entryWeekStartKey,
+    amount,
+  }));
 
   return {
     settings,
@@ -39,14 +64,14 @@ export async function getSpendingPaceForUser(
     cycle,
     cycleStartKey,
     weekStartKey,
-    currentWeekAmount:
-      entries.find((entry) => entry.weekStartKey === weekStartKey)?.amount ?? 0,
+    currentWeekAmount,
+    latestCurrentWeekAddition: currentWeekEntries.at(-1)?.amount ?? null,
+    weeklyTotals,
     spent,
     remaining: settings ? settings.monthlyLimit - spent : null,
     weekRemaining: settings
       ? settings.weeklyLimit -
-        (entries.find((entry) => entry.weekStartKey === weekStartKey)?.amount ??
-          0)
+        currentWeekAmount
       : null,
   };
 }
@@ -95,24 +120,51 @@ export async function saveCurrentWeekSpendingForUser(input: {
   const cycleStartKey = calendarDateKey(cycle.startDate);
   const weekStartKey = calendarDateKey(cycle.weekStartDate);
 
-  return db.spendingPaceEntry.upsert({
-    where: {
-      householdId_cycleStartKey_weekStartKey: {
-        householdId: household.id,
-        cycleStartKey,
-        weekStartKey,
-      },
-    },
-    create: {
+  return db.spendingPaceEntry.create({
+    data: {
       householdId: household.id,
       cycleStartKey,
       weekStartKey,
       amount: input.amount,
       updatedByUserId: input.userId,
     },
-    update: {
-      amount: input.amount,
-      updatedByUserId: input.userId,
+  });
+}
+
+export async function undoLatestCurrentWeekSpendingForUser(input: {
+  userId: string;
+  now?: Date;
+}) {
+  const household = await getHouseholdForUser(input.userId);
+
+  if (!household) {
+    throw new Error("Hushållet hittades inte.");
+  }
+
+  const cycle = getPayCycle(input.now);
+  const latestEntry = await db.spendingPaceEntry.findFirst({
+    where: {
+      householdId: household.id,
+      cycleStartKey: calendarDateKey(cycle.startDate),
+      weekStartKey: calendarDateKey(cycle.weekStartDate),
+    },
+    orderBy: [
+      {
+        createdAt: "desc",
+      },
+      {
+        id: "desc",
+      },
+    ],
+  });
+
+  if (!latestEntry) {
+    throw new Error("Det finns inget veckobelopp att ångra.");
+  }
+
+  return db.spendingPaceEntry.delete({
+    where: {
+      id: latestEntry.id,
     },
   });
 }

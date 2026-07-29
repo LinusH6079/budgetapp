@@ -32,6 +32,7 @@ type SpendingPaceCardProps = {
       }>;
       weeks: Array<{
         label: string;
+        startDate: CalendarDate;
         start: number;
         end: number;
       }>;
@@ -221,13 +222,18 @@ export function SpendingPaceCard({ data }: SpendingPaceCardProps) {
               </span>
             </div>
 
-            <div className="flex h-5 overflow-hidden text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+            <div className="relative flex h-9 overflow-visible pt-4 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
               {data.cycle.weeks.map((week) => (
                 <span
                   key={`${week.label}-${week.start}`}
-                  className="flex items-center justify-center border-l border-white/20 first:border-l-0"
+                  className="relative flex items-center justify-center border-l border-white/30 first:border-l-0"
                   style={{ width: `${week.end - week.start}%` }}
                 >
+                  {week.start > 0 ? (
+                    <span className="absolute -left-px -top-4 -translate-x-1/2 whitespace-nowrap rounded bg-[var(--color-surface)] px-1 text-[8px] font-medium normal-case tracking-normal text-white/75">
+                      {formatCalendarDate(week.startDate)}
+                    </span>
+                  ) : null}
                   {week.label}
                 </span>
               ))}
@@ -277,14 +283,6 @@ export function SpendingPaceCard({ data }: SpendingPaceCardProps) {
               />
 
               <div className="absolute inset-x-0 bottom-0 h-7 overflow-hidden rounded-full border border-[var(--color-line)] bg-[rgba(255,255,255,0.035)]">
-                <span
-                  className="absolute inset-y-0 left-0 z-20 w-0.5 bg-white"
-                  aria-hidden="true"
-                />
-                <span
-                  className="absolute inset-y-0 right-0 z-20 w-0.5 bg-white"
-                  aria-hidden="true"
-                />
                 <div
                   className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ${
                     isOverMonthlyLimit

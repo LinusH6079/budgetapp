@@ -161,6 +161,7 @@ export function getPayCycle(now = new Date()) {
 
     return {
       label: `v. ${weekNumber}`,
+      startDate: boundary.date,
       start: (boundary.dayNumber / totalDays) * 100,
       end: ((nextBoundary?.dayNumber ?? totalDays) / totalDays) * 100,
     };

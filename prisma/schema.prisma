@@ -29,28 +29,60 @@ enum PayerType {
 }
 
 model User {
-  id               String                  @id @default(cuid())
-  name             String
-  email            String                  @unique
-  passwordHash     String
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
-  householdMember  HouseholdMember?
-  createdInvites   HouseholdInvite[]       @relation("InviteCreator")
-  updatedMonths    BudgetMonth[]           @relation("MonthUpdatedBy")
-  personSnapshots  MonthlyPersonSnapshot[] @relation("SnapshotOwner")
-  updatedSnapshots MonthlyPersonSnapshot[] @relation("SnapshotUpdatedBy")
-  updatedExpenses  Expense[]               @relation("ExpenseUpdatedBy")
+  id                          String                  @id @default(cuid())
+  name                        String
+  email                       String                  @unique
+  passwordHash                String
+  createdAt                   DateTime                @default(now())
+  updatedAt                   DateTime                @updatedAt
+  householdMember             HouseholdMember?
+  createdInvites              HouseholdInvite[]       @relation("InviteCreator")
+  updatedMonths               BudgetMonth[]           @relation("MonthUpdatedBy")
+  personSnapshots             MonthlyPersonSnapshot[] @relation("SnapshotOwner")
+  updatedSnapshots            MonthlyPersonSnapshot[] @relation("SnapshotUpdatedBy")
+  updatedExpenses             Expense[]               @relation("ExpenseUpdatedBy")
+  updatedSpendingPaceSettings SpendingPaceSettings[]  @relation("SpendingPaceSettingsUpdatedBy")
+  updatedSpendingPaceEntries  SpendingPaceEntry[]     @relation("SpendingPaceEntryUpdatedBy")
 }
 
 model Household {
-  id         String            @id @default(cuid())
-  name       String
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
-  members    HouseholdMember[]
-  invites    HouseholdInvite[]
-  budgetRows BudgetMonth[]
+  id                   String                @id @default(cuid())
+  name                 String
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  members              HouseholdMember[]
+  invites              HouseholdInvite[]
+  budgetRows           BudgetMonth[]
+  spendingPaceSettings SpendingPaceSettings?
+  spendingPaceEntries  SpendingPaceEntry[]
+}
+
+model SpendingPaceSettings {
+  id              String    @id @default(cuid())
+  householdId     String    @unique
+  monthlyLimit    Int
+  weeklyLimit     Int
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  updatedByUserId String?
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  updatedByUser   User?     @relation("SpendingPaceSettingsUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+}
+
+model SpendingPaceEntry {
+  id              String    @id @default(cuid())
+  householdId     String
+  cycleStartKey   String
+  weekStartKey    String
+  amount          Int
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  updatedByUserId String?
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  updatedByUser   User?     @relation("SpendingPaceEntryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([householdId, cycleStartKey, weekStartKey])
+  @@index([householdId, cycleStartKey])
 }
 
 model HouseholdMember {

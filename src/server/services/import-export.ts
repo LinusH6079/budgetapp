@@ -9,18 +9,39 @@ export async function exportHouseholdDataForUser(userId: string) {
     throw new Error("Du behöver ett hushåll innan du kan exportera data.");
   }
 
-  const months = await db.budgetMonth.findMany({
-    where: {
-      householdId: household.id,
-    },
-    include: {
-      personSnapshots: true,
-      expenses: true,
-    },
-    orderBy: {
-      monthKey: "asc",
-    },
-  });
+  const [months, spendingPaceSettings, spendingPaceEntries] =
+    await Promise.all([
+      db.budgetMonth.findMany({
+        where: {
+          householdId: household.id,
+        },
+        include: {
+          personSnapshots: true,
+          expenses: true,
+        },
+        orderBy: {
+          monthKey: "asc",
+        },
+      }),
+      db.spendingPaceSettings.findUnique({
+        where: {
+          householdId: household.id,
+        },
+      }),
+      db.spendingPaceEntry.findMany({
+        where: {
+          householdId: household.id,
+        },
+        orderBy: [
+          {
+            cycleStartKey: "asc",
+          },
+          {
+            weekStartKey: "asc",
+          },
+        ],
+      }),
+    ]);
 
   const members = mapMembersToSlots(household);
 
@@ -35,6 +56,19 @@ export async function exportHouseholdDataForUser(userId: string) {
       role: member.role,
       joinedAt: member.joinedAt.toISOString(),
     })),
+    spendingPace: {
+      settings: spendingPaceSettings
+        ? {
+            monthlyLimit: spendingPaceSettings.monthlyLimit,
+            weeklyLimit: spendingPaceSettings.weeklyLimit,
+          }
+        : null,
+      entries: spendingPaceEntries.map((entry) => ({
+        cycleStartKey: entry.cycleStartKey,
+        weekStartKey: entry.weekStartKey,
+        amount: entry.amount,
+      })),
+    },
     months: months.map((month) => ({
       monthKey: month.monthKey,
       note: month.note,
@@ -101,6 +135,51 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
         name: imported.householdName,
       },
     });
+
+    if (imported.spendingPace) {
+      if (imported.spendingPace.settings) {
+        await tx.spendingPaceSettings.upsert({
+          where: {
+            householdId: household.id,
+          },
+          create: {
+            householdId: household.id,
+            monthlyLimit: imported.spendingPace.settings.monthlyLimit,
+            weeklyLimit: imported.spendingPace.settings.weeklyLimit,
+            updatedByUserId: userId,
+          },
+          update: {
+            monthlyLimit: imported.spendingPace.settings.monthlyLimit,
+            weeklyLimit: imported.spendingPace.settings.weeklyLimit,
+            updatedByUserId: userId,
+          },
+        });
+      } else {
+        await tx.spendingPaceSettings.deleteMany({
+          where: {
+            householdId: household.id,
+          },
+        });
+      }
+
+      await tx.spendingPaceEntry.deleteMany({
+        where: {
+          householdId: household.id,
+        },
+      });
+
+      if (imported.spendingPace.entries.length > 0) {
+        await tx.spendingPaceEntry.createMany({
+          data: imported.spendingPace.entries.map((entry) => ({
+            householdId: household.id,
+            cycleStartKey: entry.cycleStartKey,
+            weekStartKey: entry.weekStartKey,
+            amount: entry.amount,
+            updatedByUserId: userId,
+          })),
+        });
+      }
+    }
 
     for (const importedMonth of imported.months) {
       const month = await tx.budgetMonth.upsert({

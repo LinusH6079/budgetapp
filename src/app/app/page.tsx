@@ -1,10 +1,12 @@
 import { FlashMessage } from "@/components/flash-message";
 import { HouseholdSetupCard } from "@/components/household-setup-card";
+import { SpendingPaceCard } from "@/components/spending-pace-card";
 import { formatMonthLabel } from "@/lib/date";
 import { formatCurrency } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import { getLatestMonthKeyForUser, getMonthPageData } from "@/server/services/budget-months";
 import { getHouseholdForUser } from "@/server/services/households";
+import { getSpendingPaceForUser } from "@/server/services/spending-pace";
 
 type AppHomePageProps = {
   searchParams: Promise<{
@@ -40,9 +42,10 @@ function OverviewStat({
 export default async function AppHomePage({ searchParams }: AppHomePageProps) {
   const user = await requireUser();
   const { notice, error } = await searchParams;
-  const [household, latestMonthKey] = await Promise.all([
+  const [household, latestMonthKey, spendingPace] = await Promise.all([
     getHouseholdForUser(user.id),
     getLatestMonthKeyForUser(user.id),
+    getSpendingPaceForUser(user.id),
   ]);
 
   if (!household) {
@@ -58,6 +61,7 @@ export default async function AppHomePage({ searchParams }: AppHomePageProps) {
     return (
       <div className="viewport-page">
         <FlashMessage notice={notice} error={error} />
+        {spendingPace ? <SpendingPaceCard data={spendingPace} /> : null}
         <section className="app-panel px-4 py-5 sm:px-5">
           <p className="eyebrow-label">Översikt</p>
           <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em]">Ingen månad ännu</h2>
@@ -83,6 +87,7 @@ export default async function AppHomePage({ searchParams }: AppHomePageProps) {
   return (
     <div className="viewport-page">
       <FlashMessage notice={notice} error={error} />
+      {spendingPace ? <SpendingPaceCard data={spendingPace} /> : null}
 
       <section className="app-panel px-4 py-5 sm:px-5">
         <div className="flex items-start justify-between gap-4">

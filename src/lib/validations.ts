@@ -86,6 +86,21 @@ export const snapshotValueSchema = z.object({
   carryOverAmount: moneyField,
 });
 
+export const spendingPaceSettingsSchema = z.object({
+  monthlyLimit: moneyField.refine(
+    (value) => value > 0,
+    "Månadsbeloppet måste vara större än 0.",
+  ),
+  weeklyLimit: moneyField.refine(
+    (value) => value > 0,
+    "Veckobeloppet måste vara större än 0.",
+  ),
+});
+
+export const spendingPaceEntrySchema = z.object({
+  amount: moneyField,
+});
+
 export const expenseSchema = z.object({
   monthId: z.string().cuid(),
   expenseId: z.string().cuid().optional().or(z.literal("")),
@@ -196,6 +211,23 @@ export const householdImportSchema = z.object({
       }),
     )
     .max(2),
+  spendingPace: z
+    .object({
+      settings: z
+        .object({
+          monthlyLimit: z.number().int().positive(),
+          weeklyLimit: z.number().int().positive(),
+        })
+        .nullable(),
+      entries: z.array(
+        z.object({
+          cycleStartKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          weekStartKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          amount: z.number().int().nonnegative(),
+        }),
+      ),
+    })
+    .optional(),
   months: z.array(
     z.object({
       monthKey: z.string().refine(isMonthKey),

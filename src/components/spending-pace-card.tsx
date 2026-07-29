@@ -210,6 +210,17 @@ export function SpendingPaceCard({ data }: SpendingPaceCardProps) {
           </div>
 
           <div className="mt-4">
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-semibold text-white">
+                <i className="h-2 w-2 rounded-full bg-white shadow-[0_0_7px_rgba(255,255,255,0.35)]" />
+                Lön {formatCalendarDate(data.cycle.startDate)}
+              </span>
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-semibold text-white">
+                Nästa lön {formatCalendarDate(data.cycle.endDate)}
+                <i className="h-2 w-2 rounded-full bg-white shadow-[0_0_7px_rgba(255,255,255,0.35)]" />
+              </span>
+            </div>
+
             <div className="flex h-5 overflow-hidden text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
               {data.cycle.weeks.map((week) => (
                 <span
@@ -266,6 +277,14 @@ export function SpendingPaceCard({ data }: SpendingPaceCardProps) {
               />
 
               <div className="absolute inset-x-0 bottom-0 h-7 overflow-hidden rounded-full border border-[var(--color-line)] bg-[rgba(255,255,255,0.035)]">
+                <span
+                  className="absolute inset-y-0 left-0 z-20 w-0.5 bg-white"
+                  aria-hidden="true"
+                />
+                <span
+                  className="absolute inset-y-0 right-0 z-20 w-0.5 bg-white"
+                  aria-hidden="true"
+                />
                 <div
                   className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ${
                     isOverMonthlyLimit

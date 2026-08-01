@@ -19,6 +19,7 @@ describe("buildRecurringExpenseCopies", () => {
             amount: 145000,
             category: "Boende",
             expenseType: "RECURRING",
+            origin: "STANDARD",
             planningType: "PLANNED",
             payerType: "SHARED",
             dueDate: new Date("2026-03-31"),
@@ -38,9 +39,30 @@ describe("buildRecurringExpenseCopies", () => {
             amount: 80000,
             category: "Bil",
             expenseType: "ONE_TIME",
+            origin: "STANDARD",
             planningType: "PLANNED",
             payerType: "FIRST_PERSON",
             dueDate: new Date("2026-03-10"),
+            isPaid: false,
+            paidAt: null,
+            note: null,
+            createdAt: new Date("2026-03-01"),
+            updatedAt: new Date("2026-03-02"),
+            updatedByUserId: "u1",
+            updatedByUser: null,
+          },
+          {
+            id: "3",
+            budgetMonthId: "old",
+            recurringSourceExpenseId: null,
+            name: "Spara till bilskatt",
+            amount: 15000,
+            category: "Årssparande",
+            expenseType: "RECURRING",
+            origin: "ANNUAL_SAVING",
+            planningType: "PLANNED",
+            payerType: "SHARED",
+            dueDate: null,
             isPaid: false,
             paidAt: null,
             note: null,
@@ -76,6 +98,7 @@ describe("filterExpenseItems", () => {
         {
           isPaid: false,
           expenseType: "RECURRING",
+          origin: "STANDARD",
           category: "Boende",
           planningType: "PLANNED",
           payerType: "FIRST_PERSON",
@@ -83,6 +106,7 @@ describe("filterExpenseItems", () => {
         {
           isPaid: true,
           expenseType: "ONE_TIME",
+          origin: "STANDARD",
           category: "Mat",
           planningType: "UNPLANNED",
           payerType: "SECOND_PERSON",
@@ -95,6 +119,30 @@ describe("filterExpenseItems", () => {
 
     expect(filtered).toHaveLength(1);
     expect(filtered[0]?.payerType).toBe("SECOND_PERSON");
+  });
+
+  it("behandlar automatiskt årssparande som en egen filtertyp", () => {
+    const expenses = [
+      {
+        isPaid: false,
+        expenseType: "ONE_TIME",
+        origin: "STANDARD",
+        category: "Bil",
+        payerType: "SHARED",
+      },
+      {
+        isPaid: false,
+        expenseType: "ONE_TIME",
+        origin: "ANNUAL_SAVING",
+        category: "Årssparande",
+        payerType: "SHARED",
+      },
+    ];
+
+    expect(filterExpenseItems(expenses, { type: "ONE_TIME" })).toHaveLength(1);
+    expect(
+      filterExpenseItems(expenses, { type: "ANNUAL_SAVING" }),
+    ).toEqual([expenses[1]]);
   });
 });
 

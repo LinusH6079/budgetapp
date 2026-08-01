@@ -4,6 +4,7 @@ import { compareMonthKeys, getNextMonthKey, getPreviousMonthKey } from "@/lib/da
 import { db } from "@/lib/db";
 import { budgetMonthDetailsArgs, BudgetMonthWithDetails } from "@/lib/types";
 import { assertMonthEditable } from "@/server/services/access";
+import { syncAutomaticAnnualSavingExpenses } from "@/server/services/annual-saving-expenses";
 import { getHouseholdForUser, mapMembersToSlots } from "@/server/services/households";
 
 type RecurringExpenseSource = {
@@ -12,6 +13,7 @@ type RecurringExpenseSource = {
   amount: number;
   category: string;
   expenseType: "RECURRING" | "ONE_TIME";
+  origin: "STANDARD" | "ANNUAL_SAVING";
   planningType: "PLANNED" | "UNPLANNED";
   payerType: "FIRST_PERSON" | "SECOND_PERSON" | "SHARED";
   dueDate: Date | null;
@@ -42,6 +44,7 @@ export function buildRecurringExpenseCopyData(
     amount: expense.amount,
     category: expense.category,
     expenseType: expense.expenseType,
+    origin: "STANDARD" as const,
     planningType: expense.planningType,
     payerType: expense.payerType,
     dueDate: dueDateForMonth(expense.dueDate, targetMonthKey),
@@ -63,7 +66,10 @@ export function buildRecurringExpenseCopies(
   updatedByUserId: string,
 ) {
   return month.expenses
-    .filter((expense) => expense.expenseType === "RECURRING")
+    .filter(
+      (expense) =>
+        expense.expenseType === "RECURRING" && expense.origin === "STANDARD",
+    )
     .map((expense) =>
       buildRecurringExpenseCopyData(expense, targetMonthId, targetMonthKey, updatedByUserId),
     );
@@ -272,6 +278,12 @@ export async function createMonthForUser(input: {
       }
     }
 
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: household.id,
+      actorUserId: input.userId,
+    });
+
     return month;
   });
 }
@@ -449,6 +461,7 @@ export function filterExpenseItems<
   T extends {
     isPaid: boolean;
     expenseType: string;
+    origin: string;
     category: string;
     payerType: string;
   },
@@ -470,8 +483,21 @@ export function filterExpenseItems<
       return false;
     }
 
-    if (filters.type && filters.type !== "all" && expense.expenseType !== filters.type) {
-      return false;
+    if (filters.type && filters.type !== "all") {
+      if (
+        filters.type === "ANNUAL_SAVING" &&
+        expense.origin !== "ANNUAL_SAVING"
+      ) {
+        return false;
+      }
+
+      if (
+        filters.type !== "ANNUAL_SAVING" &&
+        (expense.origin !== "STANDARD" ||
+          expense.expenseType !== filters.type)
+      ) {
+        return false;
+      }
     }
 
     if (filters.category && filters.category !== "all" && expense.category !== filters.category) {

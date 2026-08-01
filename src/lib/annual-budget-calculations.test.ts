@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  allocateAnnualSavingByMonth,
+  annualSavingMonthKeys,
   calculateAnnualBudget,
   calculateAnnualBudgetItem,
   expenseAnnualContributionAmount,
@@ -86,6 +88,22 @@ describe("annual budget calculations", () => {
     );
 
     expect(result.recommendedMonthlyAmount).toBe(60_000);
+  });
+
+  it("builds an exact automatic saving schedule before the due month", () => {
+    const monthKeys = annualSavingMonthKeys("2026-08", "2026-11");
+    const schedule = allocateAnnualSavingByMonth({
+      remainingAmount: 10_000,
+      monthKeys,
+    });
+
+    expect(monthKeys).toEqual(["2026-08", "2026-09", "2026-10"]);
+    expect(schedule).toEqual([
+      { monthKey: "2026-08", amount: 3_334 },
+      { monthKey: "2026-09", amount: 3_333 },
+      { monthKey: "2026-10", amount: 3_333 },
+    ]);
+    expect(schedule.reduce((sum, month) => sum + month.amount, 0)).toBe(10_000);
   });
 
   it("recommends an even monthly amount before the due month", () => {

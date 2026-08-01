@@ -1,4 +1,5 @@
 import {
+  AnnualBudgetRecurrence,
   AnnualSavingEntryType,
   ExpenseType,
   PayerType,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/annual-budget-calculations";
 import { db } from "@/lib/db";
 import { assertMonthEditable } from "@/server/services/access";
+import { syncAutomaticAnnualSavingExpenses } from "@/server/services/annual-saving-expenses";
 import { getHouseholdForUser } from "@/server/services/households";
 
 function stockholmMonthKey(date: Date) {
@@ -23,6 +25,17 @@ function stockholmMonthKey(date: Date) {
     parts.find((part) => part.type === type)?.value;
 
   return `${value("year")}-${value("month")}`;
+}
+
+function nextYearDueMonth(monthKey: string, now: Date) {
+  const [year, month] = monthKey.split("-");
+  let nextYear = Number(year) + 1;
+
+  while (`${nextYear}-${month}` <= stockholmMonthKey(now)) {
+    nextYear += 1;
+  }
+
+  return `${nextYear}-${month}`;
 }
 
 async function requireAnnualItemAccess(actorUserId: string, itemId: string) {
@@ -72,6 +85,15 @@ export async function getAnnualBudgetForUser(
   if (!household) {
     return null;
   }
+
+  await db.$transaction((tx) =>
+    syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: household.id,
+      actorUserId: userId,
+      now,
+    }),
+  );
 
   const items = await db.annualBudgetItem.findMany({
     where: {
@@ -151,6 +173,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
   targetAmount: number;
   dueMonth: string;
   category: string;
+  recurrence: AnnualBudgetRecurrence;
 }) {
   const household = await getHouseholdForUser(input.actorUserId);
 
@@ -163,15 +186,24 @@ export async function upsertAnnualBudgetItemForUser(input: {
     targetAmount: input.targetAmount,
     dueMonth: input.dueMonth,
     category: input.category || null,
+    recurrence: input.recurrence,
     updatedByUserId: input.actorUserId,
   };
 
   if (!input.itemId) {
-    return db.annualBudgetItem.create({
-      data: {
+    return db.$transaction(async (tx) => {
+      const createdItem = await tx.annualBudgetItem.create({
+        data: {
+          householdId: household.id,
+          ...data,
+        },
+      });
+      await syncAutomaticAnnualSavingExpenses({
+        tx,
         householdId: household.id,
-        ...data,
-      },
+        actorUserId: input.actorUserId,
+      });
+      return createdItem;
     });
   }
 
@@ -184,11 +216,19 @@ export async function upsertAnnualBudgetItemForUser(input: {
     throw new Error("En avslutad årskostnad kan inte ändras.");
   }
 
-  return db.annualBudgetItem.update({
-    where: {
-      id: item.id,
-    },
-    data,
+  return db.$transaction(async (tx) => {
+    const updatedItem = await tx.annualBudgetItem.update({
+      where: {
+        id: item.id,
+      },
+      data,
+    });
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: item.householdId,
+      actorUserId: input.actorUserId,
+    });
+    return updatedItem;
   });
 }
 
@@ -223,6 +263,12 @@ export async function addAnnualContributionForUser(input: {
       data: {
         updatedByUserId: input.actorUserId,
       },
+    });
+
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: item.householdId,
+      actorUserId: input.actorUserId,
     });
 
     return entry;
@@ -269,6 +315,12 @@ export async function undoLatestAnnualContributionForUser(input: {
       },
     });
 
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: item.householdId,
+      actorUserId: input.actorUserId,
+    });
+
     return entry;
   });
 }
@@ -282,14 +334,22 @@ export async function archiveAnnualBudgetItemForUser(input: {
     input.itemId,
   );
 
-  return db.annualBudgetItem.update({
-    where: {
-      id: item.id,
-    },
-    data: {
-      isArchived: true,
-      updatedByUserId: input.actorUserId,
-    },
+  return db.$transaction(async (tx) => {
+    const archivedItem = await tx.annualBudgetItem.update({
+      where: {
+        id: item.id,
+      },
+      data: {
+        isArchived: true,
+        updatedByUserId: input.actorUserId,
+      },
+    });
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: item.householdId,
+      actorUserId: input.actorUserId,
+    });
+    return archivedItem;
   });
 }
 
@@ -363,14 +423,24 @@ export async function settleAnnualBudgetItemForUser(input: {
       });
     }
 
+    const isYearly = item.recurrence === AnnualBudgetRecurrence.YEARLY;
     await tx.annualBudgetItem.update({
       where: {
         id: item.id,
       },
       data: {
-        isArchived: true,
+        isArchived: !isYearly,
+        dueMonth: isYearly
+          ? nextYearDueMonth(item.dueMonth, paidAt)
+          : item.dueMonth,
         updatedByUserId: input.actorUserId,
       },
+    });
+
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: item.householdId,
+      actorUserId: input.actorUserId,
     });
 
     return expense;

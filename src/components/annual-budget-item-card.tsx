@@ -19,6 +19,7 @@ type AnnualBudgetItemCardProps = {
     targetAmount: number;
     dueMonth: string;
     category: string | null;
+    recurrence: "ONE_TIME" | "YEARLY";
     reservedAmount: number;
     remainingAmount: number;
     recommendedMonthlyAmount: number;
@@ -63,6 +64,7 @@ export function AnnualBudgetItemCard({
           </div>
           <p className="mt-1 text-[11px] text-[var(--color-muted)]">
             Behövs {formatMonthLabel(item.dueMonth)}
+            {item.recurrence === "YEARLY" ? " · Varje år" : ""}
           </p>
         </div>
 
@@ -133,7 +135,10 @@ export function AnnualBudgetItemCard({
               <div className="border-t border-[var(--color-line)] pt-4">
                 <p className="text-sm font-semibold">Registrera som betald</p>
                 <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-muted)]">
-                  Skapar en betald engångsutgift och frigör det reserverade beloppet.
+                  Skapar en betald engångsutgift och använder det reserverade beloppet.
+                  {item.recurrence === "YEARLY"
+                    ? " Nästa års sparcykel startar automatiskt."
+                    : ""}
                 </p>
                 <form
                   action={settleAnnualBudgetItemAction}

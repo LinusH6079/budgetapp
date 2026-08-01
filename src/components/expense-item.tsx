@@ -19,6 +19,7 @@ type ExpenseItemProps = {
     amount: number;
     category: string;
     expenseType: "RECURRING" | "ONE_TIME";
+    origin: "STANDARD" | "ANNUAL_SAVING";
     payerType: PayerType;
     dueDate: Date | null;
     isPaid: boolean;
@@ -54,6 +55,7 @@ type ExpenseItemProps = {
     expenseId: string;
     targetPayerType?: "FIRST_PERSON" | "SECOND_PERSON";
   }) => void;
+  onPaidStateChange?: (expenseId: string, isPaid: boolean) => void;
 };
 
 function formatShortDate(date: Date | null) {
@@ -90,6 +92,7 @@ export function ExpenseItem({
   selectionMode = false,
   selectedParts = [],
   onToggleSelect,
+  onPaidStateChange,
 }: ExpenseItemProps) {
   const [optimisticPaid, setOptimisticPaid] = useState(expense.isPaid);
   const [optimisticPaidAt, setOptimisticPaidAt] = useState<Date | null>(expense.paidAt);
@@ -144,7 +147,9 @@ export function ExpenseItem({
       expense.category,
       payerLabels[expense.payerType],
       expense.annualBudgetItem
-        ? `Sparar till ${expense.annualBudgetItem.name}`
+        ? expense.origin === "ANNUAL_SAVING"
+          ? `Automatiskt årssparande · ${expense.annualBudgetItem.name}`
+          : `Sparar till ${expense.annualBudgetItem.name}`
         : null,
       optimisticSwishId ? `Swish ${optimisticSwishId}` : paidLabel,
     ].filter((value): value is string => Boolean(value));
@@ -153,6 +158,7 @@ export function ExpenseItem({
   }, [
     expense.category,
     expense.dueDate,
+    expense.origin,
     expense.payerType,
     expense.annualBudgetItem,
     optimisticFirstPaidAt,
@@ -170,6 +176,7 @@ export function ExpenseItem({
     setOptimisticFirstPaidAt(confirmed.firstPaidAt);
     setOptimisticSecondPaidAt(confirmed.secondPaidAt);
     setOptimisticSwishId(confirmed.swishId);
+    onPaidStateChange?.(expense.id, confirmed.paid);
   };
 
   const flushPaidState = async () => {
@@ -272,6 +279,7 @@ export function ExpenseItem({
       setOptimisticPaid(desired.paid);
       setOptimisticPaidAt(desired.paid ? toggledAt : null);
       setOptimisticSwishId(null);
+      onPaidStateChange?.(expense.id, desired.paid);
     } else {
       desired.paid = !desired.paid;
       setOptimisticPaid(desired.paid);
@@ -279,6 +287,7 @@ export function ExpenseItem({
       if (!desired.paid) {
         setOptimisticSwishId(null);
       }
+      onPaidStateChange?.(expense.id, desired.paid);
     }
 
     void flushPaidState();
@@ -487,26 +496,28 @@ export function ExpenseItem({
 
         {!selectionMode ? (
           <div className="flex shrink-0 items-center gap-1.5">
-            <ModalLauncher
-              title="Redigera utgift"
-              description="Justera namn, belopp, kategori eller typ."
-              dialogClassName="sm:max-w-xl"
-              trigger={
-                <span className="icon-action-button !h-8 !w-8">
-                  <Pencil className="h-3.5 w-3.5" />
-                </span>
-              }
-            >
-              <ExpenseForm
-                monthId={monthId}
-                returnTo={returnTo}
-                isLocked={isLocked}
-                expense={expense}
-                memberOptions={memberOptions}
-                currentUserPayerType={currentUserPayerType}
-                annualBudgetOptions={annualBudgetOptions}
-              />
-            </ModalLauncher>
+            {expense.origin === "STANDARD" ? (
+              <ModalLauncher
+                title="Redigera utgift"
+                description="Justera namn, belopp, kategori eller typ."
+                dialogClassName="sm:max-w-xl"
+                trigger={
+                  <span className="icon-action-button !h-8 !w-8">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </span>
+                }
+              >
+                <ExpenseForm
+                  monthId={monthId}
+                  returnTo={returnTo}
+                  isLocked={isLocked}
+                  expense={expense}
+                  memberOptions={memberOptions}
+                  currentUserPayerType={currentUserPayerType}
+                  annualBudgetOptions={annualBudgetOptions}
+                />
+              </ModalLauncher>
+            ) : null}
 
             <form action={deleteExpenseAction}>
               <input type="hidden" name="returnTo" value={returnTo} />
@@ -516,8 +527,16 @@ export function ExpenseItem({
                 disabled={isLocked}
                 className="icon-action-button icon-action-danger !h-8 !w-8"
                 pendingLabel=""
-                aria-label="Ta bort utgift"
-                title="Ta bort utgift"
+                aria-label={
+                  expense.origin === "ANNUAL_SAVING"
+                    ? "Ta bort årssparandet för denna månad"
+                    : "Ta bort utgift"
+                }
+                title={
+                  expense.origin === "ANNUAL_SAVING"
+                    ? "Hoppa över denna månad"
+                    : "Ta bort utgift"
+                }
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </FormStatusButton>

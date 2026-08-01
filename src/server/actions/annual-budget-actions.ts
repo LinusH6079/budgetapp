@@ -27,6 +27,7 @@ export async function saveAnnualBudgetItemAction(formData: FormData) {
     targetAmount: formData.get("targetAmount"),
     dueMonth: formData.get("dueMonth"),
     category: formData.get("category"),
+    recurrence: formData.get("recurrence"),
   });
 
   if (!parsed.success) {
@@ -45,6 +46,7 @@ export async function saveAnnualBudgetItemAction(formData: FormData) {
       targetAmount: parsed.data.targetAmount,
       dueMonth: parsed.data.dueMonth,
       category: parsed.data.category,
+      recurrence: parsed.data.recurrence,
     });
   } catch (error) {
     redirectWithMessage(
@@ -182,6 +184,6 @@ export async function settleAnnualBudgetItemAction(formData: FormData) {
   redirectWithMessage(
     RETURN_TO,
     "notice",
-    "Kostnaden registrerades som betald och målet avslutades.",
+    "Kostnaden registrerades som betald.",
   );
 }

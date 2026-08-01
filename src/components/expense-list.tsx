@@ -22,6 +22,7 @@ type ExpenseListProps = {
     amount: number;
     category: string;
     expenseType: "RECURRING" | "ONE_TIME";
+    origin: "STANDARD" | "ANNUAL_SAVING";
     payerType: PayerType;
     dueDate: Date | null;
     isPaid: boolean;
@@ -93,18 +94,46 @@ export function ExpenseList({
   const [swishId, setSwishId] = useState("");
   const [settleError, setSettleError] = useState<string | null>(null);
   const [settleNotice, setSettleNotice] = useState<string | null>(null);
+  const [optimisticallyPaidAnnualIds, setOptimisticallyPaidAnnualIds] =
+    useState<string[]>([]);
 
   const visibleExpenses = useMemo(() => {
-    if (activePayers.length === 0) {
-      return expenses;
+    const statusFiltered = expenses.filter(
+      (expense) =>
+        currentFilters.status !== "all" ||
+        expense.origin !== "ANNUAL_SAVING" ||
+        (!expense.isPaid &&
+          !optimisticallyPaidAnnualIds.includes(expense.id)),
+    );
+    const payerFiltered =
+      activePayers.length === 0
+        ? statusFiltered
+        : statusFiltered.filter(
+            (expense) =>
+              expense.payerType === PayerType.SHARED ||
+              activePayers.includes(expense.payerType),
+          );
+
+    return [...payerFiltered].sort(
+      (left, right) =>
+        Number(right.origin === "ANNUAL_SAVING") -
+        Number(left.origin === "ANNUAL_SAVING"),
+    );
+  }, [activePayers, currentFilters.status, expenses, optimisticallyPaidAnnualIds]);
+
+  const handlePaidStateChange = (expenseId: string, isPaid: boolean) => {
+    const expense = expenses.find((candidate) => candidate.id === expenseId);
+
+    if (expense?.origin !== "ANNUAL_SAVING") {
+      return;
     }
 
-    return expenses.filter(
-      (expense) =>
-        expense.payerType === PayerType.SHARED ||
-        activePayers.includes(expense.payerType),
+    setOptimisticallyPaidAnnualIds((current) =>
+      isPaid
+        ? [...new Set([...current, expenseId])]
+        : current.filter((id) => id !== expenseId),
     );
-  }, [activePayers, expenses]);
+  };
 
   const selectedTotal = selectedParts.reduce((sum, selection) => {
     const expense = expenses.find(
@@ -241,6 +270,7 @@ export function ExpenseList({
                     <option value="all">Alla typer</option>
                     <option value="RECURRING">Återkommande</option>
                     <option value="ONE_TIME">Engångs</option>
+                    <option value="ANNUAL_SAVING">Årssparande</option>
                   </select>
                 </label>
                 <label className="block">
@@ -364,6 +394,7 @@ export function ExpenseList({
                     .filter((part) => part.expenseId === expense.id)
                     .map((part) => part.targetPayerType ?? "FULL")}
                   onToggleSelect={toggleExpenseSelection}
+                  onPaidStateChange={handlePaidStateChange}
                 />
               ))}
             </div>

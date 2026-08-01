@@ -67,10 +67,9 @@ export default async function MonthDetailPage({
   const user = await requireUser();
   const { monthKey } = await params;
   const resolvedSearchParams = await searchParams;
-  const [pageData, annualBudget] = await Promise.all([
-    getMonthPageData(user.id, monthKey),
-    getAnnualBudgetForUser(user.id),
-  ]);
+  // Annual saving rows are synchronized before the month snapshot is read.
+  const annualBudget = await getAnnualBudgetForUser(user.id);
+  const pageData = await getMonthPageData(user.id, monthKey);
 
   if (!pageData) {
     notFound();

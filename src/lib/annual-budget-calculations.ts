@@ -22,9 +22,53 @@ export function expenseAnnualContributionAmount(input: {
   return input.isPaid && input.hasActiveAnnualBudgetItem ? input.amount : 0;
 }
 
-function currentMonthKey(now: Date) {
+export function annualBudgetCurrentMonthKey(now: Date) {
   const date = getStockholmCalendarDate(now);
   return `${date.year}-${String(date.month).padStart(2, "0")}`;
+}
+
+function nextMonthKey(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  return `${nextYear}-${String(nextMonth).padStart(2, "0")}`;
+}
+
+export function annualSavingMonthKeys(
+  startMonthKey: string,
+  dueMonth: string,
+) {
+  const monthKeys: string[] = [];
+
+  for (
+    let monthKey = startMonthKey;
+    monthKey < dueMonth;
+    monthKey = nextMonthKey(monthKey)
+  ) {
+    monthKeys.push(monthKey);
+  }
+
+  return monthKeys;
+}
+
+export function allocateAnnualSavingByMonth(input: {
+  remainingAmount: number;
+  monthKeys: string[];
+}) {
+  let remainingAmount = Math.max(0, input.remainingAmount);
+
+  return input.monthKeys.map((monthKey, index) => {
+    const monthsLeft = input.monthKeys.length - index;
+    const amount = monthsLeft > 0
+      ? Math.ceil(remainingAmount / monthsLeft)
+      : 0;
+    remainingAmount = Math.max(0, remainingAmount - amount);
+
+    return {
+      monthKey,
+      amount,
+    };
+  });
 }
 
 export function netReservedAmount(entries: AnnualBudgetEntryInput[]) {
@@ -41,7 +85,7 @@ export function netReservedAmount(entries: AnnualBudgetEntryInput[]) {
 
 export function monthsUntilDue(dueMonth: string, now = new Date()) {
   const [dueYear, dueMonthNumber] = dueMonth.split("-").map(Number);
-  const [year, month] = currentMonthKey(now).split("-").map(Number);
+  const [year, month] = annualBudgetCurrentMonthKey(now).split("-").map(Number);
   const difference =
     (dueYear - year) * 12 + (dueMonthNumber - month);
 

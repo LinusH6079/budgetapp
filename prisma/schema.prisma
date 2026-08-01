@@ -17,6 +17,16 @@ enum ExpenseType {
   ONE_TIME
 }
 
+enum ExpenseOrigin {
+  STANDARD
+  ANNUAL_SAVING
+}
+
+enum AnnualBudgetRecurrence {
+  ONE_TIME
+  YEARLY
+}
+
 enum PlanningType {
   PLANNED
   UNPLANNED
@@ -34,22 +44,23 @@ enum AnnualSavingEntryType {
 }
 
 model User {
-  id                          String                  @id @default(cuid())
-  name                        String
-  email                       String                  @unique
-  passwordHash                String
-  createdAt                   DateTime                @default(now())
-  updatedAt                   DateTime                @updatedAt
-  householdMember             HouseholdMember?
-  createdInvites              HouseholdInvite[]       @relation("InviteCreator")
-  updatedMonths               BudgetMonth[]           @relation("MonthUpdatedBy")
-  personSnapshots             MonthlyPersonSnapshot[] @relation("SnapshotOwner")
-  updatedSnapshots            MonthlyPersonSnapshot[] @relation("SnapshotUpdatedBy")
-  updatedExpenses             Expense[]               @relation("ExpenseUpdatedBy")
-  updatedSpendingPaceSettings SpendingPaceSettings[]  @relation("SpendingPaceSettingsUpdatedBy")
-  updatedSpendingPaceEntries  SpendingPaceEntry[]     @relation("SpendingPaceEntryUpdatedBy")
-  updatedAnnualBudgetItems    AnnualBudgetItem[]      @relation("AnnualBudgetItemUpdatedBy")
-  updatedAnnualSavingEntries  AnnualSavingEntry[]     @relation("AnnualSavingEntryUpdatedBy")
+  id                           String                  @id @default(cuid())
+  name                         String
+  email                        String                  @unique
+  passwordHash                 String
+  createdAt                    DateTime                @default(now())
+  updatedAt                    DateTime                @updatedAt
+  householdMember              HouseholdMember?
+  createdInvites               HouseholdInvite[]       @relation("InviteCreator")
+  updatedMonths                BudgetMonth[]           @relation("MonthUpdatedBy")
+  personSnapshots              MonthlyPersonSnapshot[] @relation("SnapshotOwner")
+  updatedSnapshots             MonthlyPersonSnapshot[] @relation("SnapshotUpdatedBy")
+  updatedExpenses              Expense[]               @relation("ExpenseUpdatedBy")
+  updatedSpendingPaceSettings  SpendingPaceSettings[]  @relation("SpendingPaceSettingsUpdatedBy")
+  updatedSpendingPaceEntries   SpendingPaceEntry[]     @relation("SpendingPaceEntryUpdatedBy")
+  updatedAnnualBudgetItems     AnnualBudgetItem[]      @relation("AnnualBudgetItemUpdatedBy")
+  updatedAnnualSavingEntries   AnnualSavingEntry[]     @relation("AnnualSavingEntryUpdatedBy")
+  createdAnnualSavingOverrides AnnualSavingOverride[]  @relation("AnnualSavingOverrideCreatedBy")
 }
 
 model Household {
@@ -66,22 +77,52 @@ model Household {
 }
 
 model AnnualBudgetItem {
-  id              String              @id @default(cuid())
+  id              String                 @id @default(cuid())
   householdId     String
   name            String
   targetAmount    Int
   dueMonth        String
   category        String?
-  isArchived      Boolean             @default(false)
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  recurrence      AnnualBudgetRecurrence @default(ONE_TIME)
+  isArchived      Boolean                @default(false)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
   updatedByUserId String?
-  household       Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  updatedByUser   User?               @relation("AnnualBudgetItemUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  household       Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  updatedByUser   User?                  @relation("AnnualBudgetItemUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
   entries         AnnualSavingEntry[]
   linkedExpenses  Expense[]
+  savingOverrides AnnualSavingOverride[]
+  savingSchedules AnnualSavingSchedule[]
 
   @@index([householdId, isArchived, dueMonth])
+}
+
+model AnnualSavingOverride {
+  id                 String           @id @default(cuid())
+  budgetMonthId      String
+  annualBudgetItemId String
+  createdAt          DateTime         @default(now())
+  createdByUserId    String
+  budgetMonth        BudgetMonth      @relation(fields: [budgetMonthId], references: [id], onDelete: Cascade)
+  annualBudgetItem   AnnualBudgetItem @relation(fields: [annualBudgetItemId], references: [id], onDelete: Cascade)
+  createdByUser      User             @relation("AnnualSavingOverrideCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetMonthId, annualBudgetItemId])
+  @@index([annualBudgetItemId])
+}
+
+model AnnualSavingSchedule {
+  id                 String           @id @default(cuid())
+  budgetMonthId      String
+  annualBudgetItemId String
+  expenseId          String           @unique
+  budgetMonth        BudgetMonth      @relation(fields: [budgetMonthId], references: [id], onDelete: Cascade)
+  annualBudgetItem   AnnualBudgetItem @relation(fields: [annualBudgetItemId], references: [id], onDelete: Cascade)
+  expense            Expense          @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetMonthId, annualBudgetItemId])
+  @@index([annualBudgetItemId])
 }
 
 model AnnualSavingEntry {
@@ -155,18 +196,20 @@ model HouseholdInvite {
 }
 
 model BudgetMonth {
-  id              String                  @id @default(cuid())
-  householdId     String
-  monthKey        String
-  note            String?
-  isLocked        Boolean                 @default(false)
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  updatedByUserId String?
-  household       Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  updatedByUser   User?                   @relation("MonthUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
-  personSnapshots MonthlyPersonSnapshot[]
-  expenses        Expense[]
+  id                    String                  @id @default(cuid())
+  householdId           String
+  monthKey              String
+  note                  String?
+  isLocked              Boolean                 @default(false)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  updatedByUserId       String?
+  household             Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  updatedByUser         User?                   @relation("MonthUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  personSnapshots       MonthlyPersonSnapshot[]
+  expenses              Expense[]
+  annualSavingOverrides AnnualSavingOverride[]
+  annualSavingSchedules AnnualSavingSchedule[]
 
   @@unique([householdId, monthKey])
   @@index([householdId, monthKey])
@@ -190,7 +233,7 @@ model MonthlyPersonSnapshot {
 }
 
 model Expense {
-  id                       String              @id @default(cuid())
+  id                       String                @id @default(cuid())
   budgetMonthId            String
   recurringSourceExpenseId String?
   swishId                  String?
@@ -198,24 +241,26 @@ model Expense {
   amount                   Int
   category                 String
   expenseType              ExpenseType
-  planningType             PlanningType        @default(PLANNED)
+  origin                   ExpenseOrigin         @default(STANDARD)
+  planningType             PlanningType          @default(PLANNED)
   payerType                PayerType
   dueDate                  DateTime?
-  isPaid                   Boolean             @default(false)
+  isPaid                   Boolean               @default(false)
   paidAt                   DateTime?
   firstPersonPaidAt        DateTime?
   secondPersonPaidAt       DateTime?
   firstPersonSwishId       String?
   secondPersonSwishId      String?
   note                     String?
-  createdAt                DateTime            @default(now())
-  updatedAt                DateTime            @updatedAt
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
   updatedByUserId          String?
   annualBudgetItemId       String?
-  budgetMonth              BudgetMonth         @relation(fields: [budgetMonthId], references: [id], onDelete: Cascade)
-  updatedByUser            User?               @relation("ExpenseUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
-  annualBudgetItem         AnnualBudgetItem?   @relation(fields: [annualBudgetItemId], references: [id], onDelete: SetNull)
-  annualSavingEntries      AnnualSavingEntry[] @relation("ExpenseAnnualSavingEntry")
+  budgetMonth              BudgetMonth           @relation(fields: [budgetMonthId], references: [id], onDelete: Cascade)
+  updatedByUser            User?                 @relation("ExpenseUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  annualBudgetItem         AnnualBudgetItem?     @relation(fields: [annualBudgetItemId], references: [id], onDelete: SetNull)
+  annualSavingEntries      AnnualSavingEntry[]   @relation("ExpenseAnnualSavingEntry")
+  annualSavingSchedule     AnnualSavingSchedule?
 
   @@unique([budgetMonthId, recurringSourceExpenseId])
   @@index([budgetMonthId, dueDate])

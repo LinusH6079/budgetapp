@@ -13,10 +13,15 @@ Mobilvänlig fullstack-app för hushållsbudget för exakt två personer. Byggd 
 - Återkommande utgifter som kan kopieras till nästa månad
 - Hushålls- och personsummeringar
 - Oförklarad förbrukning mellan månader
-- Årsbudget med sparmål, månadstakt och reserverade pengar för större kostnader
+- Årsbudget med engångs- eller årliga sparmål och automatiska månadsposter
 - JSON-export och JSON-import
 
 Gemensamma utgifter delas 50/50 i personliga summeringar. Hushållssiffran är den officiella siffran för oförklarad förbrukning.
+
+Automatiskt årssparande räknas om mot det kvarvarande målet och visas som en
+obligatorisk utgift i öppna månader. En sådan post kan tas bort som en override
+för just den månaden; återstående belopp fördelas då över senare sparmånader.
+Betalda och låsta månader ändras aldrig automatiskt.
 
 ## Stack
 

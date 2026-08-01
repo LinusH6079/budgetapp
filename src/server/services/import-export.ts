@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { householdImportSchema } from "@/lib/validations";
+import { syncAutomaticAnnualSavingExpenses } from "@/server/services/annual-saving-expenses";
 import { getHouseholdForUser, mapMembersToSlots } from "@/server/services/households";
 
 export async function exportHouseholdDataForUser(userId: string) {
@@ -17,6 +18,11 @@ export async function exportHouseholdDataForUser(userId: string) {
         },
         include: {
           personSnapshots: true,
+          annualSavingOverrides: {
+            select: {
+              annualBudgetItemId: true,
+            },
+          },
           expenses: {
             include: {
               annualBudgetItem: {
@@ -98,6 +104,7 @@ export async function exportHouseholdDataForUser(userId: string) {
       targetAmount: item.targetAmount,
       dueMonth: item.dueMonth,
       category: item.category,
+      recurrence: item.recurrence,
       isArchived: item.isArchived,
       entries: item.entries
         .filter((entry) => !entry.sourceExpenseId)
@@ -113,6 +120,9 @@ export async function exportHouseholdDataForUser(userId: string) {
       isLocked: month.isLocked,
       createdAt: month.createdAt.toISOString(),
       updatedAt: month.updatedAt.toISOString(),
+      annualSavingOverrideBackupKeys: month.annualSavingOverrides.map(
+        (override) => override.annualBudgetItemId,
+      ),
       snapshots: month.personSnapshots.map((snapshot) => {
         const member = members.find((current) => current.userId === snapshot.userId);
         return {
@@ -131,6 +141,7 @@ export async function exportHouseholdDataForUser(userId: string) {
         amount: expense.amount,
         category: expense.category,
         expenseType: expense.expenseType,
+        origin: expense.origin,
         planningType: expense.planningType,
         payerType: expense.payerType,
         dueDate: expense.dueDate?.toISOString() ?? null,
@@ -237,6 +248,7 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
             targetAmount: importedItem.targetAmount,
             dueMonth: importedItem.dueMonth,
             category: importedItem.category,
+            recurrence: importedItem.recurrence ?? "ONE_TIME",
             isArchived: importedItem.isArchived,
             updatedByUserId: userId,
             entries: {
@@ -279,6 +291,11 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
       });
 
       await tx.expense.deleteMany({
+        where: {
+          budgetMonthId: month.id,
+        },
+      });
+      await tx.annualSavingOverride.deleteMany({
         where: {
           budgetMonthId: month.id,
         },
@@ -331,6 +348,7 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
               amount: expense.amount,
               category: expense.category,
               expenseType: expense.expenseType,
+              origin: expense.origin ?? "STANDARD",
               planningType: expense.planningType,
               payerType: expense.payerType,
               dueDate: expense.dueDate ? new Date(expense.dueDate) : null,
@@ -360,8 +378,53 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
               },
             });
           }
+
+          if (
+            annualBudgetItemId &&
+            expense.origin === "ANNUAL_SAVING"
+          ) {
+            await tx.annualSavingSchedule.upsert({
+              where: {
+                budgetMonthId_annualBudgetItemId: {
+                  budgetMonthId: month.id,
+                  annualBudgetItemId,
+                },
+              },
+              create: {
+                budgetMonthId: month.id,
+                annualBudgetItemId,
+                expenseId: createdExpense.id,
+              },
+              update: {
+                expenseId: createdExpense.id,
+              },
+            });
+          }
         }
       }
+
+      const overrideItemIds = (
+        importedMonth.annualSavingOverrideBackupKeys ?? []
+      )
+        .map((backupKey) => annualBudgetIdByBackupKey.get(backupKey))
+        .filter((itemId): itemId is string => Boolean(itemId));
+
+      if (overrideItemIds.length > 0) {
+        await tx.annualSavingOverride.createMany({
+          data: overrideItemIds.map((annualBudgetItemId) => ({
+            budgetMonthId: month.id,
+            annualBudgetItemId,
+            createdByUserId: userId,
+          })),
+          skipDuplicates: true,
+        });
+      }
     }
+
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: household.id,
+      actorUserId: userId,
+    });
   });
 }

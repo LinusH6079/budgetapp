@@ -10,6 +10,7 @@ type AnnualBudgetFormProps = {
     targetAmount: number;
     dueMonth: string;
     category: string | null;
+    recurrence: "ONE_TIME" | "YEARLY";
   };
 };
 
@@ -59,6 +60,17 @@ export function AnnualBudgetForm({
         Behövs-månaden räknas inte som sparmånad. Behövs pengarna i oktober
         fördelas sparandet till och med september.
       </p>
+
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium">Upprepning</span>
+        <select
+          name="recurrence"
+          defaultValue={item?.recurrence ?? "ONE_TIME"}
+        >
+          <option value="ONE_TIME">En gång</option>
+          <option value="YEARLY">Varje år</option>
+        </select>
+      </label>
 
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">

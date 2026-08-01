@@ -1,4 +1,10 @@
-import { ExpenseType, PayerType, PlanningType } from "@prisma/client";
+import {
+  AnnualBudgetRecurrence,
+  ExpenseOrigin,
+  ExpenseType,
+  PayerType,
+  PlanningType,
+} from "@prisma/client";
 import { z } from "zod";
 
 import { isMonthKey } from "@/lib/date";
@@ -119,6 +125,7 @@ export const annualBudgetItemSchema = z.object({
     .string()
     .refine(isMonthKey, "Välj en giltig förfallomånad."),
   category: z.string().trim().max(50, "Kategorin är för lång."),
+  recurrence: z.nativeEnum(AnnualBudgetRecurrence),
 });
 
 export const annualContributionSchema = z.object({
@@ -150,6 +157,7 @@ export const expenseSchema = z.object({
   amount: moneyField,
   category: z.string().trim().min(1, "Kategori krävs.").max(50, "Kategorin är för lång."),
   expenseType: z.nativeEnum(ExpenseType),
+  origin: z.nativeEnum(ExpenseOrigin).optional(),
   payerType: z.nativeEnum(PayerType),
   annualBudgetItemId: z.string().cuid().optional().or(z.literal("")),
 });
@@ -218,6 +226,7 @@ const importExpenseSchema = z.object({
   amount: z.number().int().nonnegative(),
   category: z.string(),
   expenseType: z.nativeEnum(ExpenseType),
+  origin: z.nativeEnum(ExpenseOrigin).optional(),
   planningType: z.nativeEnum(PlanningType),
   payerType: z.nativeEnum(PayerType),
   dueDate: z.string().nullable(),
@@ -280,6 +289,7 @@ export const householdImportSchema = z.object({
         targetAmount: z.number().int().positive(),
         dueMonth: z.string().refine(isMonthKey),
         category: z.string().nullable(),
+        recurrence: z.nativeEnum(AnnualBudgetRecurrence).optional(),
         isArchived: z.boolean(),
         entries: z.array(
           z.object({
@@ -298,6 +308,7 @@ export const householdImportSchema = z.object({
       isLocked: z.boolean(),
       createdAt: z.string(),
       updatedAt: z.string(),
+      annualSavingOverrideBackupKeys: z.array(z.string()).optional(),
       snapshots: z.array(importSnapshotSchema).max(2),
       expenses: z.array(importExpenseSchema),
     }),

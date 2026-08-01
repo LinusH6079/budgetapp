@@ -1,10 +1,16 @@
-import { Prisma, PayerType, PlanningType } from "@prisma/client";
+import {
+  ExpenseOrigin,
+  Prisma,
+  PayerType,
+  PlanningType,
+} from "@prisma/client";
 
 import { db } from "@/lib/db";
 import { getNextMonthKey } from "@/lib/date";
 import { expensePartAmount } from "@/lib/budget-calculations";
 import { expenseAnnualContributionAmount } from "@/lib/annual-budget-calculations";
 import { assertMonthEditable } from "@/server/services/access";
+import { syncAutomaticAnnualSavingExpenses } from "@/server/services/annual-saving-expenses";
 import { buildRecurringExpenseCopyData } from "@/server/services/budget-months";
 import { getHouseholdForUser } from "@/server/services/households";
 
@@ -166,6 +172,7 @@ async function syncRecurringExpenseToNextMonth(input: {
     amount: number;
     category: string;
     expenseType: "RECURRING" | "ONE_TIME";
+    origin: "STANDARD" | "ANNUAL_SAVING";
     planningType: "PLANNED" | "UNPLANNED";
     payerType: "FIRST_PERSON" | "SECOND_PERSON" | "SHARED";
     dueDate: Date | null;
@@ -239,6 +246,9 @@ export async function upsertExpenseForUser(input: {
 
     if (input.expenseId) {
       existingExpense = await requireExpenseInMonth(input.expenseId, input.monthId);
+      if (existingExpense.origin === ExpenseOrigin.ANNUAL_SAVING) {
+        throw new Error("Automatiskt årssparande justeras från årsbudgeten.");
+      }
     }
 
     if (input.annualBudgetItemId) {
@@ -295,6 +305,7 @@ export async function upsertExpenseForUser(input: {
       amount: input.amount,
       category: input.category,
       expenseType: input.expenseType,
+      origin: ExpenseOrigin.STANDARD,
       planningType: existingExpense?.planningType ?? PlanningType.PLANNED,
       payerType: input.payerType,
       dueDate: null,
@@ -337,6 +348,12 @@ export async function upsertExpenseForUser(input: {
       sourceExpense: expense,
     });
 
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: month.householdId,
+      actorUserId: input.actorUserId,
+    });
+
     return expense;
   });
 }
@@ -351,6 +368,28 @@ export async function deleteExpenseForUser(input: {
   const expense = await requireExpenseInMonth(input.expenseId, input.monthId);
 
   return db.$transaction(async (tx) => {
+    if (
+      expense.origin === ExpenseOrigin.ANNUAL_SAVING &&
+      expense.annualBudgetItemId
+    ) {
+      await tx.annualSavingOverride.upsert({
+        where: {
+          budgetMonthId_annualBudgetItemId: {
+            budgetMonthId: input.monthId,
+            annualBudgetItemId: expense.annualBudgetItemId,
+          },
+        },
+        create: {
+          budgetMonthId: input.monthId,
+          annualBudgetItemId: expense.annualBudgetItemId,
+          createdByUserId: input.actorUserId,
+        },
+        update: {
+          createdByUserId: input.actorUserId,
+        },
+      });
+    }
+
     const deletedExpense = await tx.expense.delete({
       where: {
         id: input.expenseId,
@@ -377,6 +416,12 @@ export async function deleteExpenseForUser(input: {
         ...expense,
         expenseType: "ONE_TIME",
       },
+    });
+
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: month.householdId,
+      actorUserId: input.actorUserId,
     });
 
     return deletedExpense;
@@ -410,6 +455,12 @@ export async function setExpensePaidStateForUser(input: {
         actorUserId: input.actorUserId,
         householdId: month.householdId,
         expense: updatedExpense,
+      });
+
+      await syncAutomaticAnnualSavingExpenses({
+        tx,
+        householdId: month.householdId,
+        actorUserId: input.actorUserId,
       });
 
       return updatedExpense;
@@ -619,6 +670,12 @@ export async function settleExpensesWithSwishForUser(input: {
         return updatedExpense;
       }),
     );
+
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: month.householdId,
+      actorUserId: input.actorUserId,
+    });
 
     return {
       count: input.selections.length,

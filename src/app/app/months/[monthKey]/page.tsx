@@ -208,7 +208,9 @@ export default async function MonthDetailPage({
               <SummaryPersonBreakdown items={perPersonRemainingPlanned} />
             </div>
             <div className="stat-tile">
-              <p className="eyebrow-label">Utgifter som ej blev loggade</p>
+              <p className="eyebrow-label">
+                Utgifter som ej blev loggade föregående månad
+              </p>
               <p className="stat-value">{unexplained === null ? "Ingen data" : formatCurrency(unexplained)}</p>
               {perPersonUnexplained.length > 0 ? <SummaryPersonBreakdown items={perPersonUnexplained} /> : null}
             </div>

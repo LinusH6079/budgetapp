@@ -19,30 +19,6 @@ type AppHomePageProps = {
   }>;
 };
 
-function OverviewStat({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "accent" | "danger";
-}) {
-  const toneClass =
-    tone === "danger"
-      ? "text-[var(--color-danger)]"
-      : tone === "accent"
-        ? "text-[var(--color-ink)]"
-        : "text-[var(--color-muted)]";
-
-  return (
-    <div className="stat-tile">
-      <p className="eyebrow-label">{label}</p>
-      <p className={`stat-value ${toneClass}`}>{value}</p>
-    </div>
-  );
-}
-
 function AnnualOverviewCard({
   totalReserved,
   remainingThisMonth,
@@ -148,76 +124,20 @@ export default async function AppHomePage({ searchParams }: AppHomePageProps) {
     );
   }
 
-  const summary = pageData.summary;
-  const unexplained = pageData.previousSummary?.unexplainedDifferenceFromPreviousMonth ?? null;
-
   return (
     <div className="viewport-page">
       <FlashMessage notice={notice} error={error} />
 
-      <section className="app-panel px-4 py-5 sm:px-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="eyebrow-label">Översikt</p>
-            <h2 className="mt-2 text-[1.75rem] font-semibold tracking-[-0.05em]">Aktiv månad</h2>
-          </div>
-          <span className="rounded-full bg-[var(--color-accent-soft)] px-3 py-1.5 text-xs font-medium text-[var(--color-ink)]">
-            {formatMonthLabel(pageData.activeMonth.monthKey)}
-          </span>
-        </div>
-
-        <div className="mt-5 rounded-[20px] bg-[var(--color-elevated)] px-4 py-4">
-          <p className="eyebrow-label">Kvar just nu</p>
-          <p className="mt-1 text-[2rem] font-semibold tracking-[-0.05em]">{formatCurrency(summary.remainingActual)}</p>
-          {(annualBudget?.totalReserved ?? 0) > 0 ? (
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--color-line)] pt-3 text-xs">
-              <span className="text-[var(--color-muted)]">
-                Fritt efter årsreservering
-              </span>
-              <span
-                className={`font-semibold ${
-                  summary.remainingActual -
-                      (annualBudget?.totalReserved ?? 0) <
-                    0
-                    ? "text-[var(--color-danger)]"
-                    : ""
-                }`}
-              >
-                {formatCurrency(
-                  summary.remainingActual -
-                    (annualBudget?.totalReserved ?? 0),
-                )}
-              </span>
-            </div>
-          ) : null}
-        </div>
-
-        <PendingLink
-          href={`/app/months/${pageData.activeMonth.monthKey}`}
-          prefetch
-          className="action-button action-secondary mt-3 w-full justify-center"
-        >
-          Öppna månadsbudget
-          <ArrowRight className="h-4 w-4" />
-        </PendingLink>
-
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <OverviewStat label="Tillgängligt" value={formatCurrency(summary.totalAvailable)} tone="accent" />
-          <OverviewStat
-            label="Planerat kvar"
-            value={formatCurrency(summary.remainingPlanned)}
-            tone={summary.remainingPlanned < 0 ? "danger" : "default"}
-          />
-          <OverviewStat label="Obetalda" value={`${summary.unpaidCount} st`} />
-          <OverviewStat
-            label="Utgifter som ej blev loggade"
-            value={unexplained === null ? "Ingen data" : formatCurrency(unexplained)}
-            tone={unexplained && unexplained > 0 ? "danger" : "default"}
-          />
-        </div>
-      </section>
-
-      {spendingPace ? <SpendingPaceCard data={spendingPace} /> : null}
+      {spendingPace ? (
+        <SpendingPaceCard
+          data={spendingPace}
+          activeMonth={{
+            monthKey: pageData.activeMonth.monthKey,
+            remainingActual: pageData.summary.remainingActual,
+            totalReserved: annualBudget?.totalReserved ?? 0,
+          }}
+        />
+      ) : null}
 
       {annualBudget ? (
         <AnnualOverviewCard

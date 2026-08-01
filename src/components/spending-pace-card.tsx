@@ -1,7 +1,9 @@
-import { RotateCcw, Settings2 } from "lucide-react";
+import { ArrowRight, RotateCcw, Settings2 } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { ModalLauncher } from "@/components/modal-launcher";
+import { PendingLink } from "@/components/pending-link";
+import { formatMonthLabel } from "@/lib/date";
 import { formatEditableAmount, formatCurrency } from "@/lib/money";
 import type { CalendarDate } from "@/lib/pay-cycle";
 import {
@@ -11,6 +13,11 @@ import {
 } from "@/server/actions/spending-pace-actions";
 
 type SpendingPaceCardProps = {
+  activeMonth?: {
+    monthKey: string;
+    remainingActual: number;
+    totalReserved: number;
+  };
   data: {
     settings: {
       monthlyLimit: number;
@@ -74,7 +81,7 @@ function markerTransform(percentage: number) {
   return "translateX(-50%)";
 }
 
-export function SpendingPaceCard({ data }: SpendingPaceCardProps) {
+export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
   const settings = data.settings;
   const actualPercentage = settings
     ? (data.spent / settings.monthlyLimit) * 100
@@ -139,7 +146,63 @@ export function SpendingPaceCard({ data }: SpendingPaceCardProps) {
 
   return (
     <section className="app-panel px-4 py-4 sm:px-5">
-      <div className="flex items-start justify-between gap-3">
+      {activeMonth ? (
+        <div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="eyebrow-label">Aktiv månad</p>
+              <h2 className="mt-2 truncate text-xl font-semibold capitalize tracking-[-0.04em]">
+                {formatMonthLabel(activeMonth.monthKey)}
+              </h2>
+            </div>
+            <span className="rounded-full bg-[var(--color-accent-soft)] px-3 py-1.5 text-xs font-medium text-[var(--color-ink)]">
+              Aktiv
+            </span>
+          </div>
+
+          <div className="mt-3 rounded-[18px] bg-[var(--color-elevated)] px-3.5 py-3.5">
+            <p className="eyebrow-label">Kvar just nu</p>
+            <p className="mt-1 text-[1.75rem] font-semibold tracking-[-0.05em]">
+              {formatCurrency(activeMonth.remainingActual)}
+            </p>
+            {activeMonth.totalReserved > 0 ? (
+              <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-[var(--color-line)] pt-2.5 text-[11px]">
+                <span className="text-[var(--color-muted)]">
+                  Fritt efter årsreservering
+                </span>
+                <span
+                  className={`font-semibold ${
+                    activeMonth.remainingActual - activeMonth.totalReserved < 0
+                      ? "text-[var(--color-danger)]"
+                      : ""
+                  }`}
+                >
+                  {formatCurrency(
+                    activeMonth.remainingActual - activeMonth.totalReserved,
+                  )}
+                </span>
+              </div>
+            ) : null}
+          </div>
+
+          <PendingLink
+            href={`/app/months/${activeMonth.monthKey}`}
+            prefetch
+            className="action-button action-secondary mt-2.5 w-full justify-center"
+          >
+            Månadsbudget
+            <ArrowRight className="h-4 w-4" />
+          </PendingLink>
+        </div>
+      ) : null}
+
+      <div
+        className={`flex items-start justify-between gap-3 ${
+          activeMonth
+            ? "mt-4 border-t border-[var(--color-line)] pt-4"
+            : ""
+        }`}
+      >
         <div>
           <p className="eyebrow-label">Lönepuls</p>
           <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em]">

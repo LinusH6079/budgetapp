@@ -1,8 +1,14 @@
-import { ChevronRight, Landmark, ReceiptText, Settings2 } from "lucide-react";
+import { Beaker, ChevronRight, Landmark, ReceiptText, Settings2 } from "lucide-react";
 
 import { PendingLink } from "@/components/pending-link";
 
 const links = [
+  {
+    href: "/app/playground",
+    label: "Playground",
+    description: "Bygg testbudgetar utan att påverka riktiga månader",
+    icon: Beaker,
+  },
   {
     href: "/app/loans",
     label: "Lån & finansiering",

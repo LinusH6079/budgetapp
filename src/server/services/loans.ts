@@ -183,6 +183,23 @@ export async function createFinancingCaseForUser(input: {
   });
 }
 
+export async function deleteFinancingCaseForUser(input: {
+  actorUserId: string;
+  caseId: string;
+}) {
+  const financingCase = await db.financingCase.findFirst({
+    where: {
+      id: input.caseId,
+      household: { members: { some: { userId: input.actorUserId } } },
+    },
+  });
+  if (!financingCase) throw new Error("Jämförelsen hittades inte.");
+  if (financingCase.decision !== FinancingDecision.UNDECIDED) {
+    throw new Error("En aktiverad jämförelse kan inte tas bort från historiken.");
+  }
+  return db.financingCase.delete({ where: { id: financingCase.id } });
+}
+
 export async function activateFinancingCaseForUser(input: {
   actorUserId: string;
   caseId: string;

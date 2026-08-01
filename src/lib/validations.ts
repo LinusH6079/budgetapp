@@ -107,6 +107,10 @@ export const financingDecisionSchema = z.object({
   }
 });
 
+export const deleteFinancingCaseSchema = z.object({
+  caseId: z.string().cuid(),
+});
+
 export const loanRateChangeSchema = z.object({
   loanId: z.string().cuid(),
   startMonth: z.string().refine(isMonthKey, "Välj en giltig startmånad."),
@@ -160,6 +164,53 @@ export const createMonthSchema = z.object({
     .string()
     .refine(isMonthKey, "Månad måste anges som ÅÅÅÅ-MM, till exempel 2026-04."),
   copyRecurringFromMonthId: z.string().cuid().optional().or(z.literal("")),
+});
+
+export const createBudgetScenarioSchema = z.object({
+  name: z.string().trim().min(1, "Namn krävs.").max(120, "Namnet är för långt."),
+  referenceMonthKey: z.string().refine(isMonthKey, "Välj en giltig referensmånad."),
+  sourceMonthId: z.string().cuid().optional().or(z.literal("")),
+});
+
+export const budgetScenarioIdSchema = z.object({
+  scenarioId: z.string().cuid(),
+});
+
+export const updateBudgetScenarioSchema = z.object({
+  scenarioId: z.string().cuid(),
+  name: z.string().trim().min(1, "Namn krävs.").max(120, "Namnet är för långt."),
+});
+
+export const updateBudgetScenarioNoteSchema = z.object({
+  scenarioId: z.string().cuid(),
+  note: z.string().trim().max(2000, "Anteckningen är för lång."),
+});
+
+export const scenarioSnapshotSchema = z.object({
+  scenarioId: z.string().cuid(),
+  userId: z.string().cuid(),
+  incomeAmount: moneyField,
+  carryOverAmount: moneyField,
+});
+
+export const scenarioExpenseSchema = z.object({
+  scenarioId: z.string().cuid(),
+  expenseId: z.string().cuid().optional().or(z.literal("")),
+  name: z.string().trim().min(1, "Namn krävs.").max(120, "Namnet är för långt."),
+  amount: moneyField,
+  category: z.string().trim().min(1, "Kategori krävs.").max(50, "Kategorin är för lång."),
+  expenseType: z.nativeEnum(ExpenseType),
+  payerType: z.nativeEnum(PayerType),
+});
+
+export const deleteScenarioExpenseSchema = z.object({
+  scenarioId: z.string().cuid(),
+  expenseId: z.string().cuid(),
+});
+
+export const promoteBudgetScenarioSchema = z.object({
+  scenarioId: z.string().cuid(),
+  targetMonthKey: z.string().refine(isMonthKey, "Välj en giltig månad."),
 });
 
 export const updateMonthNoteSchema = z.object({
@@ -567,6 +618,28 @@ export const householdImportSchema = z.object({
       paidAt: z.string().nullable(),
       firstPersonPaidAt: z.string().nullable(),
       secondPersonPaidAt: z.string().nullable(),
+    })),
+  })).optional(),
+  playground: z.array(z.object({
+    name: z.string().min(1).max(120),
+    referenceMonthKey: z.string().refine(isMonthKey),
+    sourceMonthKey: z.string().refine(isMonthKey).nullable(),
+    note: z.string().nullable(),
+    snapshots: z.array(z.object({
+      slot: z.enum(["FIRST_PERSON", "SECOND_PERSON"]),
+      incomeAmount: z.number().int().nonnegative(),
+      carryOverAmount: z.number().int().nonnegative(),
+    })).max(2),
+    expenses: z.array(z.object({
+      name: z.string().min(1),
+      amount: z.number().int().nonnegative(),
+      category: z.string(),
+      expenseType: z.nativeEnum(ExpenseType),
+      sourceOrigin: z.nativeEnum(ExpenseOrigin),
+      planningType: z.nativeEnum(PlanningType),
+      payerType: z.nativeEnum(PayerType),
+      dueDate: z.string().nullable(),
+      isSystemGenerated: z.boolean(),
     })),
   })).optional(),
   months: z.array(

@@ -18,6 +18,7 @@ export async function exportHouseholdDataForUser(userId: string) {
     annualBudgetItems,
     financingCases,
     loans,
+    budgetScenarios,
   ] =
     await Promise.all([
       db.budgetMonth.findMany({
@@ -100,6 +101,11 @@ export async function exportHouseholdDataForUser(userId: string) {
             include: { expense: true },
           },
         },
+        orderBy: { createdAt: "asc" },
+      }),
+      db.budgetScenario.findMany({
+        where: { householdId: household.id },
+        include: { personSnapshots: true, expenses: true },
         orderBy: { createdAt: "asc" },
       }),
     ]);
@@ -204,6 +210,31 @@ export async function exportHouseholdDataForUser(userId: string) {
         paidAt: payment.expense?.paidAt?.toISOString() ?? null,
         firstPersonPaidAt: payment.expense?.firstPersonPaidAt?.toISOString() ?? null,
         secondPersonPaidAt: payment.expense?.secondPersonPaidAt?.toISOString() ?? null,
+      })),
+    })),
+    playground: budgetScenarios.map((scenario) => ({
+      name: scenario.name,
+      referenceMonthKey: scenario.referenceMonthKey,
+      sourceMonthKey: scenario.sourceMonthKey,
+      note: scenario.note,
+      snapshots: scenario.personSnapshots.map((snapshot) => {
+        const member = members.find((current) => current.userId === snapshot.userId);
+        return {
+          slot: member?.slot ?? "FIRST_PERSON",
+          incomeAmount: snapshot.incomeAmount,
+          carryOverAmount: snapshot.carryOverAmount,
+        };
+      }),
+      expenses: scenario.expenses.map((expense) => ({
+        name: expense.name,
+        amount: expense.amount,
+        category: expense.category,
+        expenseType: expense.expenseType,
+        sourceOrigin: expense.sourceOrigin,
+        planningType: expense.planningType,
+        payerType: expense.payerType,
+        dueDate: expense.dueDate?.toISOString() ?? null,
+        isSystemGenerated: expense.isSystemGenerated,
       })),
     })),
     months: months.map((month) => ({
@@ -325,6 +356,48 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
             amount: entry.amount,
             updatedByUserId: userId,
           })),
+        });
+      }
+    }
+
+    if (imported.playground) {
+      await tx.budgetScenario.deleteMany({ where: { householdId: household.id } });
+
+      for (const scenario of imported.playground) {
+        await tx.budgetScenario.create({
+          data: {
+            householdId: household.id,
+            name: scenario.name,
+            referenceMonthKey: scenario.referenceMonthKey,
+            sourceMonthKey: scenario.sourceMonthKey,
+            note: scenario.note,
+            updatedByUserId: userId,
+            personSnapshots: {
+              create: scenario.snapshots.flatMap((snapshot) => {
+                const targetUserId = slotToUserId.get(snapshot.slot);
+                return targetUserId ? [{
+                  userId: targetUserId,
+                  incomeAmount: snapshot.incomeAmount,
+                  carryOverAmount: snapshot.carryOverAmount,
+                  updatedByUserId: userId,
+                }] : [];
+              }),
+            },
+            expenses: {
+              create: scenario.expenses.map((expense) => ({
+                name: expense.name,
+                amount: expense.amount,
+                category: expense.category,
+                expenseType: expense.expenseType,
+                sourceOrigin: expense.sourceOrigin,
+                planningType: expense.planningType,
+                payerType: expense.payerType,
+                dueDate: expense.dueDate ? new Date(expense.dueDate) : null,
+                isSystemGenerated: expense.isSystemGenerated,
+                updatedByUserId: userId,
+              })),
+            },
+          },
         });
       }
     }

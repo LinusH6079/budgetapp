@@ -18,6 +18,7 @@ Mobilvänlig fullstack-app för hushållsbudget för exakt två personer. Byggd 
 - Aktiva annuitetslån och lån med rak amortering, inklusive avgifter och restskuld
 - Automatiska lånebetalningar, ränteändringar och extra amortering
 - Registrering av befintliga lån från aktuell restskuld
+- Delad Playground för isolerade testbudgetar som kan kopieras till en ny riktig månad
 - JSON-export och JSON-import
 
 Gemensamma utgifter delas 50/50 i personliga summeringar. Hushållssiffran är den officiella siffran för oförklarad förbrukning.
@@ -37,6 +38,11 @@ Långsiktiga mål kan använda en flexibel målplan. Tillfälliga månadsbelopp 
 med start- och slutmånad; därefter räknas den automatiska takten om så att
 målbeloppet fortfarande nås vid milstolpen. Ett öppet steg som börjar efter
 milstolpen kan fortsätta sparandet utan slutdatum.
+
+Playground-scenarier är fristående ögonblicksbilder. Betalstatus och Swish-data
+kopieras inte, och automatiska lån- och årssparandeposter är låsta i testet. När
+ett scenario görs till en ny riktig månad genereras dessa poster på nytt från de
+aktuella planerna.
 
 ## Stack
 

@@ -109,6 +109,11 @@ export async function joinHouseholdByCode(userId: string, code: string) {
               id: true,
             },
           },
+          budgetScenarios: {
+            select: {
+              id: true,
+            },
+          },
         },
       },
     },
@@ -142,6 +147,18 @@ export async function joinHouseholdByCode(userId: string, code: string) {
       await tx.monthlyPersonSnapshot.createMany({
         data: invite.household.budgetRows.map((month) => ({
           budgetMonthId: month.id,
+          userId,
+          incomeAmount: 0,
+          carryOverAmount: 0,
+          updatedByUserId: userId,
+        })),
+      });
+    }
+
+    if (invite.household.budgetScenarios.length > 0) {
+      await tx.scenarioPersonSnapshot.createMany({
+        data: invite.household.budgetScenarios.map((scenario) => ({
+          budgetScenarioId: scenario.id,
           userId,
           incomeAmount: 0,
           carryOverAmount: 0,

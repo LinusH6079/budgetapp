@@ -3,6 +3,7 @@
 import { requireUser } from "@/lib/session";
 import {
   existingLoanSchema,
+  deleteFinancingCaseSchema,
   financingCaseSchema,
   financingDecisionSchema,
   loanExtraPaymentSchema,
@@ -14,6 +15,7 @@ import {
   addLoanExtraPaymentForUser,
   changeLoanRateForUser,
   createFinancingCaseForUser,
+  deleteFinancingCaseForUser,
   registerExistingLoanForUser,
   adjustLoanInstallmentForUser,
 } from "@/server/services/loans";
@@ -106,6 +108,30 @@ export async function activateFinancingCaseAction(formData: FormData) {
       ? "Lånet aktiverades och månadsutgifterna skapades."
       : "Direktbetalningen lades till i budgeten.",
   );
+}
+
+export async function deleteFinancingCaseAction(formData: FormData) {
+  const user = await requireUser();
+  const parsed = deleteFinancingCaseSchema.safeParse({
+    caseId: formData.get("caseId"),
+  });
+  if (!parsed.success) {
+    redirectWithMessage(RETURN_TO, "error", "Jämförelsen kunde inte tas bort.");
+  }
+  try {
+    await deleteFinancingCaseForUser({
+      actorUserId: user.id,
+      caseId: parsed.data.caseId,
+    });
+  } catch (error) {
+    redirectWithMessage(
+      `${RETURN_TO}?tab=compare`,
+      "error",
+      error instanceof Error ? error.message : "Jämförelsen kunde inte tas bort.",
+    );
+  }
+  revalidateBudgetPaths(RETURN_TO);
+  redirectWithMessage(`${RETURN_TO}?tab=compare`, "notice", "Jämförelsen togs bort.");
 }
 
 export async function registerExistingLoanAction(formData: FormData) {

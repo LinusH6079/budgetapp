@@ -53,6 +53,10 @@ function getPageTitle(pathname: string, householdName?: string | null) {
     return "Lån & finansiering";
   }
 
+  if (pathname.startsWith("/app/playground")) {
+    return "Playground";
+  }
+
   if (pathname.startsWith("/app/more")) {
     return "Mer";
   }
@@ -94,7 +98,8 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
       isActive:
         pathname.startsWith("/app/more") ||
         pathname.startsWith("/app/household") ||
-        pathname.startsWith("/app/loans"),
+        pathname.startsWith("/app/loans") ||
+        pathname.startsWith("/app/playground"),
     },
   ];
 

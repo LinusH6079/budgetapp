@@ -69,28 +69,32 @@ enum AnnualSavingEntryType {
 }
 
 model User {
-  id                           String                  @id @default(cuid())
+  id                           String                   @id @default(cuid())
   name                         String
-  email                        String                  @unique
+  email                        String                   @unique
   passwordHash                 String
-  createdAt                    DateTime                @default(now())
-  updatedAt                    DateTime                @updatedAt
+  createdAt                    DateTime                 @default(now())
+  updatedAt                    DateTime                 @updatedAt
   householdMember              HouseholdMember?
-  createdInvites               HouseholdInvite[]       @relation("InviteCreator")
-  updatedMonths                BudgetMonth[]           @relation("MonthUpdatedBy")
-  personSnapshots              MonthlyPersonSnapshot[] @relation("SnapshotOwner")
-  updatedSnapshots             MonthlyPersonSnapshot[] @relation("SnapshotUpdatedBy")
-  updatedExpenses              Expense[]               @relation("ExpenseUpdatedBy")
-  updatedSpendingPaceSettings  SpendingPaceSettings[]  @relation("SpendingPaceSettingsUpdatedBy")
-  updatedSpendingPaceEntries   SpendingPaceEntry[]     @relation("SpendingPaceEntryUpdatedBy")
-  updatedAnnualBudgetItems     AnnualBudgetItem[]      @relation("AnnualBudgetItemUpdatedBy")
-  updatedAnnualSavingEntries   AnnualSavingEntry[]     @relation("AnnualSavingEntryUpdatedBy")
-  createdAnnualSavingOverrides AnnualSavingOverride[]  @relation("AnnualSavingOverrideCreatedBy")
-  updatedAnnualSavingRates     AnnualSavingRate[]      @relation("AnnualSavingRateUpdatedBy")
-  updatedFinancingCases        FinancingCase[]         @relation("FinancingCaseUpdatedBy")
-  updatedLoans                 Loan[]                  @relation("LoanUpdatedBy")
-  updatedLoanRatePeriods       LoanRatePeriod[]        @relation("LoanRatePeriodUpdatedBy")
-  updatedLoanExtraPayments     LoanExtraPayment[]      @relation("LoanExtraPaymentUpdatedBy")
+  createdInvites               HouseholdInvite[]        @relation("InviteCreator")
+  updatedMonths                BudgetMonth[]            @relation("MonthUpdatedBy")
+  personSnapshots              MonthlyPersonSnapshot[]  @relation("SnapshotOwner")
+  updatedSnapshots             MonthlyPersonSnapshot[]  @relation("SnapshotUpdatedBy")
+  updatedExpenses              Expense[]                @relation("ExpenseUpdatedBy")
+  updatedSpendingPaceSettings  SpendingPaceSettings[]   @relation("SpendingPaceSettingsUpdatedBy")
+  updatedSpendingPaceEntries   SpendingPaceEntry[]      @relation("SpendingPaceEntryUpdatedBy")
+  updatedAnnualBudgetItems     AnnualBudgetItem[]       @relation("AnnualBudgetItemUpdatedBy")
+  updatedAnnualSavingEntries   AnnualSavingEntry[]      @relation("AnnualSavingEntryUpdatedBy")
+  createdAnnualSavingOverrides AnnualSavingOverride[]   @relation("AnnualSavingOverrideCreatedBy")
+  updatedAnnualSavingRates     AnnualSavingRate[]       @relation("AnnualSavingRateUpdatedBy")
+  updatedFinancingCases        FinancingCase[]          @relation("FinancingCaseUpdatedBy")
+  updatedLoans                 Loan[]                   @relation("LoanUpdatedBy")
+  updatedLoanRatePeriods       LoanRatePeriod[]         @relation("LoanRatePeriodUpdatedBy")
+  updatedLoanExtraPayments     LoanExtraPayment[]       @relation("LoanExtraPaymentUpdatedBy")
+  updatedBudgetScenarios       BudgetScenario[]         @relation("BudgetScenarioUpdatedBy")
+  scenarioPersonSnapshots      ScenarioPersonSnapshot[] @relation("ScenarioSnapshotOwner")
+  updatedScenarioSnapshots     ScenarioPersonSnapshot[] @relation("ScenarioSnapshotUpdatedBy")
+  updatedScenarioExpenses      ScenarioExpense[]        @relation("ScenarioExpenseUpdatedBy")
 }
 
 model Household {
@@ -106,6 +110,64 @@ model Household {
   annualBudgetItems    AnnualBudgetItem[]
   financingCases       FinancingCase[]
   loans                Loan[]
+  budgetScenarios      BudgetScenario[]
+}
+
+model BudgetScenario {
+  id                String                   @id @default(cuid())
+  householdId       String
+  name              String
+  referenceMonthKey String
+  sourceMonthKey    String?
+  note              String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  updatedByUserId   String?
+  household         Household                @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  updatedByUser     User?                    @relation("BudgetScenarioUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  personSnapshots   ScenarioPersonSnapshot[]
+  expenses          ScenarioExpense[]
+
+  @@index([householdId, updatedAt])
+}
+
+model ScenarioPersonSnapshot {
+  id               String         @id @default(cuid())
+  budgetScenarioId String
+  userId           String
+  incomeAmount     Int            @default(0)
+  carryOverAmount  Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  updatedByUserId  String?
+  budgetScenario   BudgetScenario @relation(fields: [budgetScenarioId], references: [id], onDelete: Cascade)
+  user             User           @relation("ScenarioSnapshotOwner", fields: [userId], references: [id], onDelete: Cascade)
+  updatedByUser    User?          @relation("ScenarioSnapshotUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([budgetScenarioId, userId])
+  @@index([budgetScenarioId])
+}
+
+model ScenarioExpense {
+  id                String         @id @default(cuid())
+  budgetScenarioId  String
+  sourceExpenseId   String?
+  name              String
+  amount            Int
+  category          String
+  expenseType       ExpenseType
+  sourceOrigin      ExpenseOrigin  @default(STANDARD)
+  planningType      PlanningType   @default(PLANNED)
+  payerType         PayerType
+  dueDate           DateTime?
+  isSystemGenerated Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  updatedByUserId   String?
+  budgetScenario    BudgetScenario @relation(fields: [budgetScenarioId], references: [id], onDelete: Cascade)
+  updatedByUser     User?          @relation("ScenarioExpenseUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([budgetScenarioId, category])
 }
 
 model FinancingCase {

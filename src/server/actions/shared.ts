@@ -18,6 +18,7 @@ export function revalidateBudgetPaths(returnTo?: string) {
   revalidatePath("/app/annual");
   revalidatePath("/app/loans");
   revalidatePath("/app/more");
+  revalidatePath("/app/playground");
 
   if (returnTo) {
     const url = new URL(returnTo, "http://localhost");

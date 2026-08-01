@@ -1,4 +1,5 @@
 import { FormStatusButton } from "@/components/form-status-button";
+import { DeleteFinancingCaseButton } from "@/components/delete-financing-case-button";
 import { formatCurrency } from "@/lib/money";
 import { activateFinancingCaseAction } from "@/server/actions/loan-actions";
 
@@ -34,9 +35,12 @@ export function FinancingComparisonCard({ item, months }: ComparisonCardProps) {
           <p className="eyebrow-label">Beslutsunderlag</p>
           <h2 className="mt-2 truncate text-lg font-semibold tracking-[-0.03em]">{item.name}</h2>
         </div>
-        <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] text-[var(--color-muted)]">
-          {item.amortizationType === "ANNUITY" ? "Annuitet" : "Rak"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] text-[var(--color-muted)]">
+            {item.amortizationType === "ANNUITY" ? "Annuitet" : "Rak"}
+          </span>
+          <DeleteFinancingCaseButton caseId={item.id} />
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2.5">

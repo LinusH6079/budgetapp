@@ -1,4 +1,4 @@
-import { Archive, CheckCircle2, Ellipsis, Plus, RotateCcw } from "lucide-react";
+import { Archive, CheckCircle2, Ellipsis, Plus, RotateCcw, Trash2 } from "lucide-react";
 
 import { AnnualBudgetForm } from "@/components/annual-budget-form";
 import { FormStatusButton } from "@/components/form-status-button";
@@ -8,6 +8,8 @@ import { formatCurrency, formatEditableAmount } from "@/lib/money";
 import {
   addAnnualContributionAction,
   archiveAnnualBudgetItemAction,
+  deleteAnnualSavingRateAction,
+  saveAnnualSavingRateAction,
   settleAnnualBudgetItemAction,
   undoAnnualContributionAction,
 } from "@/server/actions/annual-budget-actions";
@@ -20,6 +22,12 @@ type AnnualBudgetItemCardProps = {
     dueMonth: string;
     category: string | null;
     recurrence: "ONE_TIME" | "YEARLY";
+    savingMode: "TARGET_BY_DATE" | "CUSTOM_SCHEDULE";
+    savingRates: Array<{
+      id: string;
+      startMonth: string;
+      monthlyAmount: number;
+    }>;
     reservedAmount: number;
     remainingAmount: number;
     recommendedMonthlyAmount: number;
@@ -32,6 +40,7 @@ type AnnualBudgetItemCardProps = {
     } | null;
   };
   defaultDueMonth: string;
+  defaultStartMonth: string;
   months: Array<{
     id: string;
     monthKey: string;
@@ -45,6 +54,7 @@ type AnnualBudgetItemCardProps = {
 export function AnnualBudgetItemCard({
   item,
   defaultDueMonth,
+  defaultStartMonth,
   months,
   memberOptions,
 }: AnnualBudgetItemCardProps) {
@@ -63,8 +73,10 @@ export function AnnualBudgetItemCard({
             ) : null}
           </div>
           <p className="mt-1 text-[11px] text-[var(--color-muted)]">
-            Behövs {formatMonthLabel(item.dueMonth)}
+            {item.savingMode === "CUSTOM_SCHEDULE" ? "Milstolpe" : "Behövs"}{" "}
+            {formatMonthLabel(item.dueMonth)}
             {item.recurrence === "YEARLY" ? " · Varje år" : ""}
+            {item.savingMode === "CUSTOM_SCHEDULE" ? " · Spartrappa" : ""}
           </p>
         </div>
 
@@ -128,8 +140,82 @@ export function AnnualBudgetItemCard({
           <div className="grid gap-4">
             <AnnualBudgetForm
               defaultDueMonth={defaultDueMonth}
+              defaultStartMonth={defaultStartMonth}
               item={item}
             />
+
+            {item.savingMode === "CUSTOM_SCHEDULE" ? (
+              <div className="border-t border-[var(--color-line)] pt-4">
+                <p className="text-sm font-semibold">Spartrappa</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-muted)]">
+                  Varje belopp gäller från startmånaden tills nästa steg börjar.
+                </p>
+
+                <div className="mt-3 grid gap-1.5">
+                  {item.savingRates.map((rate) => (
+                    <div
+                      key={rate.id}
+                      className="flex items-center justify-between gap-3 rounded-[12px] bg-white/[0.035] px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium">
+                          Från {formatMonthLabel(rate.startMonth)}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-[var(--color-muted)]">
+                          {formatCurrency(rate.monthlyAmount)}/mån
+                        </p>
+                      </div>
+                      <form action={deleteAnnualSavingRateAction}>
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <input type="hidden" name="rateId" value={rate.id} />
+                        <FormStatusButton
+                          className="icon-action-button icon-action-danger !h-8 !w-8"
+                          pendingLabel=""
+                          aria-label="Ta bort sparsteg"
+                          title="Ta bort sparsteg"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </FormStatusButton>
+                      </form>
+                    </div>
+                  ))}
+                </div>
+
+                <form action={saveAnnualSavingRateAction} className="mt-3 grid gap-2.5">
+                  <input type="hidden" name="itemId" value={item.id} />
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <label className="block">
+                      <span className="mb-1.5 block text-[11px] text-[var(--color-muted)]">
+                        Ny takt från
+                      </span>
+                      <input
+                        name="startMonth"
+                        type="month"
+                        defaultValue={defaultStartMonth}
+                        required
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1.5 block text-[11px] text-[var(--color-muted)]">
+                        Per månad
+                      </span>
+                      <input
+                        name="monthlyAmount"
+                        inputMode="decimal"
+                        placeholder="6000"
+                        required
+                      />
+                    </label>
+                  </div>
+                  <FormStatusButton
+                    className="action-secondary w-full justify-center"
+                    pendingLabel="Sparar..."
+                  >
+                    Lägg till eller uppdatera steg
+                  </FormStatusButton>
+                </form>
+              </div>
+            ) : null}
 
             {months.length > 0 ? (
               <div className="border-t border-[var(--color-line)] pt-4">
@@ -228,7 +314,9 @@ export function AnnualBudgetItemCard({
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[10px] text-[var(--color-muted)]">Rekommenderat</p>
+          <p className="text-[10px] text-[var(--color-muted)]">
+            {item.savingMode === "CUSTOM_SCHEDULE" ? "Nuvarande takt" : "Rekommenderat"}
+          </p>
           <p className="mt-0.5 text-xs font-semibold">
             {formatCurrency(item.recommendedMonthlyAmount)}/mån
           </p>

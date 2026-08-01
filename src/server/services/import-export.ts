@@ -65,6 +65,11 @@ export async function exportHouseholdDataForUser(userId: string) {
               createdAt: "asc",
             },
           },
+          savingRates: {
+            orderBy: {
+              startMonth: "asc",
+            },
+          },
         },
         orderBy: {
           dueMonth: "asc",
@@ -105,6 +110,11 @@ export async function exportHouseholdDataForUser(userId: string) {
       dueMonth: item.dueMonth,
       category: item.category,
       recurrence: item.recurrence,
+      savingMode: item.savingMode,
+      savingRates: item.savingRates.map((rate) => ({
+        startMonth: rate.startMonth,
+        monthlyAmount: rate.monthlyAmount,
+      })),
       isArchived: item.isArchived,
       entries: item.entries
         .filter((entry) => !entry.sourceExpenseId)
@@ -249,6 +259,7 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
             dueMonth: importedItem.dueMonth,
             category: importedItem.category,
             recurrence: importedItem.recurrence ?? "ONE_TIME",
+            savingMode: importedItem.savingMode ?? "TARGET_BY_DATE",
             isArchived: importedItem.isArchived,
             updatedByUserId: userId,
             entries: {
@@ -256,6 +267,13 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
                 amount: entry.amount,
                 entryType: entry.entryType,
                 createdAt: new Date(entry.createdAt),
+                updatedByUserId: userId,
+              })),
+            },
+            savingRates: {
+              create: (importedItem.savingRates ?? []).map((rate) => ({
+                startMonth: rate.startMonth,
+                monthlyAmount: rate.monthlyAmount,
                 updatedByUserId: userId,
               })),
             },

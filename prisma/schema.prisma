@@ -27,6 +27,11 @@ enum AnnualBudgetRecurrence {
   YEARLY
 }
 
+enum AnnualSavingMode {
+  TARGET_BY_DATE
+  CUSTOM_SCHEDULE
+}
+
 enum PlanningType {
   PLANNED
   UNPLANNED
@@ -61,6 +66,7 @@ model User {
   updatedAnnualBudgetItems     AnnualBudgetItem[]      @relation("AnnualBudgetItemUpdatedBy")
   updatedAnnualSavingEntries   AnnualSavingEntry[]     @relation("AnnualSavingEntryUpdatedBy")
   createdAnnualSavingOverrides AnnualSavingOverride[]  @relation("AnnualSavingOverrideCreatedBy")
+  updatedAnnualSavingRates     AnnualSavingRate[]      @relation("AnnualSavingRateUpdatedBy")
 }
 
 model Household {
@@ -84,6 +90,7 @@ model AnnualBudgetItem {
   dueMonth        String
   category        String?
   recurrence      AnnualBudgetRecurrence @default(ONE_TIME)
+  savingMode      AnnualSavingMode       @default(TARGET_BY_DATE)
   isArchived      Boolean                @default(false)
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
@@ -94,8 +101,24 @@ model AnnualBudgetItem {
   linkedExpenses  Expense[]
   savingOverrides AnnualSavingOverride[]
   savingSchedules AnnualSavingSchedule[]
+  savingRates     AnnualSavingRate[]
 
   @@index([householdId, isArchived, dueMonth])
+}
+
+model AnnualSavingRate {
+  id                 String           @id @default(cuid())
+  annualBudgetItemId String
+  startMonth         String
+  monthlyAmount      Int
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  updatedByUserId    String?
+  annualBudgetItem   AnnualBudgetItem @relation(fields: [annualBudgetItemId], references: [id], onDelete: Cascade)
+  updatedByUser      User?            @relation("AnnualSavingRateUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([annualBudgetItemId, startMonth])
+  @@index([annualBudgetItemId, startMonth])
 }
 
 model AnnualSavingOverride {

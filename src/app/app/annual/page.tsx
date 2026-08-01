@@ -48,6 +48,7 @@ export default async function AnnualBudgetPage({
   }
 
   const dueMonth = defaultDueMonth();
+  const startMonth = getCurrentMonthKey();
   const months = allMonths
     .filter((month) => !month.isLocked)
     .sort((left, right) => right.monthKey.localeCompare(left.monthKey))
@@ -93,7 +94,10 @@ export default async function AnnualBudgetPage({
             }
             dialogClassName="sm:max-w-md"
           >
-            <AnnualBudgetForm defaultDueMonth={dueMonth} />
+            <AnnualBudgetForm
+              defaultDueMonth={dueMonth}
+              defaultStartMonth={startMonth}
+            />
           </ModalLauncher>
         </div>
 
@@ -147,6 +151,7 @@ export default async function AnnualBudgetPage({
                 key={item.id}
                 item={item}
                 defaultDueMonth={dueMonth}
+                defaultStartMonth={startMonth}
                 months={months}
                 memberOptions={memberOptions}
               />

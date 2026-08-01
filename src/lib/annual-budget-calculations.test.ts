@@ -6,6 +6,7 @@ import {
   calculateAnnualBudget,
   calculateAnnualBudgetItem,
   expenseAnnualContributionAmount,
+  effectiveAnnualSavingRate,
   netReservedAmount,
 } from "@/lib/annual-budget-calculations";
 
@@ -104,6 +105,37 @@ describe("annual budget calculations", () => {
       { monthKey: "2026-10", amount: 3_333 },
     ]);
     expect(schedule.reduce((sum, month) => sum + month.amount, 0)).toBe(10_000);
+  });
+
+  it("uses the latest step in a custom saving schedule", () => {
+    const rates = [
+      { startMonth: "2026-08", monthlyAmount: 300_000 },
+      { startMonth: "2027-04", monthlyAmount: 600_000 },
+    ];
+
+    expect(effectiveAnnualSavingRate(rates, "2027-03")).toBe(300_000);
+    expect(effectiveAnnualSavingRate(rates, "2027-04")).toBe(600_000);
+  });
+
+  it("continues a custom saving schedule after its milestone and target", () => {
+    const result = calculateAnnualBudgetItem(
+      {
+        id: "deposit",
+        name: "Kontantinsats",
+        targetAmount: 500_000,
+        dueMonth: "2027-03",
+        savingMode: "CUSTOM_SCHEDULE",
+        savingRates: [
+          { startMonth: "2026-08", monthlyAmount: 30_000 },
+          { startMonth: "2027-04", monthlyAmount: 60_000 },
+        ],
+        entries: [{ amount: 600_000, entryType: "CONTRIBUTION" }],
+      },
+      new Date(2027, 4, 1),
+    );
+
+    expect(result.remainingAmount).toBe(0);
+    expect(result.recommendedMonthlyAmount).toBe(60_000);
   });
 
   it("recommends an even monthly amount before the due month", () => {

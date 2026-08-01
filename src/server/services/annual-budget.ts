@@ -1,5 +1,6 @@
 import {
   AnnualBudgetRecurrence,
+  AnnualSavingMode,
   AnnualSavingEntryType,
   ExpenseType,
   PayerType,
@@ -57,6 +58,11 @@ async function requireAnnualItemAccess(actorUserId: string, itemId: string) {
           { id: "asc" },
         ],
       },
+      savingRates: {
+        orderBy: {
+          startMonth: "asc",
+        },
+      },
       household: {
         include: {
           members: {
@@ -107,6 +113,11 @@ export async function getAnnualBudgetForUser(
           { id: "asc" },
         ],
       },
+      savingRates: {
+        orderBy: {
+          startMonth: "asc",
+        },
+      },
       updatedByUser: {
         select: {
           name: true,
@@ -155,6 +166,7 @@ export async function getAnnualBudgetForUser(
       return {
         ...source,
         ...calculated,
+        savingRates: source.savingRates,
         latestContribution: latestContribution
           ? {
               id: latestContribution.id,
@@ -174,6 +186,9 @@ export async function upsertAnnualBudgetItemForUser(input: {
   dueMonth: string;
   category: string;
   recurrence: AnnualBudgetRecurrence;
+  savingMode: AnnualSavingMode;
+  initialSavingMonth?: string | null;
+  initialMonthlyAmount?: number | null;
 }) {
   const household = await getHouseholdForUser(input.actorUserId);
 
@@ -187,6 +202,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
     dueMonth: input.dueMonth,
     category: input.category || null,
     recurrence: input.recurrence,
+    savingMode: input.savingMode,
     updatedByUserId: input.actorUserId,
   };
 
@@ -198,6 +214,20 @@ export async function upsertAnnualBudgetItemForUser(input: {
           ...data,
         },
       });
+      if (
+        input.savingMode === AnnualSavingMode.CUSTOM_SCHEDULE &&
+        input.initialSavingMonth &&
+        input.initialMonthlyAmount
+      ) {
+        await tx.annualSavingRate.create({
+          data: {
+            annualBudgetItemId: createdItem.id,
+            startMonth: input.initialSavingMonth,
+            monthlyAmount: input.initialMonthlyAmount,
+            updatedByUserId: input.actorUserId,
+          },
+        });
+      }
       await syncAutomaticAnnualSavingExpenses({
         tx,
         householdId: household.id,
@@ -223,6 +253,30 @@ export async function upsertAnnualBudgetItemForUser(input: {
       },
       data,
     });
+    if (
+      input.savingMode === AnnualSavingMode.CUSTOM_SCHEDULE &&
+      input.initialSavingMonth &&
+      input.initialMonthlyAmount
+    ) {
+      await tx.annualSavingRate.upsert({
+        where: {
+          annualBudgetItemId_startMonth: {
+            annualBudgetItemId: item.id,
+            startMonth: input.initialSavingMonth,
+          },
+        },
+        create: {
+          annualBudgetItemId: item.id,
+          startMonth: input.initialSavingMonth,
+          monthlyAmount: input.initialMonthlyAmount,
+          updatedByUserId: input.actorUserId,
+        },
+        update: {
+          monthlyAmount: input.initialMonthlyAmount,
+          updatedByUserId: input.actorUserId,
+        },
+      });
+    }
     await syncAutomaticAnnualSavingExpenses({
       tx,
       householdId: item.householdId,
@@ -272,6 +326,92 @@ export async function addAnnualContributionForUser(input: {
     });
 
     return entry;
+  });
+}
+
+export async function upsertAnnualSavingRateForUser(input: {
+  actorUserId: string;
+  itemId: string;
+  startMonth: string;
+  monthlyAmount: number;
+}) {
+  const item = await requireAnnualItemAccess(
+    input.actorUserId,
+    input.itemId,
+  );
+
+  if (item.isArchived) {
+    throw new Error("En avslutad årskostnad kan inte ändras.");
+  }
+
+  return db.$transaction(async (tx) => {
+    const rate = await tx.annualSavingRate.upsert({
+      where: {
+        annualBudgetItemId_startMonth: {
+          annualBudgetItemId: item.id,
+          startMonth: input.startMonth,
+        },
+      },
+      create: {
+        annualBudgetItemId: item.id,
+        startMonth: input.startMonth,
+        monthlyAmount: input.monthlyAmount,
+        updatedByUserId: input.actorUserId,
+      },
+      update: {
+        monthlyAmount: input.monthlyAmount,
+        updatedByUserId: input.actorUserId,
+      },
+    });
+
+    await tx.annualBudgetItem.update({
+      where: {
+        id: item.id,
+      },
+      data: {
+        savingMode: AnnualSavingMode.CUSTOM_SCHEDULE,
+        updatedByUserId: input.actorUserId,
+      },
+    });
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: item.householdId,
+      actorUserId: input.actorUserId,
+    });
+
+    return rate;
+  });
+}
+
+export async function deleteAnnualSavingRateForUser(input: {
+  actorUserId: string;
+  itemId: string;
+  rateId: string;
+}) {
+  const item = await requireAnnualItemAccess(
+    input.actorUserId,
+    input.itemId,
+  );
+
+  return db.$transaction(async (tx) => {
+    const deleted = await tx.annualSavingRate.deleteMany({
+      where: {
+        id: input.rateId,
+        annualBudgetItemId: item.id,
+      },
+    });
+
+    if (deleted.count === 0) {
+      throw new Error("Sparsteget hittades inte.");
+    }
+
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: item.householdId,
+      actorUserId: input.actorUserId,
+    });
+
+    return deleted;
   });
 }
 

@@ -12,6 +12,13 @@ export type AnnualBudgetItemInput = {
   targetAmount: number;
   dueMonth: string;
   entries: AnnualBudgetEntryInput[];
+  savingMode?: "TARGET_BY_DATE" | "CUSTOM_SCHEDULE";
+  savingRates?: AnnualSavingRateInput[];
+};
+
+export type AnnualSavingRateInput = {
+  startMonth: string;
+  monthlyAmount: number;
 };
 
 export function expenseAnnualContributionAmount(input: {
@@ -71,6 +78,16 @@ export function allocateAnnualSavingByMonth(input: {
   });
 }
 
+export function effectiveAnnualSavingRate(
+  rates: AnnualSavingRateInput[],
+  monthKey: string,
+) {
+  return [...rates]
+    .filter((rate) => rate.startMonth <= monthKey)
+    .sort((left, right) => right.startMonth.localeCompare(left.startMonth))[0]
+    ?.monthlyAmount ?? 0;
+}
+
 export function netReservedAmount(entries: AnnualBudgetEntryInput[]) {
   return Math.max(
     0,
@@ -106,9 +123,13 @@ export function calculateAnnualBudgetItem(
     0,
   );
   const remainingAmount = Math.max(0, item.targetAmount - reservedAmount);
-  const recommendedMonthlyAmount = Math.ceil(
-    remainingAmount / monthsUntilDue(item.dueMonth, now),
-  );
+  const recommendedMonthlyAmount =
+    item.savingMode === "CUSTOM_SCHEDULE"
+      ? effectiveAnnualSavingRate(
+          item.savingRates ?? [],
+          annualBudgetCurrentMonthKey(now),
+        )
+      : Math.ceil(remainingAmount / monthsUntilDue(item.dueMonth, now));
 
   return {
     ...item,

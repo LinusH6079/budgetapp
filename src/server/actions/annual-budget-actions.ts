@@ -4,14 +4,18 @@ import { requireUser } from "@/lib/session";
 import {
   annualBudgetItemSchema,
   annualContributionSchema,
+  annualSavingRateSchema,
+  deleteAnnualSavingRateSchema,
   annualItemIdSchema,
   settleAnnualBudgetItemSchema,
 } from "@/lib/validations";
 import {
   addAnnualContributionForUser,
   archiveAnnualBudgetItemForUser,
+  deleteAnnualSavingRateForUser,
   settleAnnualBudgetItemForUser,
   undoLatestAnnualContributionForUser,
+  upsertAnnualSavingRateForUser,
   upsertAnnualBudgetItemForUser,
 } from "@/server/services/annual-budget";
 
@@ -28,6 +32,9 @@ export async function saveAnnualBudgetItemAction(formData: FormData) {
     dueMonth: formData.get("dueMonth"),
     category: formData.get("category"),
     recurrence: formData.get("recurrence"),
+    savingMode: formData.get("savingMode"),
+    initialSavingMonth: formData.get("initialSavingMonth") ?? "",
+    initialMonthlyAmount: formData.get("initialMonthlyAmount") ?? "",
   });
 
   if (!parsed.success) {
@@ -47,6 +54,9 @@ export async function saveAnnualBudgetItemAction(formData: FormData) {
       dueMonth: parsed.data.dueMonth,
       category: parsed.data.category,
       recurrence: parsed.data.recurrence,
+      savingMode: parsed.data.savingMode,
+      initialSavingMonth: parsed.data.initialSavingMonth || null,
+      initialMonthlyAmount: parsed.data.initialMonthlyAmount || null,
     });
   } catch (error) {
     redirectWithMessage(
@@ -58,6 +68,70 @@ export async function saveAnnualBudgetItemAction(formData: FormData) {
 
   revalidateBudgetPaths(RETURN_TO);
   redirectWithMessage(RETURN_TO, "notice", "Årskostnaden sparades.");
+}
+
+export async function saveAnnualSavingRateAction(formData: FormData) {
+  const user = await requireUser();
+  const parsed = annualSavingRateSchema.safeParse({
+    itemId: formData.get("itemId"),
+    startMonth: formData.get("startMonth"),
+    monthlyAmount: formData.get("monthlyAmount"),
+  });
+
+  if (!parsed.success) {
+    redirectWithMessage(
+      RETURN_TO,
+      "error",
+      parsed.error.issues[0]?.message ?? "Sparsteget är ogiltigt.",
+    );
+  }
+
+  try {
+    await upsertAnnualSavingRateForUser({
+      actorUserId: user.id,
+      itemId: parsed.data.itemId,
+      startMonth: parsed.data.startMonth,
+      monthlyAmount: parsed.data.monthlyAmount,
+    });
+  } catch (error) {
+    redirectWithMessage(
+      RETURN_TO,
+      "error",
+      error instanceof Error ? error.message : "Kunde inte spara sparsteget.",
+    );
+  }
+
+  revalidateBudgetPaths(RETURN_TO);
+  redirectWithMessage(RETURN_TO, "notice", "Spartrappan uppdaterades.");
+}
+
+export async function deleteAnnualSavingRateAction(formData: FormData) {
+  const user = await requireUser();
+  const parsed = deleteAnnualSavingRateSchema.safeParse({
+    itemId: formData.get("itemId"),
+    rateId: formData.get("rateId"),
+  });
+
+  if (!parsed.success) {
+    redirectWithMessage(RETURN_TO, "error", "Kunde inte ta bort sparsteget.");
+  }
+
+  try {
+    await deleteAnnualSavingRateForUser({
+      actorUserId: user.id,
+      itemId: parsed.data.itemId,
+      rateId: parsed.data.rateId,
+    });
+  } catch (error) {
+    redirectWithMessage(
+      RETURN_TO,
+      "error",
+      error instanceof Error ? error.message : "Kunde inte ta bort sparsteget.",
+    );
+  }
+
+  revalidateBudgetPaths(RETURN_TO);
+  redirectWithMessage(RETURN_TO, "notice", "Sparsteget togs bort.");
 }
 
 export async function addAnnualContributionAction(formData: FormData) {

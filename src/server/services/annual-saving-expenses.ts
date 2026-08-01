@@ -10,6 +10,7 @@ import {
   allocateAnnualSavingByMonth,
   annualBudgetCurrentMonthKey,
   annualSavingMonthKeys,
+  effectiveAnnualSavingRate,
   netReservedAmount,
 } from "@/lib/annual-budget-calculations";
 
@@ -35,6 +36,11 @@ export async function syncAutomaticAnnualSavingExpenses({
       },
       include: {
         entries: true,
+        savingRates: {
+          orderBy: {
+            startMonth: "asc",
+          },
+        },
         savingOverrides: {
           include: {
             budgetMonth: {
@@ -113,23 +119,42 @@ export async function syncAutomaticAnnualSavingExpenses({
       (sum, expense) => sum + (expense.isPaid ? 0 : expense.amount),
       0,
     );
-    const savingMonthKeys = annualSavingMonthKeys(
-      currentMonthKey,
-      item.dueMonth,
-    ).filter(
-      (monthKey) =>
-        !overriddenMonthKeys.has(monthKey) &&
-        !immutableMonthKeys.has(monthKey),
-    );
-    const allocationByMonth = new Map(
-      allocateAnnualSavingByMonth({
-        remainingAmount:
-          item.targetAmount -
-          netReservedAmount(item.entries) -
-          committedUnfundedAmount,
-        monthKeys: savingMonthKeys,
-      }).map((allocation) => [allocation.monthKey, allocation.amount]),
-    );
+    const allocationByMonth =
+      item.savingMode === "CUSTOM_SCHEDULE"
+        ? new Map(
+            months
+              .filter(
+                (month) =>
+                  !overriddenMonthKeys.has(month.monthKey) &&
+                  !immutableMonthKeys.has(month.monthKey),
+              )
+              .map((month) => [
+                month.monthKey,
+                effectiveAnnualSavingRate(
+                  item.savingRates,
+                  month.monthKey,
+                ),
+              ]),
+          )
+        : new Map(
+            allocateAnnualSavingByMonth({
+              remainingAmount:
+                item.targetAmount -
+                netReservedAmount(item.entries) -
+                committedUnfundedAmount,
+              monthKeys: annualSavingMonthKeys(
+                currentMonthKey,
+                item.dueMonth,
+              ).filter(
+                (monthKey) =>
+                  !overriddenMonthKeys.has(monthKey) &&
+                  !immutableMonthKeys.has(monthKey),
+              ),
+            }).map((allocation) => [
+              allocation.monthKey,
+              allocation.amount,
+            ]),
+          );
 
     for (const month of months) {
       if (month.isLocked) {

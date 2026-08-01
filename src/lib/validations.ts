@@ -1,5 +1,6 @@
 import {
   AnnualBudgetRecurrence,
+  AnnualSavingMode,
   ExpenseOrigin,
   ExpenseType,
   PayerType,
@@ -126,6 +127,46 @@ export const annualBudgetItemSchema = z.object({
     .refine(isMonthKey, "Välj en giltig förfallomånad."),
   category: z.string().trim().max(50, "Kategorin är för lång."),
   recurrence: z.nativeEnum(AnnualBudgetRecurrence),
+  savingMode: z.nativeEnum(AnnualSavingMode),
+  initialSavingMonth: z
+    .string()
+    .optional()
+    .or(z.literal("")),
+  initialMonthlyAmount: moneyField.optional(),
+}).superRefine((value, ctx) => {
+  if (value.savingMode !== AnnualSavingMode.CUSTOM_SCHEDULE) {
+    return;
+  }
+
+  if (!value.initialSavingMonth || !isMonthKey(value.initialSavingMonth)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["initialSavingMonth"],
+      message: "Välj när den första spartakten ska börja.",
+    });
+  }
+
+  if (!value.initialMonthlyAmount || value.initialMonthlyAmount <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["initialMonthlyAmount"],
+      message: "Ange ett månadsbelopp för spartrappan.",
+    });
+  }
+});
+
+export const annualSavingRateSchema = z.object({
+  itemId: z.string().cuid(),
+  startMonth: z.string().refine(isMonthKey, "Välj en giltig startmånad."),
+  monthlyAmount: moneyField.refine(
+    (value) => value > 0,
+    "Månadsbeloppet måste vara större än 0.",
+  ),
+});
+
+export const deleteAnnualSavingRateSchema = z.object({
+  itemId: z.string().cuid(),
+  rateId: z.string().cuid(),
 });
 
 export const annualContributionSchema = z.object({
@@ -290,7 +331,16 @@ export const householdImportSchema = z.object({
         dueMonth: z.string().refine(isMonthKey),
         category: z.string().nullable(),
         recurrence: z.nativeEnum(AnnualBudgetRecurrence).optional(),
+        savingMode: z.nativeEnum(AnnualSavingMode).optional(),
         isArchived: z.boolean(),
+        savingRates: z
+          .array(
+            z.object({
+              startMonth: z.string().refine(isMonthKey),
+              monthlyAmount: z.number().int().positive(),
+            }),
+          )
+          .optional(),
         entries: z.array(
           z.object({
             amount: z.number().int().positive(),

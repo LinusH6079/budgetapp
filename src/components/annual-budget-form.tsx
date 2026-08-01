@@ -17,11 +17,6 @@ type AnnualBudgetFormProps = {
     category: string | null;
     recurrence: "ONE_TIME" | "YEARLY";
     savingMode: "TARGET_BY_DATE" | "CUSTOM_SCHEDULE";
-    savingRates: Array<{
-      startMonth: string;
-      endMonth: string | null;
-      monthlyAmount: number;
-    }>;
   };
 };
 
@@ -30,7 +25,6 @@ export function AnnualBudgetForm({
   defaultStartMonth,
   item,
 }: AnnualBudgetFormProps) {
-  const firstRate = item?.savingRates[0];
   const [savingMode, setSavingMode] = useState<
     "TARGET_BY_DATE" | "CUSTOM_SCHEDULE"
   >(item?.savingMode ?? "TARGET_BY_DATE");
@@ -91,7 +85,7 @@ export function AnnualBudgetForm({
         </select>
       </label>
 
-      {savingMode === "CUSTOM_SCHEDULE" ? (
+      {savingMode === "CUSTOM_SCHEDULE" && !item ? (
         <div className="rounded-[16px] border border-[var(--color-line)] bg-white/[0.025] p-3">
           <p className="text-xs font-semibold">Tillfälligt månadsbelopp</p>
           <div className="mt-2 grid grid-cols-2 gap-2.5">
@@ -102,7 +96,7 @@ export function AnnualBudgetForm({
               <input
                 name="initialSavingMonth"
                 type="month"
-                defaultValue={firstRate?.startMonth ?? defaultStartMonth}
+                defaultValue={defaultStartMonth}
                 required
               />
             </label>
@@ -113,9 +107,6 @@ export function AnnualBudgetForm({
               <input
                 name="initialSavingEndMonth"
                 type="month"
-                defaultValue={
-                  firstRate?.endMonth ?? ""
-                }
                 required
               />
             </label>
@@ -126,11 +117,6 @@ export function AnnualBudgetForm({
               <input
                 name="initialMonthlyAmount"
                 inputMode="decimal"
-                defaultValue={
-                  firstRate
-                    ? formatEditableAmount(firstRate.monthlyAmount)
-                    : ""
-                }
                 placeholder="3000"
                 required
               />
@@ -141,12 +127,12 @@ export function AnnualBudgetForm({
             fortfarande nås vid milstolpen. Fler perioder kan läggas till senare.
           </p>
         </div>
-      ) : (
+      ) : savingMode === "TARGET_BY_DATE" ? (
         <p className="text-[11px] leading-relaxed text-[var(--color-muted)]">
           Behövs-månaden räknas inte som sparmånad. Behövs pengarna i oktober
           fördelas sparandet till och med september.
         </p>
-      )}
+      ) : null}
 
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">Upprepning</span>

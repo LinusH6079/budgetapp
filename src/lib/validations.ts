@@ -138,7 +138,10 @@ export const annualBudgetItemSchema = z.object({
     .or(z.literal("")),
   initialMonthlyAmount: moneyField.optional(),
 }).superRefine((value, ctx) => {
-  if (value.savingMode !== AnnualSavingMode.CUSTOM_SCHEDULE) {
+  if (
+    value.savingMode !== AnnualSavingMode.CUSTOM_SCHEDULE ||
+    Boolean(value.itemId)
+  ) {
     return;
   }
 

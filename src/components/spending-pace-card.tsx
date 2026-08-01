@@ -3,6 +3,7 @@ import { ArrowRight, RotateCcw, Settings2 } from "lucide-react";
 import { FormStatusButton } from "@/components/form-status-button";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { PendingLink } from "@/components/pending-link";
+import { SpendingPaceProgress } from "@/components/spending-pace-progress";
 import { formatMonthLabel } from "@/lib/date";
 import { formatEditableAmount, formatCurrency } from "@/lib/money";
 import type { CalendarDate } from "@/lib/pay-cycle";
@@ -67,34 +68,11 @@ function clampPercentage(value: number) {
   return Math.min(100, Math.max(0, value));
 }
 
-function markerTransform(percentage: number) {
-  if (percentage < 18) {
-    return "translateX(0)";
-  }
-
-  if (percentage > 82) {
-    return "translateX(-100%)";
-  }
-
-  return "translateX(-50%)";
-}
-
 export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
   const settings = data.settings;
-  const actualPercentage = settings
-    ? (data.spent / settings.monthlyLimit) * 100
-    : 0;
-  const expectedPercentage = data.cycle.expectedFraction * 100;
-  const expectedAmount = settings
-    ? Math.round(settings.monthlyLimit * data.cycle.expectedFraction)
-    : 0;
-  const paceDifference = expectedAmount - data.spent;
   const weekPercentage = settings
     ? (data.currentWeekAmount / settings.weeklyLimit) * 100
     : 0;
-  const isOverMonthlyLimit = Boolean(
-    settings && data.spent > settings.monthlyLimit,
-  );
   const isOverWeeklyLimit = Boolean(
     settings && data.currentWeekAmount > settings.weeklyLimit,
   );
@@ -246,115 +224,11 @@ export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
             </div>
           </div>
 
-          <div className="mt-4">
-            <div className="mb-1 flex items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-semibold text-white">
-                <i className="h-2 w-2 rounded-full bg-white shadow-[0_0_7px_rgba(255,255,255,0.35)]" />
-                Lön {formatCalendarDate(data.cycle.startDate)}
-              </span>
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-semibold text-white">
-                Nästa lön {formatCalendarDate(data.cycle.endDate)}
-                <i className="h-2 w-2 rounded-full bg-white shadow-[0_0_7px_rgba(255,255,255,0.35)]" />
-              </span>
-            </div>
-
-            <div className="relative flex h-9 overflow-visible pt-4 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-              {data.cycle.weeks.map((week) => (
-                <span
-                  key={`${week.label}-${week.start}`}
-                  className="relative flex items-center justify-center border-l border-white/30 first:border-l-0"
-                  style={{ width: `${week.end - week.start}%` }}
-                >
-                  {week.start > 0 ? (
-                    <span className="absolute -left-px -top-4 -translate-x-1/2 whitespace-nowrap rounded bg-[var(--color-surface)] px-1 text-[8px] font-medium normal-case tracking-normal text-white/75">
-                      {formatCalendarDate(week.startDate)}
-                    </span>
-                  ) : null}
-                  {week.label}
-                </span>
-              ))}
-            </div>
-
-            <div className="relative mt-1 h-[70px]">
-              <div
-                className="absolute top-0 z-30"
-                style={{
-                  left: `${clampPercentage(actualPercentage)}%`,
-                  transform: markerTransform(actualPercentage),
-                }}
-              >
-                <span
-                  className={`block whitespace-nowrap rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${
-                    isOverMonthlyLimit
-                      ? "bg-[#ef4444] text-white"
-                      : "bg-[#6ee7b7] text-[#07120e]"
-                  }`}
-                >
-                  Spenderat {formatCurrency(data.spent)}
-                </span>
-              </div>
-              <span
-                className={`absolute top-4 z-20 h-[45px] w-0.5 ${
-                  isOverMonthlyLimit ? "bg-[#ef4444]" : "bg-[#6ee7b7]"
-                }`}
-                style={{ left: `${clampPercentage(actualPercentage)}%` }}
-                aria-hidden="true"
-              />
-
-              <div
-                className="absolute top-7 z-30"
-                style={{
-                  left: `${clampPercentage(expectedPercentage)}%`,
-                  transform: markerTransform(expectedPercentage),
-                }}
-              >
-                <span className="block whitespace-nowrap rounded-md border border-white/15 bg-[#282828] px-1.5 py-0.5 text-[9px] font-semibold text-white">
-                  Idag {formatCurrency(expectedAmount)}
-                </span>
-              </div>
-              <span
-                className="absolute top-[42px] z-20 h-[17px] w-0.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.25)]"
-                style={{ left: `${clampPercentage(expectedPercentage)}%` }}
-                aria-hidden="true"
-              />
-
-              <div className="absolute inset-x-0 bottom-0 h-7 overflow-hidden rounded-full border border-[var(--color-line)] bg-[rgba(255,255,255,0.035)]">
-                <div
-                  className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ${
-                    isOverMonthlyLimit
-                      ? "bg-[rgba(239,68,68,0.52)]"
-                      : "bg-[rgba(167,243,208,0.42)]"
-                  }`}
-                  style={{ width: `${clampPercentage(actualPercentage)}%` }}
-                />
-
-                {data.cycle.ticks.map((tick) => (
-                  <span
-                    key={`${tick.position}-${tick.isWeekBoundary}`}
-                    className={`absolute bottom-0 top-0 z-10 w-px ${
-                      tick.isWeekBoundary
-                        ? "w-0.5 bg-white/55"
-                        : "!top-2 bg-white/20"
-                    }`}
-                    style={{ left: `${tick.position}%` }}
-                    aria-hidden="true"
-                  />
-                ))}
-              </div>
-            </div>
-
-            <p
-              className={`mt-2 text-[12px] font-medium ${
-                paceDifference < 0
-                  ? "text-[var(--color-danger)]"
-                  : "text-[#86efac]"
-              }`}
-            >
-              {paceDifference >= 0
-                ? `${formatCurrency(paceDifference)} under dagens takt`
-                : `${formatCurrency(Math.abs(paceDifference))} över dagens takt`}
-            </p>
-          </div>
+          <SpendingPaceProgress
+            cycle={data.cycle}
+            monthlyLimit={settings.monthlyLimit}
+            spent={data.spent}
+          />
 
           <div className="mt-4 rounded-[18px] border border-[var(--color-line)] bg-[var(--color-elevated)] px-3.5 py-3.5">
             <div className="flex items-start justify-between gap-3">

@@ -301,7 +301,6 @@ export async function upsertScenarioExpenseForUser(input: {
       where: { id: input.expenseId, budgetScenarioId: input.scenarioId },
     });
     if (!existing) throw new Error("Utgiften hittades inte.");
-    if (existing.isSystemGenerated) throw new Error("Automatiska poster kan inte ändras i Playground.");
 
     const expense = await db.scenarioExpense.update({
       where: { id: existing.id },
@@ -351,7 +350,6 @@ export async function deleteScenarioExpenseForUser(input: {
     where: { id: input.expenseId, budgetScenarioId: input.scenarioId },
   });
   if (!expense) throw new Error("Utgiften hittades inte.");
-  if (expense.isSystemGenerated) throw new Error("Automatiska poster kan inte tas bort i Playground.");
   const deleted = await db.scenarioExpense.delete({ where: { id: expense.id } });
   await db.budgetScenario.update({
     where: { id: input.scenarioId },

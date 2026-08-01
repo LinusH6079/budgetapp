@@ -8,7 +8,7 @@ import {
 } from "@/lib/budget-scenario";
 
 describe("budget scenario rules", () => {
-  it("locks every system-managed expense origin", () => {
+  it("identifies every system-managed expense origin", () => {
     expect(isSystemScenarioOrigin(ExpenseOrigin.STANDARD)).toBe(false);
     expect(isSystemScenarioOrigin(ExpenseOrigin.ANNUAL_SAVING)).toBe(true);
     expect(isSystemScenarioOrigin(ExpenseOrigin.LOAN_PAYMENT)).toBe(true);

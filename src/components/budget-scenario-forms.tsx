@@ -1,4 +1,4 @@
-import { Copy, LockKeyhole, Pencil, Rocket, Trash2 } from "lucide-react";
+import { Copy, Pencil, Rocket, Trash2 } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { ModalLauncher } from "@/components/modal-launcher";
@@ -74,7 +74,6 @@ export function ScenarioManagement({ scenarioId, name, referenceMonthKey, return
 }
 
 export function ScenarioExpenseActions({ scenarioId, returnTo, members, expense }: { scenarioId: string; returnTo: string; members: MemberOption[]; expense: ScenarioExpense & { isSystemGenerated: boolean } }) {
-  if (expense.isSystemGenerated) return <span title="Automatisk post" className="inline-flex h-8 w-8 items-center justify-center text-[var(--color-muted)]"><LockKeyhole className="h-3.5 w-3.5" /></span>;
   return <div className="flex items-center gap-1">
     <ModalLauncher title="Redigera utgift" trigger={<span className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-muted)]"><Pencil className="h-3.5 w-3.5" /></span>}><ScenarioExpenseForm scenarioId={scenarioId} returnTo={returnTo} members={members} expense={expense} /></ModalLauncher>
     <form action={deleteScenarioExpenseAction}><input type="hidden" name="scenarioId" value={scenarioId} /><input type="hidden" name="expenseId" value={expense.id} /><input type="hidden" name="returnTo" value={returnTo} /><FormStatusButton className="!h-8 !w-8 !p-0 text-[var(--color-muted)]" pendingLabel="" title="Ta bort" aria-label="Ta bort"><Trash2 className="h-3.5 w-3.5" /></FormStatusButton></form>

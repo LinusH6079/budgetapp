@@ -40,9 +40,9 @@ målbeloppet fortfarande nås vid milstolpen. Ett öppet steg som börjar efter
 milstolpen kan fortsätta sparandet utan slutdatum.
 
 Playground-scenarier är fristående ögonblicksbilder. Betalstatus och Swish-data
-kopieras inte, och automatiska lån- och årssparandeposter är låsta i testet. När
-ett scenario görs till en ny riktig månad genereras dessa poster på nytt från de
-aktuella planerna.
+kopieras inte. Automatiska lån- och årssparandeposter kan ändras eller tas bort i
+testet, men när ett scenario görs till en ny riktig månad genereras de på nytt
+från de aktuella planerna.
 
 ## Stack
 

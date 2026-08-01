@@ -55,6 +55,10 @@ export function AnnualBudgetForm({
           />
         </label>
       </div>
+      <p className="text-[11px] leading-relaxed text-[var(--color-muted)]">
+        Behövs-månaden räknas inte som sparmånad. Behövs pengarna i oktober
+        fördelas sparandet till och med september.
+      </p>
 
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">

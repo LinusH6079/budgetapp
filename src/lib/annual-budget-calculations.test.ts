@@ -73,7 +73,22 @@ describe("annual budget calculations", () => {
     ).toBe(3_500);
   });
 
-  it("recommends an even monthly amount including the due month", () => {
+  it("uses the current month through the month before the money is needed", () => {
+    const result = calculateAnnualBudgetItem(
+      {
+        id: "october-cost",
+        name: "Oktoberkostnad",
+        targetAmount: 120_000,
+        dueMonth: "2026-10",
+        entries: [],
+      },
+      new Date(2026, 7, 1),
+    );
+
+    expect(result.recommendedMonthlyAmount).toBe(60_000);
+  });
+
+  it("recommends an even monthly amount before the due month", () => {
     const result = calculateAnnualBudgetItem(
       {
         id: "car-service",
@@ -87,7 +102,7 @@ describe("annual budget calculations", () => {
 
     expect(result.reservedAmount).toBe(18_000);
     expect(result.remainingAmount).toBe(72_000);
-    expect(result.recommendedMonthlyAmount).toBe(8_000);
+    expect(result.recommendedMonthlyAmount).toBe(9_000);
     expect(result.fundedFraction).toBe(0.2);
   });
 

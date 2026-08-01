@@ -1,3 +1,5 @@
+import { getStockholmCalendarDate } from "@/lib/pay-cycle";
+
 export type AnnualBudgetEntryInput = {
   amount: number;
   entryType: "CONTRIBUTION" | "WITHDRAWAL";
@@ -21,7 +23,8 @@ export function expenseAnnualContributionAmount(input: {
 }
 
 function currentMonthKey(now: Date) {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const date = getStockholmCalendarDate(now);
+  return `${date.year}-${String(date.month).padStart(2, "0")}`;
 }
 
 export function netReservedAmount(entries: AnnualBudgetEntryInput[]) {
@@ -42,7 +45,7 @@ export function monthsUntilDue(dueMonth: string, now = new Date()) {
   const difference =
     (dueYear - year) * 12 + (dueMonthNumber - month);
 
-  return Math.max(1, difference + 1);
+  return Math.max(1, difference);
 }
 
 export function calculateAnnualBudgetItem(

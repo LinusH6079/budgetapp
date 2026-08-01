@@ -15,8 +15,6 @@ import {
 type SpendingPaceCardProps = {
   activeMonth?: {
     monthKey: string;
-    remainingActual: number;
-    reservedOutsideMonthlyBudget: number;
   };
   data: {
     settings: {
@@ -160,38 +158,10 @@ export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
             </span>
           </div>
 
-          <div className="mt-3 rounded-[18px] bg-[var(--color-elevated)] px-3.5 py-3.5">
-            <p className="eyebrow-label">Kvar just nu</p>
-            <p className="mt-1 text-[1.75rem] font-semibold tracking-[-0.05em]">
-              {formatCurrency(activeMonth.remainingActual)}
-            </p>
-            {activeMonth.reservedOutsideMonthlyBudget > 0 ? (
-              <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-[var(--color-line)] pt-2.5 text-[11px]">
-                <span className="text-[var(--color-muted)]">
-                  Fritt efter årsreservering
-                </span>
-                <span
-                  className={`font-semibold ${
-                    activeMonth.remainingActual -
-                      activeMonth.reservedOutsideMonthlyBudget <
-                    0
-                      ? "text-[var(--color-danger)]"
-                      : ""
-                  }`}
-                >
-                  {formatCurrency(
-                    activeMonth.remainingActual -
-                      activeMonth.reservedOutsideMonthlyBudget,
-                  )}
-                </span>
-              </div>
-            ) : null}
-          </div>
-
           <PendingLink
             href={`/app/months/${activeMonth.monthKey}`}
             prefetch
-            className="action-button action-secondary mt-2.5 w-full justify-center"
+            className="action-button action-secondary mt-3 w-full justify-center"
           >
             Månadsbudget
             <ArrowRight className="h-4 w-4" />

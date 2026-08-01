@@ -133,9 +133,6 @@ export default async function AppHomePage({ searchParams }: AppHomePageProps) {
           data={spendingPace}
           activeMonth={{
             monthKey: pageData.activeMonth.monthKey,
-            remainingActual: pageData.summary.remainingActual,
-            reservedOutsideMonthlyBudget:
-              annualBudget?.reservedOutsideMonthlyBudget ?? 0,
           }}
         />
       ) : null}

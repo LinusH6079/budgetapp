@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { householdImportSchema } from "@/lib/validations";
 import { syncAutomaticAnnualSavingExpenses } from "@/server/services/annual-saving-expenses";
 import { getHouseholdForUser, mapMembersToSlots } from "@/server/services/households";
+import { syncLoanExpenses } from "@/server/services/loan-payment-sync";
 
 export async function exportHouseholdDataForUser(userId: string) {
   const household = await getHouseholdForUser(userId);
@@ -10,7 +11,14 @@ export async function exportHouseholdDataForUser(userId: string) {
     throw new Error("Du behöver ett hushåll innan du kan exportera data.");
   }
 
-  const [months, spendingPaceSettings, spendingPaceEntries, annualBudgetItems] =
+  const [
+    months,
+    spendingPaceSettings,
+    spendingPaceEntries,
+    annualBudgetItems,
+    financingCases,
+    loans,
+  ] =
     await Promise.all([
       db.budgetMonth.findMany({
         where: {
@@ -75,6 +83,25 @@ export async function exportHouseholdDataForUser(userId: string) {
           dueMonth: "asc",
         },
       }),
+      db.financingCase.findMany({
+        where: { householdId: household.id },
+        orderBy: { createdAt: "asc" },
+      }),
+      db.loan.findMany({
+        where: { householdId: household.id },
+        include: {
+          ratePeriods: { orderBy: { startMonth: "asc" } },
+          installments: {
+            orderBy: { sequence: "asc" },
+            include: { expense: true },
+          },
+          extraPayments: {
+            orderBy: { createdAt: "asc" },
+            include: { expense: true },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
     ]);
 
   const members = mapMembersToSlots(household);
@@ -107,6 +134,7 @@ export async function exportHouseholdDataForUser(userId: string) {
       backupKey: item.id,
       name: item.name,
       targetAmount: item.targetAmount,
+      savingStartMonth: item.savingStartMonth,
       dueMonth: item.dueMonth,
       category: item.category,
       recurrence: item.recurrence,
@@ -123,7 +151,60 @@ export async function exportHouseholdDataForUser(userId: string) {
           amount: entry.amount,
           entryType: entry.entryType,
           createdAt: entry.createdAt.toISOString(),
-        })),
+      })),
+    })),
+    financingCases: financingCases.map((item) => ({
+      backupKey: item.id,
+      name: item.name,
+      purchasePrice: item.purchasePrice,
+      downPayment: item.downPayment,
+      annualInterestBps: item.annualInterestBps,
+      termMonths: item.termMonths,
+      setupFee: item.setupFee,
+      monthlyFee: item.monthlyFee,
+      amortizationType: item.amortizationType,
+      startMonth: item.startMonth,
+      payerType: item.payerType,
+      decision: item.decision,
+      isArchived: item.isArchived,
+    })),
+    loans: loans.map((loan) => ({
+      backupKey: loan.id,
+      financingCaseBackupKey: loan.financingCaseId,
+      name: loan.name,
+      initialPrincipal: loan.initialPrincipal,
+      termMonths: loan.termMonths,
+      setupFee: loan.setupFee,
+      monthlyFee: loan.monthlyFee,
+      amortizationType: loan.amortizationType,
+      startMonth: loan.startMonth,
+      payerType: loan.payerType,
+      status: loan.status,
+      ratePeriods: loan.ratePeriods.map((rate) => ({
+        startMonth: rate.startMonth,
+        annualInterestBps: rate.annualInterestBps,
+      })),
+      installments: loan.installments.map((row) => ({
+        sequence: row.sequence,
+        monthKey: row.monthKey,
+        openingPrincipal: row.openingPrincipal,
+        principalAmount: row.principalAmount,
+        interestAmount: row.interestAmount,
+        feeAmount: row.feeAmount,
+        totalAmount: row.totalAmount,
+        isPaid: row.expense?.isPaid ?? false,
+        paidAt: row.expense?.paidAt?.toISOString() ?? null,
+        firstPersonPaidAt: row.expense?.firstPersonPaidAt?.toISOString() ?? null,
+        secondPersonPaidAt: row.expense?.secondPersonPaidAt?.toISOString() ?? null,
+      })),
+      extraPayments: loan.extraPayments.map((payment) => ({
+        monthKey: payment.monthKey,
+        amount: payment.amount,
+        isPaid: payment.expense?.isPaid ?? false,
+        paidAt: payment.expense?.paidAt?.toISOString() ?? null,
+        firstPersonPaidAt: payment.expense?.firstPersonPaidAt?.toISOString() ?? null,
+        secondPersonPaidAt: payment.expense?.secondPersonPaidAt?.toISOString() ?? null,
+      })),
     })),
     months: months.map((month) => ({
       monthKey: month.monthKey,
@@ -144,7 +225,13 @@ export async function exportHouseholdDataForUser(userId: string) {
           updatedAt: snapshot.updatedAt.toISOString(),
         };
       }),
-      expenses: month.expenses.map((expense) => ({
+      expenses: month.expenses
+        .filter(
+          (expense) =>
+            expense.origin !== "LOAN_PAYMENT" &&
+            expense.origin !== "LOAN_EXTRA_PAYMENT",
+        )
+        .map((expense) => ({
         recurringSourceExpenseId: expense.recurringSourceExpenseId,
         annualBudgetItemBackupKey: expense.annualBudgetItem?.id ?? null,
         swishId: expense.swishId,
@@ -165,7 +252,7 @@ export async function exportHouseholdDataForUser(userId: string) {
         note: expense.note,
         createdAt: expense.createdAt.toISOString(),
         updatedAt: expense.updatedAt.toISOString(),
-      })),
+        })),
     })),
   };
 }
@@ -243,6 +330,40 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
     }
 
     const annualBudgetIdByBackupKey = new Map<string, string>();
+    const financingCaseIdByBackupKey = new Map<string, string>();
+
+    if (imported.financingCases || imported.loans) {
+      await tx.expense.deleteMany({
+        where: {
+          budgetMonth: { householdId: household.id },
+          origin: { in: ["LOAN_PAYMENT", "LOAN_EXTRA_PAYMENT"] },
+        },
+      });
+      await tx.loan.deleteMany({ where: { householdId: household.id } });
+      await tx.financingCase.deleteMany({ where: { householdId: household.id } });
+
+      for (const item of imported.financingCases ?? []) {
+        const created = await tx.financingCase.create({
+          data: {
+            householdId: household.id,
+            name: item.name,
+            purchasePrice: item.purchasePrice,
+            downPayment: item.downPayment,
+            annualInterestBps: item.annualInterestBps,
+            termMonths: item.termMonths,
+            setupFee: item.setupFee,
+            monthlyFee: item.monthlyFee,
+            amortizationType: item.amortizationType,
+            startMonth: item.startMonth,
+            payerType: item.payerType,
+            decision: item.decision,
+            isArchived: item.isArchived,
+            updatedByUserId: userId,
+          },
+        });
+        financingCaseIdByBackupKey.set(item.backupKey, created.id);
+      }
+    }
 
     if (imported.annualBudget) {
       await tx.annualBudgetItem.deleteMany({
@@ -257,6 +378,7 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
             householdId: household.id,
             name: importedItem.name,
             targetAmount: importedItem.targetAmount,
+            savingStartMonth: importedItem.savingStartMonth ?? null,
             dueMonth: importedItem.dueMonth,
             category: importedItem.category,
             recurrence: importedItem.recurrence ?? "ONE_TIME",
@@ -437,6 +559,124 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
             createdByUserId: userId,
           })),
           skipDuplicates: true,
+        });
+      }
+    }
+
+    const importedPaymentStateByLoanId = new Map<
+      string,
+      NonNullable<typeof imported.loans>[number]
+    >();
+    for (const importedLoan of imported.loans ?? []) {
+      const createdLoan = await tx.loan.create({
+        data: {
+          householdId: household.id,
+          financingCaseId: importedLoan.financingCaseBackupKey
+            ? financingCaseIdByBackupKey.get(importedLoan.financingCaseBackupKey) ?? null
+            : null,
+          name: importedLoan.name,
+          initialPrincipal: importedLoan.initialPrincipal,
+          termMonths: importedLoan.termMonths,
+          setupFee: importedLoan.setupFee,
+          monthlyFee: importedLoan.monthlyFee,
+          amortizationType: importedLoan.amortizationType,
+          startMonth: importedLoan.startMonth,
+          payerType: importedLoan.payerType,
+          status: importedLoan.status,
+          updatedByUserId: userId,
+          ratePeriods: {
+            create: importedLoan.ratePeriods.map((rate) => ({
+              startMonth: rate.startMonth,
+              annualInterestBps: rate.annualInterestBps,
+              updatedByUserId: userId,
+            })),
+          },
+          installments: {
+            create: importedLoan.installments.map((row) => ({
+              sequence: row.sequence,
+              monthKey: row.monthKey,
+              openingPrincipal: row.openingPrincipal,
+              principalAmount: row.principalAmount,
+              interestAmount: row.interestAmount,
+              feeAmount: row.feeAmount,
+              totalAmount: row.totalAmount,
+            })),
+          },
+        },
+      });
+      importedPaymentStateByLoanId.set(createdLoan.id, importedLoan);
+    }
+
+    await syncLoanExpenses({
+      tx,
+      householdId: household.id,
+      actorUserId: userId,
+    });
+
+    for (const [loanId, importedLoan] of importedPaymentStateByLoanId) {
+      const loan = await tx.loan.findUnique({
+        where: { id: loanId },
+        include: { installments: { include: { expense: true } } },
+      });
+      for (const installment of loan?.installments ?? []) {
+        const importedRow = importedLoan.installments.find(
+          (row) => row.sequence === installment.sequence,
+        );
+        if (!installment.expenseId || !importedRow?.isPaid) continue;
+        await tx.expense.update({
+          where: { id: installment.expenseId },
+          data: {
+            isPaid: true,
+            paidAt: importedRow.paidAt ? new Date(importedRow.paidAt) : new Date(),
+            firstPersonPaidAt: importedRow.firstPersonPaidAt
+              ? new Date(importedRow.firstPersonPaidAt)
+              : null,
+            secondPersonPaidAt: importedRow.secondPersonPaidAt
+              ? new Date(importedRow.secondPersonPaidAt)
+              : null,
+          },
+        });
+      }
+
+      for (const payment of importedLoan.extraPayments) {
+        const month = await tx.budgetMonth.findUnique({
+          where: {
+            householdId_monthKey: {
+              householdId: household.id,
+              monthKey: payment.monthKey,
+            },
+          },
+        });
+        if (!month) continue;
+        const expense = await tx.expense.create({
+          data: {
+            budgetMonthId: month.id,
+            name: `Extra amortering: ${importedLoan.name}`,
+            amount: payment.amount,
+            category: "Lån",
+            expenseType: "ONE_TIME",
+            origin: "LOAN_EXTRA_PAYMENT",
+            planningType: "PLANNED",
+            payerType: importedLoan.payerType,
+            isPaid: payment.isPaid,
+            paidAt: payment.paidAt ? new Date(payment.paidAt) : null,
+            firstPersonPaidAt: payment.firstPersonPaidAt
+              ? new Date(payment.firstPersonPaidAt)
+              : null,
+            secondPersonPaidAt: payment.secondPersonPaidAt
+              ? new Date(payment.secondPersonPaidAt)
+              : null,
+            updatedByUserId: userId,
+          },
+        });
+        await tx.loanExtraPayment.create({
+          data: {
+            loanId,
+            monthKey: payment.monthKey,
+            amount: payment.amount,
+            expenseId: expense.id,
+            updatedByUserId: userId,
+          },
         });
       }
     }

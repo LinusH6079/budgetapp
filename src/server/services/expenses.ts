@@ -9,10 +9,16 @@ import { db } from "@/lib/db";
 import { getNextMonthKey } from "@/lib/date";
 import { expensePartAmount } from "@/lib/budget-calculations";
 import { expenseAnnualContributionAmount } from "@/lib/annual-budget-calculations";
+import { buildSwishHistory } from "@/lib/swish-history";
 import { assertMonthEditable } from "@/server/services/access";
 import { syncAutomaticAnnualSavingExpenses } from "@/server/services/annual-saving-expenses";
 import { buildRecurringExpenseCopyData } from "@/server/services/budget-months";
 import { getHouseholdForUser } from "@/server/services/households";
+import { syncLoanExpenses } from "@/server/services/loan-payment-sync";
+import {
+  rebuildLoanAfterExtraPayment,
+  syncLoanStatusFromInstallments,
+} from "@/server/services/loans";
 
 async function requireExpenseAccess(actorUserId: string, monthId: string) {
   const month = await db.budgetMonth.findUnique({
@@ -47,6 +53,8 @@ async function requireExpenseInMonth(expenseId: string, monthId: string) {
     },
     include: {
       annualSavingEntries: true,
+      loanExtraPayment: true,
+      loanInstallment: true,
     },
   });
 
@@ -172,7 +180,7 @@ async function syncRecurringExpenseToNextMonth(input: {
     amount: number;
     category: string;
     expenseType: "RECURRING" | "ONE_TIME";
-    origin: "STANDARD" | "ANNUAL_SAVING";
+    origin: ExpenseOrigin;
     planningType: "PLANNED" | "UNPLANNED";
     payerType: "FIRST_PERSON" | "SECOND_PERSON" | "SHARED";
     dueDate: Date | null;
@@ -248,6 +256,12 @@ export async function upsertExpenseForUser(input: {
       existingExpense = await requireExpenseInMonth(input.expenseId, input.monthId);
       if (existingExpense.origin === ExpenseOrigin.ANNUAL_SAVING) {
         throw new Error("Automatiskt årssparande justeras från årsbudgeten.");
+      }
+      if (
+        existingExpense.origin === ExpenseOrigin.LOAN_PAYMENT ||
+        existingExpense.origin === ExpenseOrigin.LOAN_EXTRA_PAYMENT
+      ) {
+        throw new Error("Låneutgiften justeras från Lån & finansiering.");
       }
     }
 
@@ -367,7 +381,19 @@ export async function deleteExpenseForUser(input: {
   assertMonthEditable(month.isLocked);
   const expense = await requireExpenseInMonth(input.expenseId, input.monthId);
 
+  if (expense.loanInstallment) {
+    throw new Error("Lånebetalningen hanteras från Lån & finansiering.");
+  }
+
   return db.$transaction(async (tx) => {
+    if (expense.loanExtraPayment) {
+      if (expense.isPaid) {
+        throw new Error("Markera extra amorteringen som obetald innan den tas bort.");
+      }
+      await tx.loanExtraPayment.delete({
+        where: { id: expense.loanExtraPayment.id },
+      });
+    }
     if (
       expense.origin === ExpenseOrigin.ANNUAL_SAVING &&
       expense.annualBudgetItemId
@@ -458,6 +484,29 @@ export async function setExpensePaidStateForUser(input: {
       });
 
       await syncAutomaticAnnualSavingExpenses({
+        tx,
+        householdId: month.householdId,
+        actorUserId: input.actorUserId,
+      });
+
+      if (expense.loanExtraPayment) {
+        await rebuildLoanAfterExtraPayment({
+          tx,
+          actorUserId: input.actorUserId,
+          loanId: expense.loanExtraPayment.loanId,
+          monthKey: expense.loanExtraPayment.monthKey,
+        });
+      }
+
+      if (expense.loanInstallment) {
+        await syncLoanStatusFromInstallments({
+          tx,
+          actorUserId: input.actorUserId,
+          loanId: expense.loanInstallment.loanId,
+        });
+      }
+
+      await syncLoanExpenses({
         tx,
         householdId: month.householdId,
         actorUserId: input.actorUserId,
@@ -677,6 +726,35 @@ export async function settleExpensesWithSwishForUser(input: {
       actorUserId: input.actorUserId,
     });
 
+    const affectedExtraPayments = await tx.loanExtraPayment.findMany({
+      where: { expenseId: { in: expenseIds } },
+      select: { loanId: true, monthKey: true },
+    });
+    for (const payment of affectedExtraPayments) {
+      await rebuildLoanAfterExtraPayment({
+        tx,
+        actorUserId: input.actorUserId,
+        loanId: payment.loanId,
+        monthKey: payment.monthKey,
+      });
+    }
+    const affectedInstallments = await tx.loanInstallment.findMany({
+      where: { expenseId: { in: expenseIds } },
+      select: { loanId: true },
+    });
+    for (const loanId of new Set(affectedInstallments.map((row) => row.loanId))) {
+      await syncLoanStatusFromInstallments({
+        tx,
+        actorUserId: input.actorUserId,
+        loanId,
+      });
+    }
+    await syncLoanExpenses({
+      tx,
+      householdId: month.householdId,
+      actorUserId: input.actorUserId,
+    });
+
     return {
       count: input.selections.length,
       totalAmount,
@@ -761,4 +839,42 @@ export async function getExpensesBySwishIdForUser(input: {
     ),
     expenses: matches,
   };
+}
+
+export async function getSwishHistoryForUser(actorUserId: string) {
+  const household = await getHouseholdForUser(actorUserId);
+
+  if (!household) {
+    throw new Error("Du behöver ett hushåll innan du kan se Swish-historik.");
+  }
+
+  const expenses = await db.expense.findMany({
+    where: {
+      budgetMonth: {
+        householdId: household.id,
+      },
+      OR: [
+        { swishId: { not: null } },
+        { firstPersonSwishId: { not: null } },
+        { secondPersonSwishId: { not: null } },
+      ],
+    },
+    select: {
+      id: true,
+      amount: true,
+      payerType: true,
+      swishId: true,
+      firstPersonSwishId: true,
+      secondPersonSwishId: true,
+      paidAt: true,
+      updatedAt: true,
+      budgetMonth: {
+        select: {
+          monthKey: true,
+        },
+      },
+    },
+  });
+
+  return buildSwishHistory(expenses);
 }

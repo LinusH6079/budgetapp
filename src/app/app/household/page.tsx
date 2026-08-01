@@ -4,12 +4,16 @@ import { ExportImportCard } from "@/components/export-import-card";
 import { FlashMessage } from "@/components/flash-message";
 import { HouseholdSetupCard } from "@/components/household-setup-card";
 import { InviteCard } from "@/components/invite-card";
+import { PendingLink } from "@/components/pending-link";
 import { db } from "@/lib/db";
 import { formatMonthLabel } from "@/lib/date";
 import { formatCurrency } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import { swishSearchSchema } from "@/lib/validations";
-import { getExpensesBySwishIdForUser } from "@/server/services/expenses";
+import {
+  getExpensesBySwishIdForUser,
+  getSwishHistoryForUser,
+} from "@/server/services/expenses";
 import { getHouseholdForUser, mapMembersToSlots } from "@/server/services/households";
 
 type HouseholdPageProps = {
@@ -34,36 +38,37 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
     );
   }
 
-  const latestInvite = await db.householdInvite.findFirst({
-    where: {
-      householdId: household.id,
-      usedAt: null,
-      expiresAt: {
-        gt: new Date(),
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
   const members = mapMembersToSlots(household);
   const memberNameBySlot = new Map(
     members.map((member) => [member.slot, member.name]),
   );
-  const headersList = await headers();
+  const parsedSwishSearch = swishId ? swishSearchSchema.safeParse({ swishId }) : null;
+  const [latestInvite, headersList, swishHistory, swishSearchResult] = await Promise.all([
+    db.householdInvite.findFirst({
+      where: {
+        householdId: household.id,
+        usedAt: null,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+    headers(),
+    getSwishHistoryForUser(user.id),
+    parsedSwishSearch?.success
+      ? getExpensesBySwishIdForUser({
+          actorUserId: user.id,
+          swishId: parsedSwishSearch.data.swishId,
+        })
+      : Promise.resolve(null),
+  ]);
   const host = headersList.get("x-forwarded-host") ?? headersList.get("host") ?? "localhost:3000";
   const protocol = headersList.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
   const baseUrl = `${protocol}://${host}`;
   const inviteUrl = latestInvite ? `${baseUrl}/register?invite=${latestInvite.code}` : null;
-  const parsedSwishSearch = swishId ? swishSearchSchema.safeParse({ swishId }) : null;
-  const swishSearchResult =
-    parsedSwishSearch && parsedSwishSearch.success
-      ? await getExpensesBySwishIdForUser({
-          actorUserId: user.id,
-          swishId: parsedSwishSearch.data.swishId,
-        })
-      : null;
 
   return (
     <div className="viewport-page">
@@ -108,33 +113,67 @@ export default async function HouseholdPage({ searchParams }: HouseholdPageProps
       </div>
 
       <section className="app-panel px-4 py-4 sm:px-5">
-        <p className="eyebrow-label">Swish-sök</p>
-        <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em]">Hitta utgifter via Swish ID</h2>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="eyebrow-label">Swish-historik</p>
+            <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em]">Sparade Swish-ID:n</h2>
+          </div>
+          <span className="pb-0.5 text-sm text-[var(--color-muted)]">{swishHistory.length}</span>
+        </div>
 
-        <form method="get" className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium">Swish ID</span>
-            <input name="swishId" defaultValue={swishId ?? ""} placeholder="SWISH-2026-001" />
-          </label>
-          <button className="action-button action-primary self-end justify-center">Sök</button>
-        </form>
+        {swishHistory.length > 0 ? (
+          <div className="mt-4 max-h-[min(44dvh,420px)] space-y-1.5 overflow-y-auto overscroll-contain pr-0.5 no-scrollbar">
+            {swishHistory.map((item) => {
+              const isActive = parsedSwishSearch?.success && parsedSwishSearch.data.swishId === item.swishId;
 
-        {parsedSwishSearch && !parsedSwishSearch.success ? (
-          <p className="mt-3 text-sm text-[var(--color-danger)]">
-            {parsedSwishSearch.error.issues[0]?.message ?? "Ogiltigt Swish ID."}
-          </p>
-        ) : null}
+              return (
+                <PendingLink
+                  key={item.swishId}
+                  href={`/app/household?swishId=${encodeURIComponent(item.swishId)}`}
+                  aria-current={isActive ? "true" : undefined}
+                  className={`flex min-w-0 items-center justify-between gap-3 rounded-[15px] border px-3.5 py-3 transition-colors active:scale-[0.995] ${
+                    isActive
+                      ? "border-[var(--color-strong-line)] bg-[var(--color-elevated)]"
+                      : "border-transparent bg-[rgba(255,255,255,0.025)] hover:border-[var(--color-line)] hover:bg-[rgba(255,255,255,0.04)]"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{item.swishId}</p>
+                    <p className="mt-1 truncate text-[12px] text-[var(--color-muted)]">
+                      {item.partCount} {item.partCount === 1 ? "del" : "delar"} · {formatMonthLabel(item.monthKeys[0])} · {item.latestAt.toLocaleDateString("sv-SE")}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-sm font-semibold tabular-nums">
+                    {formatCurrency(item.totalAmount)}
+                  </p>
+                </PendingLink>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="ghost-panel mt-4 px-4 py-4 text-sm text-[var(--color-muted)]">
+            Inga Swish-ID:n har sparats ännu.
+          </div>
+        )}
 
         {swishSearchResult ? (
           <div className="mt-4 rounded-[18px] border border-[var(--color-line)] bg-[var(--color-elevated)] px-4 py-4">
             <div className="flex items-center justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-semibold">Swish {swishSearchResult.swishId}</p>
                 <p className="mt-1 text-[12px] text-[var(--color-muted)]">
                   {swishSearchResult.expenses.length} utgifter hittades
                 </p>
               </div>
-              <p className="text-base font-semibold">{formatCurrency(swishSearchResult.totalAmount)}</p>
+              <div className="flex shrink-0 items-center gap-3">
+                <p className="text-base font-semibold tabular-nums">{formatCurrency(swishSearchResult.totalAmount)}</p>
+                <PendingLink
+                  href="/app/household"
+                  className="rounded-lg px-2 py-1 text-xs font-medium text-[var(--color-muted)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[var(--color-foreground)]"
+                >
+                  Stäng
+                </PendingLink>
+              </div>
             </div>
 
             <div className="mt-4 grid gap-2.5">

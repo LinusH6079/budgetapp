@@ -20,6 +20,26 @@ enum ExpenseType {
 enum ExpenseOrigin {
   STANDARD
   ANNUAL_SAVING
+  LOAN_PAYMENT
+  LOAN_EXTRA_PAYMENT
+  FINANCING_CASH
+}
+
+enum LoanAmortizationType {
+  ANNUITY
+  STRAIGHT
+}
+
+enum FinancingDecision {
+  UNDECIDED
+  LOAN
+  CASH
+}
+
+enum LoanStatus {
+  ACTIVE
+  PAID_OFF
+  CANCELLED
 }
 
 enum AnnualBudgetRecurrence {
@@ -67,6 +87,10 @@ model User {
   updatedAnnualSavingEntries   AnnualSavingEntry[]     @relation("AnnualSavingEntryUpdatedBy")
   createdAnnualSavingOverrides AnnualSavingOverride[]  @relation("AnnualSavingOverrideCreatedBy")
   updatedAnnualSavingRates     AnnualSavingRate[]      @relation("AnnualSavingRateUpdatedBy")
+  updatedFinancingCases        FinancingCase[]         @relation("FinancingCaseUpdatedBy")
+  updatedLoans                 Loan[]                  @relation("LoanUpdatedBy")
+  updatedLoanRatePeriods       LoanRatePeriod[]        @relation("LoanRatePeriodUpdatedBy")
+  updatedLoanExtraPayments     LoanExtraPayment[]      @relation("LoanExtraPaymentUpdatedBy")
 }
 
 model Household {
@@ -80,28 +104,135 @@ model Household {
   spendingPaceSettings SpendingPaceSettings?
   spendingPaceEntries  SpendingPaceEntry[]
   annualBudgetItems    AnnualBudgetItem[]
+  financingCases       FinancingCase[]
+  loans                Loan[]
+}
+
+model FinancingCase {
+  id                String               @id @default(cuid())
+  householdId       String
+  name              String
+  purchasePrice     Int
+  downPayment       Int                  @default(0)
+  annualInterestBps Int
+  termMonths        Int
+  setupFee          Int                  @default(0)
+  monthlyFee        Int                  @default(0)
+  amortizationType  LoanAmortizationType
+  startMonth        String
+  payerType         PayerType
+  decision          FinancingDecision    @default(UNDECIDED)
+  isArchived        Boolean              @default(false)
+  cashExpenseId     String?              @unique
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  updatedByUserId   String?
+  household         Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  cashExpense       Expense?             @relation("FinancingCashExpense", fields: [cashExpenseId], references: [id], onDelete: SetNull)
+  loan              Loan?
+  updatedByUser     User?                @relation("FinancingCaseUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([householdId, decision, isArchived])
+}
+
+model Loan {
+  id               String               @id @default(cuid())
+  householdId      String
+  financingCaseId  String?              @unique
+  name             String
+  initialPrincipal Int
+  termMonths       Int
+  setupFee         Int                  @default(0)
+  monthlyFee       Int                  @default(0)
+  amortizationType LoanAmortizationType
+  startMonth       String
+  payerType        PayerType
+  status           LoanStatus           @default(ACTIVE)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  updatedByUserId  String?
+  household        Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  financingCase    FinancingCase?       @relation(fields: [financingCaseId], references: [id], onDelete: SetNull)
+  updatedByUser    User?                @relation("LoanUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  ratePeriods      LoanRatePeriod[]
+  installments     LoanInstallment[]
+  extraPayments    LoanExtraPayment[]
+
+  @@index([householdId, status])
+}
+
+model LoanRatePeriod {
+  id                String   @id @default(cuid())
+  loanId            String
+  startMonth        String
+  annualInterestBps Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  updatedByUserId   String?
+  loan              Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  updatedByUser     User?    @relation("LoanRatePeriodUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([loanId, startMonth])
+  @@index([loanId, startMonth])
+}
+
+model LoanInstallment {
+  id               String   @id @default(cuid())
+  loanId           String
+  sequence         Int
+  monthKey         String
+  openingPrincipal Int
+  principalAmount  Int
+  interestAmount   Int
+  feeAmount        Int
+  totalAmount      Int
+  expenseId        String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  loan             Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  expense          Expense? @relation("LoanInstallmentExpense", fields: [expenseId], references: [id], onDelete: SetNull)
+
+  @@unique([loanId, sequence])
+  @@index([loanId, monthKey])
+}
+
+model LoanExtraPayment {
+  id              String   @id @default(cuid())
+  loanId          String
+  monthKey        String
+  amount          Int
+  expenseId       String?  @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  updatedByUserId String?
+  loan            Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  expense         Expense? @relation("LoanExtraPaymentExpense", fields: [expenseId], references: [id], onDelete: SetNull)
+  updatedByUser   User?    @relation("LoanExtraPaymentUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([loanId, monthKey])
 }
 
 model AnnualBudgetItem {
-  id              String                 @id @default(cuid())
-  householdId     String
-  name            String
-  targetAmount    Int
-  dueMonth        String
-  category        String?
-  recurrence      AnnualBudgetRecurrence @default(ONE_TIME)
-  savingMode      AnnualSavingMode       @default(TARGET_BY_DATE)
-  isArchived      Boolean                @default(false)
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-  updatedByUserId String?
-  household       Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  updatedByUser   User?                  @relation("AnnualBudgetItemUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
-  entries         AnnualSavingEntry[]
-  linkedExpenses  Expense[]
-  savingOverrides AnnualSavingOverride[]
-  savingSchedules AnnualSavingSchedule[]
-  savingRates     AnnualSavingRate[]
+  id               String                 @id @default(cuid())
+  householdId      String
+  name             String
+  targetAmount     Int
+  savingStartMonth String?
+  dueMonth         String
+  category         String?
+  recurrence       AnnualBudgetRecurrence @default(ONE_TIME)
+  savingMode       AnnualSavingMode       @default(TARGET_BY_DATE)
+  isArchived       Boolean                @default(false)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  updatedByUserId  String?
+  household        Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  updatedByUser    User?                  @relation("AnnualBudgetItemUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  entries          AnnualSavingEntry[]
+  linkedExpenses   Expense[]
+  savingOverrides  AnnualSavingOverride[]
+  savingSchedules  AnnualSavingSchedule[]
+  savingRates      AnnualSavingRate[]
 
   @@index([householdId, isArchived, dueMonth])
 }
@@ -285,6 +416,9 @@ model Expense {
   annualBudgetItem         AnnualBudgetItem?     @relation(fields: [annualBudgetItemId], references: [id], onDelete: SetNull)
   annualSavingEntries      AnnualSavingEntry[]   @relation("ExpenseAnnualSavingEntry")
   annualSavingSchedule     AnnualSavingSchedule?
+  financingCashCase        FinancingCase?        @relation("FinancingCashExpense")
+  loanInstallment          LoanInstallment?      @relation("LoanInstallmentExpense")
+  loanExtraPayment         LoanExtraPayment?     @relation("LoanExtraPaymentExpense")
 
   @@unique([budgetMonthId, recurringSourceExpenseId])
   @@index([budgetMonthId, dueDate])

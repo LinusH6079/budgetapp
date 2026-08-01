@@ -39,6 +39,11 @@ function nextYearDueMonth(monthKey: string, now: Date) {
   return `${nextYear}-${month}`;
 }
 
+function shiftMonthKeyByYears(monthKey: string, years: number) {
+  const [year, month] = monthKey.split("-");
+  return `${Number(year) + years}-${month}`;
+}
+
 async function requireAnnualItemAccess(actorUserId: string, itemId: string) {
   const item = await db.annualBudgetItem.findFirst({
     where: {
@@ -209,6 +214,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
   itemId?: string | null;
   name: string;
   targetAmount: number;
+  savingStartMonth: string;
   dueMonth: string;
   category: string;
   recurrence: AnnualBudgetRecurrence;
@@ -226,6 +232,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
   const data = {
     name: input.name,
     targetAmount: input.targetAmount,
+    savingStartMonth: input.savingStartMonth,
     dueMonth: input.dueMonth,
     category: input.category || null,
     recurrence: input.recurrence,
@@ -603,15 +610,22 @@ export async function settleAnnualBudgetItemForUser(input: {
     }
 
     const isYearly = item.recurrence === AnnualBudgetRecurrence.YEARLY;
+    const nextDueMonth = isYearly
+      ? nextYearDueMonth(item.dueMonth, paidAt)
+      : item.dueMonth;
+    const dueYearShift =
+      Number(nextDueMonth.slice(0, 4)) - Number(item.dueMonth.slice(0, 4));
     await tx.annualBudgetItem.update({
       where: {
         id: item.id,
       },
       data: {
         isArchived: !isYearly,
-        dueMonth: isYearly
-          ? nextYearDueMonth(item.dueMonth, paidAt)
-          : item.dueMonth,
+        savingStartMonth:
+          isYearly && item.savingStartMonth
+            ? shiftMonthKeyByYears(item.savingStartMonth, dueYearShift)
+            : item.savingStartMonth,
+        dueMonth: nextDueMonth,
         updatedByUserId: input.actorUserId,
       },
     });

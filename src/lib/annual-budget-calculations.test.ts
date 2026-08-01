@@ -77,33 +77,51 @@ describe("annual budget calculations", () => {
     ).toBe(3_500);
   });
 
-  it("uses the current month through the month before the money is needed", () => {
+  it("includes both the selected first and last saving month", () => {
     const result = calculateAnnualBudgetItem(
       {
         id: "october-cost",
         name: "Oktoberkostnad",
         targetAmount: 120_000,
+        savingStartMonth: "2026-08",
         dueMonth: "2026-10",
         entries: [],
       },
       new Date(2026, 7, 1),
     );
 
-    expect(result.recommendedMonthlyAmount).toBe(60_000);
+    expect(result.recommendedMonthlyAmount).toBe(40_000);
   });
 
-  it("builds an exact automatic saving schedule before the due month", () => {
+  it("waits until the selected first saving month", () => {
+    const result = calculateAnnualBudgetItem(
+      {
+        id: "future-start",
+        name: "Framtida sparstart",
+        targetAmount: 120_000,
+        savingStartMonth: "2026-09",
+        dueMonth: "2026-10",
+        entries: [],
+      },
+      new Date(2026, 7, 1),
+    );
+
+    expect(result.recommendedMonthlyAmount).toBe(0);
+  });
+
+  it("builds an exact automatic saving schedule including the last month", () => {
     const monthKeys = annualSavingMonthKeys("2026-08", "2026-11");
     const schedule = allocateAnnualSavingByMonth({
       remainingAmount: 10_000,
       monthKeys,
     });
 
-    expect(monthKeys).toEqual(["2026-08", "2026-09", "2026-10"]);
+    expect(monthKeys).toEqual(["2026-08", "2026-09", "2026-10", "2026-11"]);
     expect(schedule).toEqual([
-      { monthKey: "2026-08", amount: 3_334 },
-      { monthKey: "2026-09", amount: 3_333 },
-      { monthKey: "2026-10", amount: 3_333 },
+      { monthKey: "2026-08", amount: 2_500 },
+      { monthKey: "2026-09", amount: 2_500 },
+      { monthKey: "2026-10", amount: 2_500 },
+      { monthKey: "2026-11", amount: 2_500 },
     ]);
     expect(schedule.reduce((sum, month) => sum + month.amount, 0)).toBe(10_000);
   });
@@ -211,7 +229,7 @@ describe("annual budget calculations", () => {
         dueMonth: "2026-10",
         savingMode: "CUSTOM_SCHEDULE",
         savingRates: [],
-        excludedMonthKeys: ["2026-08", "2026-09"],
+        excludedMonthKeys: ["2026-08", "2026-09", "2026-10"],
         entries: [],
       },
       new Date(2026, 7, 1),
@@ -235,7 +253,7 @@ describe("annual budget calculations", () => {
 
     expect(result.reservedAmount).toBe(18_000);
     expect(result.remainingAmount).toBe(72_000);
-    expect(result.recommendedMonthlyAmount).toBe(9_000);
+    expect(result.recommendedMonthlyAmount).toBe(8_000);
     expect(result.fundedFraction).toBe(0.2);
   });
 

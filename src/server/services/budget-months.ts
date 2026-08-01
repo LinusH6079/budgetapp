@@ -1,11 +1,13 @@
 import { cache } from "react";
+import type { ExpenseOrigin } from "@prisma/client";
 import { buildMonthSummary } from "@/lib/budget-calculations";
 import { compareMonthKeys, getNextMonthKey, getPreviousMonthKey } from "@/lib/date";
 import { db } from "@/lib/db";
-import { budgetMonthDetailsArgs, BudgetMonthWithDetails } from "@/lib/types";
+import { budgetMonthDetailsArgs } from "@/lib/types";
 import { assertMonthEditable } from "@/server/services/access";
 import { syncAutomaticAnnualSavingExpenses } from "@/server/services/annual-saving-expenses";
 import { getHouseholdForUser, mapMembersToSlots } from "@/server/services/households";
+import { syncLoanExpenses } from "@/server/services/loan-payment-sync";
 
 type RecurringExpenseSource = {
   id: string;
@@ -13,7 +15,7 @@ type RecurringExpenseSource = {
   amount: number;
   category: string;
   expenseType: "RECURRING" | "ONE_TIME";
-  origin: "STANDARD" | "ANNUAL_SAVING";
+  origin: ExpenseOrigin;
   planningType: "PLANNED" | "UNPLANNED";
   payerType: "FIRST_PERSON" | "SECOND_PERSON" | "SHARED";
   dueDate: Date | null;
@@ -59,8 +61,8 @@ export function buildRecurringExpenseCopyData(
   };
 }
 
-export function buildRecurringExpenseCopies(
-  month: Pick<BudgetMonthWithDetails, "expenses">,
+export function buildRecurringExpenseCopies<T extends RecurringExpenseSource>(
+  month: { expenses: T[] },
   targetMonthId: string,
   targetMonthKey: string,
   updatedByUserId: string,
@@ -279,6 +281,11 @@ export async function createMonthForUser(input: {
     }
 
     await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: household.id,
+      actorUserId: input.userId,
+    });
+    await syncLoanExpenses({
       tx,
       householdId: household.id,
       actorUserId: input.userId,

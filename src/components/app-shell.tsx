@@ -6,7 +6,6 @@ import {
   Landmark,
   LogOut,
   MoreHorizontal,
-  Settings2,
   WalletCards,
 } from "lucide-react";
 
@@ -28,7 +27,7 @@ const desktopNavItems = [
   { href: "/app", label: "Översikt", icon: Home },
   { href: "/app/months", label: "Månader", icon: WalletCards },
   { href: "/app/annual", label: "Årsbudget", icon: Landmark },
-  { href: "/app/household", label: "Hushåll", icon: Settings2 },
+  { href: "/app/more", label: "Mer", icon: MoreHorizontal },
 ];
 
 function getMonthKeyFromPath(pathname: string) {
@@ -47,6 +46,14 @@ function getPageTitle(pathname: string, householdName?: string | null) {
   }
 
   if (pathname.startsWith("/app/household")) {
+    return "Hushåll";
+  }
+
+  if (pathname.startsWith("/app/loans")) {
+    return "Lån & finansiering";
+  }
+
+  if (pathname.startsWith("/app/more")) {
     return "Mer";
   }
 
@@ -81,10 +88,13 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
       isActive: pathname.startsWith("/app/annual"),
     },
     {
-      href: "/app/household",
+      href: "/app/more",
       label: "Mer",
       icon: MoreHorizontal,
-      isActive: pathname.startsWith("/app/household"),
+      isActive:
+        pathname.startsWith("/app/more") ||
+        pathname.startsWith("/app/household") ||
+        pathname.startsWith("/app/loans"),
     },
   ];
 
@@ -98,7 +108,14 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
 
       <nav className="mt-5 flex flex-col gap-1.5">
         {desktopNavItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isActive =
+            item.href === "/app"
+              ? pathname === "/app"
+              : item.href === "/app/more"
+                ? pathname.startsWith("/app/more") ||
+                  pathname.startsWith("/app/household") ||
+                  pathname.startsWith("/app/loans")
+                : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
             <PendingLink

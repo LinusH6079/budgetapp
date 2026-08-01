@@ -13,6 +13,7 @@ type AnnualBudgetFormProps = {
     id: string;
     name: string;
     targetAmount: number;
+    savingStartMonth: string | null;
     dueMonth: string;
     category: string | null;
     recurrence: "ONE_TIME" | "YEARLY";
@@ -43,23 +44,32 @@ export function AnnualBudgetForm({
         />
       </label>
 
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium">Målbelopp</span>
+        <input
+          name="targetAmount"
+          inputMode="decimal"
+          defaultValue={item ? formatEditableAmount(item.targetAmount) : ""}
+          placeholder="8000"
+          required
+        />
+      </label>
+
       <div className="grid grid-cols-2 gap-2.5">
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium">Målbelopp</span>
+          <span className="mb-1.5 block text-sm font-medium">
+            Första sparmånad
+          </span>
           <input
-            name="targetAmount"
-            inputMode="decimal"
-            defaultValue={
-              item ? formatEditableAmount(item.targetAmount) : ""
-            }
-            placeholder="8000"
+            name="savingStartMonth"
+            type="month"
+            defaultValue={item?.savingStartMonth ?? defaultStartMonth}
             required
           />
         </label>
-
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium">
-            {savingMode === "CUSTOM_SCHEDULE" ? "Milstolpe" : "Behövs"}
+            Sista sparmånad
           </span>
           <input
             name="dueMonth"
@@ -129,8 +139,8 @@ export function AnnualBudgetForm({
         </div>
       ) : savingMode === "TARGET_BY_DATE" ? (
         <p className="text-[11px] leading-relaxed text-[var(--color-muted)]">
-          Behövs-månaden räknas inte som sparmånad. Behövs pengarna i oktober
-          fördelas sparandet till och med september.
+          Första och sista sparmånaden räknas med. Augusti till oktober ger
+          alltså tre sparmånader.
         </p>
       ) : null}
 

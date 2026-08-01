@@ -121,7 +121,9 @@ export async function syncAutomaticAnnualSavingExpenses({
       0,
     );
     const availableTargetMonthKeys = annualSavingMonthKeys(
-      currentMonthKey,
+      item.savingStartMonth && item.savingStartMonth > currentMonthKey
+        ? item.savingStartMonth
+        : currentMonthKey,
       item.dueMonth,
     ).filter(
       (monthKey) =>

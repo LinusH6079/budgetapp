@@ -10,6 +10,7 @@ export type AnnualBudgetItemInput = {
   id: string;
   name: string;
   targetAmount: number;
+  savingStartMonth?: string | null;
   dueMonth: string;
   entries: AnnualBudgetEntryInput[];
   savingMode?: "TARGET_BY_DATE" | "CUSTOM_SCHEDULE";
@@ -51,7 +52,7 @@ export function annualSavingMonthKeys(
 
   for (
     let monthKey = startMonthKey;
-    monthKey < dueMonth;
+    monthKey <= dueMonth;
     monthKey = nextMonthKey(monthKey)
   ) {
     monthKeys.push(monthKey);
@@ -180,7 +181,7 @@ export function monthsUntilDue(dueMonth: string, now = new Date()) {
   const difference =
     (dueYear - year) * 12 + (dueMonthNumber - month);
 
-  return Math.max(1, difference);
+  return Math.max(1, difference + 1);
 }
 
 export function calculateAnnualBudgetItem(
@@ -198,8 +199,12 @@ export function calculateAnnualBudgetItem(
   );
   const remainingAmount = Math.max(0, item.targetAmount - reservedAmount);
   const currentMonthKey = annualBudgetCurrentMonthKey(now);
+  const savingStartMonth =
+    item.savingStartMonth && item.savingStartMonth > currentMonthKey
+      ? item.savingStartMonth
+      : currentMonthKey;
   const targetMonthKeys = annualSavingMonthKeys(
-    currentMonthKey,
+    savingStartMonth,
     item.dueMonth,
   ).filter((monthKey) => !item.excludedMonthKeys?.includes(monthKey));
   const targetPlan =

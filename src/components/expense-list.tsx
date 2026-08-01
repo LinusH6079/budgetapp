@@ -22,7 +22,7 @@ type ExpenseListProps = {
     amount: number;
     category: string;
     expenseType: "RECURRING" | "ONE_TIME";
-    origin: "STANDARD" | "ANNUAL_SAVING";
+    origin: "STANDARD" | "ANNUAL_SAVING" | "LOAN_PAYMENT" | "LOAN_EXTRA_PAYMENT" | "FINANCING_CASH";
     payerType: PayerType;
     dueDate: Date | null;
     isPaid: boolean;

@@ -19,6 +19,7 @@ type AnnualBudgetItemCardProps = {
     id: string;
     name: string;
     targetAmount: number;
+    savingStartMonth: string | null;
     dueMonth: string;
     category: string | null;
     recurrence: "ONE_TIME" | "YEARLY";
@@ -84,7 +85,8 @@ export function AnnualBudgetItemCard({
             ) : null}
           </div>
           <p className="mt-1 text-[11px] text-[var(--color-muted)]">
-            {item.savingMode === "CUSTOM_SCHEDULE" ? "Milstolpe" : "Behövs"}{" "}
+            Sparperiod{" "}
+            {formatMonthLabel(item.savingStartMonth ?? defaultStartMonth)}–
             {formatMonthLabel(item.dueMonth)}
             {item.recurrence === "YEARLY" ? " · Varje år" : ""}
             {item.savingMode === "CUSTOM_SCHEDULE" ? " · Flexibel plan" : ""}

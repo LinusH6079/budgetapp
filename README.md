@@ -14,6 +14,10 @@ Mobilvänlig fullstack-app för hushållsbudget för exakt två personer. Byggd 
 - Hushålls- och personsummeringar
 - Oförklarad förbrukning mellan månader
 - Årsbudget med engångs- eller årliga sparmål och automatiska månadsposter
+- Jämförelse mellan lån och direktbetalning
+- Aktiva annuitetslån och lån med rak amortering, inklusive avgifter och restskuld
+- Automatiska lånebetalningar, ränteändringar och extra amortering
+- Registrering av befintliga lån från aktuell restskuld
 - JSON-export och JSON-import
 
 Gemensamma utgifter delas 50/50 i personliga summeringar. Hushållssiffran är den officiella siffran för oförklarad förbrukning.
@@ -22,6 +26,12 @@ Automatiskt årssparande räknas om mot det kvarvarande målet och visas som en
 obligatorisk utgift i öppna månader. En sådan post kan tas bort som en override
 för just den månaden; återstående belopp fördelas då över senare sparmånader.
 Betalda och låsta månader ändras aldrig automatiskt.
+
+Lånejämförelsen visar lånets faktiska betalningar före eventuellt ränteavdrag.
+Ett aktiverat lån skapar planerade utgifter i de budgetmånader som finns och
+fortsätter automatiskt när nya månader skapas. Ränteändringar gäller från vald
+månad och räknar endast om framtida obetalda poster. En extra amortering kortar
+som standard löptiden när den markeras betald.
 
 Långsiktiga mål kan använda en flexibel målplan. Tillfälliga månadsbelopp anges
 med start- och slutmånad; därefter räknas den automatiska takten om så att

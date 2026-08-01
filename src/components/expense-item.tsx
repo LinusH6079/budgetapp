@@ -19,7 +19,7 @@ type ExpenseItemProps = {
     amount: number;
     category: string;
     expenseType: "RECURRING" | "ONE_TIME";
-    origin: "STANDARD" | "ANNUAL_SAVING";
+    origin: "STANDARD" | "ANNUAL_SAVING" | "LOAN_PAYMENT" | "LOAN_EXTRA_PAYMENT" | "FINANCING_CASH";
     payerType: PayerType;
     dueDate: Date | null;
     isPaid: boolean;
@@ -151,6 +151,13 @@ export function ExpenseItem({
           ? `Automatiskt årssparande · ${expense.annualBudgetItem.name}`
           : `Sparar till ${expense.annualBudgetItem.name}`
         : null,
+      expense.origin === "LOAN_PAYMENT"
+        ? "Automatisk lånebetalning"
+        : expense.origin === "LOAN_EXTRA_PAYMENT"
+          ? "Extra amortering"
+          : expense.origin === "FINANCING_CASH"
+            ? "Direktbetalning"
+            : null,
       optimisticSwishId ? `Swish ${optimisticSwishId}` : paidLabel,
     ].filter((value): value is string => Boolean(value));
 
@@ -519,7 +526,7 @@ export function ExpenseItem({
               </ModalLauncher>
             ) : null}
 
-            <form action={deleteExpenseAction}>
+            {expense.origin !== "LOAN_PAYMENT" ? <form action={deleteExpenseAction}>
               <input type="hidden" name="returnTo" value={returnTo} />
               <input type="hidden" name="monthId" value={monthId} />
               <input type="hidden" name="expenseId" value={expense.id} />
@@ -540,7 +547,7 @@ export function ExpenseItem({
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </FormStatusButton>
-            </form>
+            </form> : null}
           </div>
         ) : null}
       </div>

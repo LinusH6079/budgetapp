@@ -3,6 +3,9 @@ import {
   AnnualSavingMode,
   ExpenseOrigin,
   ExpenseType,
+  FinancingDecision,
+  LoanAmortizationType,
+  LoanStatus,
   PayerType,
   PlanningType,
 } from "@prisma/client";
@@ -34,6 +37,94 @@ const moneyField = z
       return z.NEVER;
     }
   });
+
+const interestRateField = z
+  .union([z.string(), z.number()])
+  .transform((value, ctx) => {
+    const normalized = String(value).trim().replace(",", ".");
+    const percentage = Number(normalized);
+
+    if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Ange en ränta mellan 0 och 100 procent.",
+      });
+      return z.NEVER;
+    }
+
+    return Math.round(percentage * 100);
+  });
+
+const loanOwnerSchema = z.enum([
+  PayerType.FIRST_PERSON,
+  PayerType.SECOND_PERSON,
+  PayerType.SHARED,
+]);
+
+const loanFields = {
+  name: z.string().trim().min(1, "Namn krävs.").max(120, "Namnet är för långt."),
+  annualInterestBps: interestRateField,
+  termMonths: z.coerce.number().int().min(1, "Löptiden måste vara minst en månad.").max(600, "Löptiden får vara högst 600 månader."),
+  setupFee: moneyField,
+  monthlyFee: moneyField,
+  amortizationType: z.nativeEnum(LoanAmortizationType),
+  startMonth: z.string().refine(isMonthKey, "Välj en giltig startmånad."),
+  payerType: loanOwnerSchema,
+};
+
+export const financingCaseSchema = z
+  .object({
+    ...loanFields,
+    purchasePrice: moneyField.refine((value) => value > 0, "Kontantpriset måste vara större än 0."),
+    downPayment: moneyField,
+  })
+  .superRefine((value, ctx) => {
+    if (value.downPayment >= value.purchasePrice) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["downPayment"],
+        message: "Kontantinsatsen måste vara lägre än kontantpriset.",
+      });
+    }
+  });
+
+export const existingLoanSchema = z.object({
+  ...loanFields,
+  principal: moneyField.refine((value) => value > 0, "Restskulden måste vara större än 0."),
+});
+
+export const financingDecisionSchema = z.object({
+  caseId: z.string().cuid(),
+  decision: z.enum(["LOAN", "CASH"]),
+  monthId: z.string().cuid().optional().or(z.literal("")),
+}).superRefine((value, ctx) => {
+  if (value.decision === "CASH" && !value.monthId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["monthId"],
+      message: "Välj budgetmånad för direktbetalningen.",
+    });
+  }
+});
+
+export const loanRateChangeSchema = z.object({
+  loanId: z.string().cuid(),
+  startMonth: z.string().refine(isMonthKey, "Välj en giltig startmånad."),
+  annualInterestBps: interestRateField,
+});
+
+export const loanExtraPaymentSchema = z.object({
+  loanId: z.string().cuid(),
+  monthId: z.string().cuid(),
+  amount: moneyField.refine((value) => value > 0, "Beloppet måste vara större än 0."),
+});
+
+export const loanInstallmentAdjustmentSchema = z.object({
+  loanId: z.string().cuid(),
+  installmentId: z.string().cuid(),
+  monthId: z.string().cuid(),
+  totalAmount: moneyField.refine((value) => value > 0, "Beloppet måste vara större än 0."),
+});
 
 export const registerSchema = z.object({
   name: z.string().trim().min(2, "Namn måste vara minst 2 tecken."),
@@ -122,9 +213,12 @@ export const annualBudgetItemSchema = z.object({
     (value) => value > 0,
     "Målbeloppet måste vara större än 0.",
   ),
+  savingStartMonth: z
+    .string()
+    .refine(isMonthKey, "Välj en giltig första sparmånad."),
   dueMonth: z
     .string()
-    .refine(isMonthKey, "Välj en giltig förfallomånad."),
+    .refine(isMonthKey, "Välj en giltig sista sparmånad."),
   category: z.string().trim().max(50, "Kategorin är för lång."),
   recurrence: z.nativeEnum(AnnualBudgetRecurrence),
   savingMode: z.nativeEnum(AnnualSavingMode),
@@ -138,6 +232,14 @@ export const annualBudgetItemSchema = z.object({
     .or(z.literal("")),
   initialMonthlyAmount: moneyField.optional(),
 }).superRefine((value, ctx) => {
+  if (value.dueMonth < value.savingStartMonth) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["dueMonth"],
+      message: "Sista sparmånaden kan inte vara före den första.",
+    });
+  }
+
   if (
     value.savingMode !== AnnualSavingMode.CUSTOM_SCHEDULE ||
     Boolean(value.itemId)
@@ -389,6 +491,7 @@ export const householdImportSchema = z.object({
         backupKey: z.string().optional(),
         name: z.string(),
         targetAmount: z.number().int().positive(),
+        savingStartMonth: z.string().refine(isMonthKey).nullable().optional(),
         dueMonth: z.string().refine(isMonthKey),
         category: z.string().nullable(),
         recurrence: z.nativeEnum(AnnualBudgetRecurrence).optional(),
@@ -413,6 +516,59 @@ export const householdImportSchema = z.object({
       }),
     )
     .optional(),
+  financingCases: z.array(z.object({
+    backupKey: z.string(),
+    name: z.string(),
+    purchasePrice: z.number().int().positive(),
+    downPayment: z.number().int().nonnegative(),
+    annualInterestBps: z.number().int().min(0).max(10_000),
+    termMonths: z.number().int().min(1).max(600),
+    setupFee: z.number().int().nonnegative(),
+    monthlyFee: z.number().int().nonnegative(),
+    amortizationType: z.nativeEnum(LoanAmortizationType),
+    startMonth: z.string().refine(isMonthKey),
+    payerType: z.nativeEnum(PayerType),
+    decision: z.nativeEnum(FinancingDecision),
+    isArchived: z.boolean(),
+  })).optional(),
+  loans: z.array(z.object({
+    backupKey: z.string(),
+    financingCaseBackupKey: z.string().nullable(),
+    name: z.string(),
+    initialPrincipal: z.number().int().positive(),
+    termMonths: z.number().int().min(1).max(600),
+    setupFee: z.number().int().nonnegative(),
+    monthlyFee: z.number().int().nonnegative(),
+    amortizationType: z.nativeEnum(LoanAmortizationType),
+    startMonth: z.string().refine(isMonthKey),
+    payerType: z.nativeEnum(PayerType),
+    status: z.nativeEnum(LoanStatus),
+    ratePeriods: z.array(z.object({
+      startMonth: z.string().refine(isMonthKey),
+      annualInterestBps: z.number().int().min(0).max(10_000),
+    })),
+    installments: z.array(z.object({
+      sequence: z.number().int().positive(),
+      monthKey: z.string().refine(isMonthKey),
+      openingPrincipal: z.number().int().nonnegative(),
+      principalAmount: z.number().int().nonnegative(),
+      interestAmount: z.number().int().nonnegative(),
+      feeAmount: z.number().int().nonnegative(),
+      totalAmount: z.number().int().nonnegative(),
+      isPaid: z.boolean(),
+      paidAt: z.string().nullable(),
+      firstPersonPaidAt: z.string().nullable(),
+      secondPersonPaidAt: z.string().nullable(),
+    })),
+    extraPayments: z.array(z.object({
+      monthKey: z.string().refine(isMonthKey),
+      amount: z.number().int().positive(),
+      isPaid: z.boolean(),
+      paidAt: z.string().nullable(),
+      firstPersonPaidAt: z.string().nullable(),
+      secondPersonPaidAt: z.string().nullable(),
+    })),
+  })).optional(),
   months: z.array(
     z.object({
       monthKey: z.string().refine(isMonthKey),

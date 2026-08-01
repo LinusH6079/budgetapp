@@ -1,12 +1,12 @@
 import { Landmark, Plus } from "lucide-react";
 
 import { ExistingLoanForm, FinancingCaseForm } from "@/components/loan-forms";
-import { FinancingComparisonCard } from "@/components/financing-comparison-card";
 import { FlashMessage } from "@/components/flash-message";
 import { HouseholdSetupCard } from "@/components/household-setup-card";
 import { LoanCard } from "@/components/loan-card";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { PendingLink } from "@/components/pending-link";
+import { SavedFinancingCaseSelector } from "@/components/saved-financing-case-selector";
 import { getCurrentMonthKey } from "@/lib/date";
 import { formatCurrency } from "@/lib/money";
 import { requireUser } from "@/lib/session";
@@ -75,12 +75,9 @@ export default async function LoansPage({ searchParams }: LoanPageProps) {
 
       {tab === "compare" ? (
         <>
-          {selectedCase ? <FinancingComparisonCard item={selectedCase} months={dashboard.months} /> : (
+          {selectedCase ? <SavedFinancingCaseSelector cases={undecidedCases} initialCaseId={selectedCase.id} months={dashboard.months} /> : (
             <section className="rounded-[20px] border border-dashed border-[var(--color-line)] px-5 py-8 text-center"><Landmark className="mx-auto h-5 w-5 text-[var(--color-muted)]" /><p className="mt-3 text-sm font-semibold">Ingen jämförelse ännu</p><p className="mt-1 text-[11px] text-[var(--color-muted)]">Tryck på plus för att jämföra ett köp.</p></section>
           )}
-          {undecidedCases.length > 1 ? (
-            <section className="app-panel px-4 py-4"><p className="eyebrow-label">Sparade jämförelser</p><div className="mt-3 grid gap-1.5">{undecidedCases.map((item) => <PendingLink key={item.id} href={`/app/loans?tab=compare&caseId=${item.id}`} className={`flex items-center justify-between rounded-[14px] px-3 py-2.5 text-sm ${item.id === selectedCase?.id ? "bg-[var(--color-elevated)]" : "bg-white/[0.02]"}`}><span className="truncate font-medium">{item.name}</span><span className="shrink-0 text-xs text-[var(--color-muted)]">{formatCurrency(item.purchasePrice)}</span></PendingLink>)}</div></section>
-          ) : null}
         </>
       ) : null}
 

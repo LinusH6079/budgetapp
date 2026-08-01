@@ -3,8 +3,7 @@ import { DeleteFinancingCaseButton } from "@/components/delete-financing-case-bu
 import { formatCurrency } from "@/lib/money";
 import { activateFinancingCaseAction } from "@/server/actions/loan-actions";
 
-type ComparisonCardProps = {
-  item: {
+export type FinancingComparisonItem = {
     id: string;
     name: string;
     purchasePrice: number;
@@ -23,7 +22,10 @@ type ComparisonCardProps = {
       totalLoanCost: number;
       extraCostComparedWithCash: number;
     };
-  };
+};
+
+type ComparisonCardProps = {
+  item: FinancingComparisonItem;
   months: Array<{ id: string; monthKey: string }>;
 };
 

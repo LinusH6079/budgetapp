@@ -14,10 +14,12 @@ export type AnnualBudgetItemInput = {
   entries: AnnualBudgetEntryInput[];
   savingMode?: "TARGET_BY_DATE" | "CUSTOM_SCHEDULE";
   savingRates?: AnnualSavingRateInput[];
+  excludedMonthKeys?: string[];
 };
 
 export type AnnualSavingRateInput = {
   startMonth: string;
+  endMonth?: string | null;
   monthlyAmount: number;
 };
 
@@ -83,9 +85,81 @@ export function effectiveAnnualSavingRate(
   monthKey: string,
 ) {
   return [...rates]
-    .filter((rate) => rate.startMonth <= monthKey)
+    .filter(
+      (rate) =>
+        rate.startMonth <= monthKey &&
+        (!rate.endMonth || rate.endMonth >= monthKey),
+    )
     .sort((left, right) => right.startMonth.localeCompare(left.startMonth))[0]
     ?.monthlyAmount ?? 0;
+}
+
+export function buildGuaranteedAnnualSavingSchedule(input: {
+  remainingAmount: number;
+  monthKeys: string[];
+  rates: AnnualSavingRateInput[];
+}) {
+  const fixedAmounts = new Map(
+    input.monthKeys.map((monthKey) => [
+      monthKey,
+      effectiveAnnualSavingRate(input.rates, monthKey),
+    ]),
+  );
+  const automaticMonthKeys = input.monthKeys.filter(
+    (monthKey) => (fixedAmounts.get(monthKey) ?? 0) === 0,
+  );
+  const fixedTotal = input.monthKeys.reduce(
+    (sum, monthKey) => sum + (fixedAmounts.get(monthKey) ?? 0),
+    0,
+  );
+  const automaticAmounts = new Map(
+    allocateAnnualSavingByMonth({
+      remainingAmount: Math.max(0, input.remainingAmount - fixedTotal),
+      monthKeys: automaticMonthKeys,
+    }).map((allocation) => [allocation.monthKey, allocation.amount]),
+  );
+
+  if (
+    automaticMonthKeys.length === 0 &&
+    input.monthKeys.length > 0 &&
+    fixedTotal < input.remainingAmount
+  ) {
+    const finalMonthKey = input.monthKeys.at(-1)!;
+    fixedAmounts.set(
+      finalMonthKey,
+      (fixedAmounts.get(finalMonthKey) ?? 0) +
+        input.remainingAmount -
+        fixedTotal,
+    );
+  }
+
+  const catchUpMonthKey =
+    automaticMonthKeys.length === 0 &&
+    input.monthKeys.length > 0 &&
+    fixedTotal < input.remainingAmount
+      ? input.monthKeys.at(-1)!
+      : null;
+
+  let amountLeft = Math.max(0, input.remainingAmount);
+  const schedule = input.monthKeys.map((monthKey) => {
+    const requestedAmount =
+      fixedAmounts.get(monthKey) || automaticAmounts.get(monthKey) || 0;
+    const amount = Math.min(requestedAmount, amountLeft);
+    amountLeft = Math.max(0, amountLeft - amount);
+
+    return {
+      monthKey,
+      amount,
+      isCustomRate: (fixedAmounts.get(monthKey) ?? 0) > 0,
+      isCatchUpAdjustment: monthKey === catchUpMonthKey,
+    };
+  });
+
+  return {
+    schedule,
+    targetShortfall: amountLeft,
+    isTargetSecured: amountLeft === 0,
+  };
 }
 
 export function netReservedAmount(entries: AnnualBudgetEntryInput[]) {
@@ -123,13 +197,49 @@ export function calculateAnnualBudgetItem(
     0,
   );
   const remainingAmount = Math.max(0, item.targetAmount - reservedAmount);
-  const recommendedMonthlyAmount =
+  const currentMonthKey = annualBudgetCurrentMonthKey(now);
+  const targetMonthKeys = annualSavingMonthKeys(
+    currentMonthKey,
+    item.dueMonth,
+  ).filter((monthKey) => !item.excludedMonthKeys?.includes(monthKey));
+  const targetPlan =
     item.savingMode === "CUSTOM_SCHEDULE"
-      ? effectiveAnnualSavingRate(
-          item.savingRates ?? [],
-          annualBudgetCurrentMonthKey(now),
-        )
-      : Math.ceil(remainingAmount / monthsUntilDue(item.dueMonth, now));
+      ? buildGuaranteedAnnualSavingSchedule({
+          remainingAmount,
+          monthKeys: targetMonthKeys,
+          rates: item.savingRates ?? [],
+        })
+      : {
+          schedule: allocateAnnualSavingByMonth({
+            remainingAmount,
+            monthKeys: targetMonthKeys,
+          }).map((month) => ({
+            ...month,
+            isCustomRate: false,
+            isCatchUpAdjustment: false,
+          })),
+          targetShortfall: targetMonthKeys.length > 0 ? 0 : remainingAmount,
+          isTargetSecured: remainingAmount === 0 || targetMonthKeys.length > 0,
+        };
+  const recommendedMonthlyAmount =
+    targetPlan.schedule.find((month) => month.monthKey === currentMonthKey)
+      ?.amount ??
+    (item.savingMode === "CUSTOM_SCHEDULE" && currentMonthKey > item.dueMonth
+      ? effectiveAnnualSavingRate(item.savingRates ?? [], currentMonthKey)
+      : 0);
+  const nextAutomaticAdjustment =
+    item.savingMode === "CUSTOM_SCHEDULE"
+      ? targetPlan.schedule.find(
+          (month) =>
+            month.monthKey > currentMonthKey &&
+            !month.isCustomRate &&
+            month.amount > 0,
+        ) ?? null
+      : null;
+  const finalCatchUpAdjustment =
+    item.savingMode === "CUSTOM_SCHEDULE"
+      ? targetPlan.schedule.find((month) => month.isCatchUpAdjustment) ?? null
+      : null;
 
   return {
     ...item,
@@ -141,6 +251,10 @@ export function calculateAnnualBudgetItem(
     ),
     remainingAmount,
     recommendedMonthlyAmount,
+    targetShortfall: targetPlan.targetShortfall,
+    isTargetSecured: targetPlan.isTargetSecured,
+    nextAutomaticAdjustment,
+    finalCatchUpAdjustment,
     fundedFraction:
       item.targetAmount > 0
         ? Math.min(1, reservedAmount / item.targetAmount)

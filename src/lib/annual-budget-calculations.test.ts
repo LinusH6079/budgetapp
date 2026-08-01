@@ -5,6 +5,7 @@ import {
   annualSavingMonthKeys,
   calculateAnnualBudget,
   calculateAnnualBudgetItem,
+  buildGuaranteedAnnualSavingSchedule,
   expenseAnnualContributionAmount,
   effectiveAnnualSavingRate,
   netReservedAmount,
@@ -117,6 +118,69 @@ describe("annual budget calculations", () => {
     expect(effectiveAnnualSavingRate(rates, "2027-04")).toBe(600_000);
   });
 
+  it("recalculates the automatic rate after a temporary lower period", () => {
+    const result = buildGuaranteedAnnualSavingSchedule({
+      remainingAmount: 120_000,
+      monthKeys: ["2026-08", "2026-09", "2026-10", "2026-11"],
+      rates: [
+        {
+          startMonth: "2026-08",
+          endMonth: "2026-09",
+          monthlyAmount: 10_000,
+        },
+      ],
+    });
+
+    expect(result.schedule).toEqual([
+      {
+        monthKey: "2026-08",
+        amount: 10_000,
+        isCustomRate: true,
+        isCatchUpAdjustment: false,
+      },
+      {
+        monthKey: "2026-09",
+        amount: 10_000,
+        isCustomRate: true,
+        isCatchUpAdjustment: false,
+      },
+      {
+        monthKey: "2026-10",
+        amount: 50_000,
+        isCustomRate: false,
+        isCatchUpAdjustment: false,
+      },
+      {
+        monthKey: "2026-11",
+        amount: 50_000,
+        isCustomRate: false,
+        isCatchUpAdjustment: false,
+      },
+    ]);
+    expect(result.isTargetSecured).toBe(true);
+    expect(result.targetShortfall).toBe(0);
+  });
+
+  it("adds a final catch-up when every target month has a custom amount", () => {
+    const result = buildGuaranteedAnnualSavingSchedule({
+      remainingAmount: 100_000,
+      monthKeys: ["2026-08", "2026-09"],
+      rates: [
+        {
+          startMonth: "2026-08",
+          endMonth: "2026-09",
+          monthlyAmount: 20_000,
+        },
+      ],
+    });
+
+    expect(result.schedule.map((month) => month.amount)).toEqual([
+      20_000,
+      80_000,
+    ]);
+    expect(result.isTargetSecured).toBe(true);
+  });
+
   it("continues a custom saving schedule after its milestone and target", () => {
     const result = calculateAnnualBudgetItem(
       {
@@ -136,6 +200,25 @@ describe("annual budget calculations", () => {
 
     expect(result.remainingAmount).toBe(0);
     expect(result.recommendedMonthlyAmount).toBe(60_000);
+  });
+
+  it("shows a shortfall when every remaining target month is overridden", () => {
+    const result = calculateAnnualBudgetItem(
+      {
+        id: "deposit",
+        name: "Kontantinsats",
+        targetAmount: 100_000,
+        dueMonth: "2026-10",
+        savingMode: "CUSTOM_SCHEDULE",
+        savingRates: [],
+        excludedMonthKeys: ["2026-08", "2026-09"],
+        entries: [],
+      },
+      new Date(2026, 7, 1),
+    );
+
+    expect(result.isTargetSecured).toBe(false);
+    expect(result.targetShortfall).toBe(100_000);
   });
 
   it("recommends an even monthly amount before the due month", () => {

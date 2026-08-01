@@ -19,6 +19,7 @@ type AnnualBudgetFormProps = {
     savingMode: "TARGET_BY_DATE" | "CUSTOM_SCHEDULE";
     savingRates: Array<{
       startMonth: string;
+      endMonth: string | null;
       monthlyAmount: number;
     }>;
   };
@@ -86,13 +87,13 @@ export function AnnualBudgetForm({
           }
         >
           <option value="TARGET_BY_DATE">Nå målet till datum</option>
-          <option value="CUSTOM_SCHEDULE">Egen spartrappa</option>
+          <option value="CUSTOM_SCHEDULE">Flexibel målplan</option>
         </select>
       </label>
 
       {savingMode === "CUSTOM_SCHEDULE" ? (
         <div className="rounded-[16px] border border-[var(--color-line)] bg-white/[0.025] p-3">
-          <p className="text-xs font-semibold">Första sparsteget</p>
+          <p className="text-xs font-semibold">Tillfälligt månadsbelopp</p>
           <div className="mt-2 grid grid-cols-2 gap-2.5">
             <label className="block">
               <span className="mb-1.5 block text-[11px] text-[var(--color-muted)]">
@@ -107,7 +108,20 @@ export function AnnualBudgetForm({
             </label>
             <label className="block">
               <span className="mb-1.5 block text-[11px] text-[var(--color-muted)]">
-                Per månad
+                Till och med
+              </span>
+              <input
+                name="initialSavingEndMonth"
+                type="month"
+                defaultValue={
+                  firstRate?.endMonth ?? ""
+                }
+                required
+              />
+            </label>
+            <label className="col-span-2 block">
+              <span className="mb-1.5 block text-[11px] text-[var(--color-muted)]">
+                Belopp per månad
               </span>
               <input
                 name="initialMonthlyAmount"
@@ -123,8 +137,8 @@ export function AnnualBudgetForm({
             </label>
           </div>
           <p className="mt-2 text-[10px] leading-relaxed text-[var(--color-muted)]">
-            Lägg till framtida höjningar från årskostnadens meny efter att målet
-            har sparats. Sparandet fortsätter efter milstolpen tills du avslutar det.
+            Efter slutmånaden räknar appen automatiskt om takten så att målet
+            fortfarande nås vid milstolpen. Fler perioder kan läggas till senare.
           </p>
         </div>
       ) : (

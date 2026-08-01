@@ -23,9 +23,10 @@ obligatorisk utgift i öppna månader. En sådan post kan tas bort som en overri
 för just den månaden; återstående belopp fördelas då över senare sparmånader.
 Betalda och låsta månader ändras aldrig automatiskt.
 
-Långsiktiga mål kan i stället använda en egen spartrappa. Ett daterat steg,
-exempelvis 3 000 kr/mån från augusti och 6 000 kr/mån från april, gäller tills
-nästa steg börjar och fortsätter även efter målets milstolpe.
+Långsiktiga mål kan använda en flexibel målplan. Tillfälliga månadsbelopp anges
+med start- och slutmånad; därefter räknas den automatiska takten om så att
+målbeloppet fortfarande nås vid milstolpen. Ett öppet steg som börjar efter
+milstolpen kan fortsätta sparandet utan slutdatum.
 
 ## Stack
 

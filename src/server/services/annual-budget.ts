@@ -63,6 +63,15 @@ async function requireAnnualItemAccess(actorUserId: string, itemId: string) {
           startMonth: "asc",
         },
       },
+      savingOverrides: {
+        include: {
+          budgetMonth: {
+            select: {
+              monthKey: true,
+            },
+          },
+        },
+      },
       household: {
         include: {
           members: {
@@ -118,6 +127,15 @@ export async function getAnnualBudgetForUser(
           startMonth: "asc",
         },
       },
+      savingOverrides: {
+        include: {
+          budgetMonth: {
+            select: {
+              monthKey: true,
+            },
+          },
+        },
+      },
       updatedByUser: {
         select: {
           name: true,
@@ -129,7 +147,15 @@ export async function getAnnualBudgetForUser(
       { name: "asc" },
     ],
   });
-  const calculation = calculateAnnualBudget(items, now);
+  const calculation = calculateAnnualBudget(
+    items.map((item) => ({
+      ...item,
+      excludedMonthKeys: item.savingOverrides.map(
+        (override) => override.budgetMonth.monthKey,
+      ),
+    })),
+    now,
+  );
   const activeMonthKey = stockholmMonthKey(now);
   const contributedThisMonth = items.reduce(
     (total, item) =>
@@ -188,6 +214,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
   recurrence: AnnualBudgetRecurrence;
   savingMode: AnnualSavingMode;
   initialSavingMonth?: string | null;
+  initialSavingEndMonth?: string | null;
   initialMonthlyAmount?: number | null;
 }) {
   const household = await getHouseholdForUser(input.actorUserId);
@@ -223,6 +250,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
           data: {
             annualBudgetItemId: createdItem.id,
             startMonth: input.initialSavingMonth,
+            endMonth: input.initialSavingEndMonth ?? null,
             monthlyAmount: input.initialMonthlyAmount,
             updatedByUserId: input.actorUserId,
           },
@@ -268,11 +296,13 @@ export async function upsertAnnualBudgetItemForUser(input: {
         create: {
           annualBudgetItemId: item.id,
           startMonth: input.initialSavingMonth,
+          endMonth: input.initialSavingEndMonth ?? null,
           monthlyAmount: input.initialMonthlyAmount,
           updatedByUserId: input.actorUserId,
         },
         update: {
           monthlyAmount: input.initialMonthlyAmount,
+          endMonth: input.initialSavingEndMonth ?? null,
           updatedByUserId: input.actorUserId,
         },
       });
@@ -333,6 +363,7 @@ export async function upsertAnnualSavingRateForUser(input: {
   actorUserId: string;
   itemId: string;
   startMonth: string;
+  endMonth?: string | null;
   monthlyAmount: number;
 }) {
   const item = await requireAnnualItemAccess(
@@ -342,6 +373,12 @@ export async function upsertAnnualSavingRateForUser(input: {
 
   if (item.isArchived) {
     throw new Error("En avslutad årskostnad kan inte ändras.");
+  }
+
+  if (input.startMonth < item.dueMonth && !input.endMonth) {
+    throw new Error(
+      "Ange när det tillfälliga beloppet ska sluta så att målet kan räknas om.",
+    );
   }
 
   return db.$transaction(async (tx) => {
@@ -355,11 +392,13 @@ export async function upsertAnnualSavingRateForUser(input: {
       create: {
         annualBudgetItemId: item.id,
         startMonth: input.startMonth,
+        endMonth: input.endMonth ?? null,
         monthlyAmount: input.monthlyAmount,
         updatedByUserId: input.actorUserId,
       },
       update: {
         monthlyAmount: input.monthlyAmount,
+        endMonth: input.endMonth ?? null,
         updatedByUserId: input.actorUserId,
       },
     });

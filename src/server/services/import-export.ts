@@ -113,6 +113,7 @@ export async function exportHouseholdDataForUser(userId: string) {
       savingMode: item.savingMode,
       savingRates: item.savingRates.map((rate) => ({
         startMonth: rate.startMonth,
+        endMonth: rate.endMonth,
         monthlyAmount: rate.monthlyAmount,
       })),
       isArchived: item.isArchived,
@@ -273,6 +274,7 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
             savingRates: {
               create: (importedItem.savingRates ?? []).map((rate) => ({
                 startMonth: rate.startMonth,
+                endMonth: rate.endMonth ?? null,
                 monthlyAmount: rate.monthlyAmount,
                 updatedByUserId: userId,
               })),

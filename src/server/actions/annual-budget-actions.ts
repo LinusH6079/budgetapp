@@ -34,6 +34,7 @@ export async function saveAnnualBudgetItemAction(formData: FormData) {
     recurrence: formData.get("recurrence"),
     savingMode: formData.get("savingMode"),
     initialSavingMonth: formData.get("initialSavingMonth") ?? "",
+    initialSavingEndMonth: formData.get("initialSavingEndMonth") ?? "",
     initialMonthlyAmount: formData.get("initialMonthlyAmount") ?? "",
   });
 
@@ -56,6 +57,7 @@ export async function saveAnnualBudgetItemAction(formData: FormData) {
       recurrence: parsed.data.recurrence,
       savingMode: parsed.data.savingMode,
       initialSavingMonth: parsed.data.initialSavingMonth || null,
+      initialSavingEndMonth: parsed.data.initialSavingEndMonth || null,
       initialMonthlyAmount: parsed.data.initialMonthlyAmount || null,
     });
   } catch (error) {
@@ -75,6 +77,7 @@ export async function saveAnnualSavingRateAction(formData: FormData) {
   const parsed = annualSavingRateSchema.safeParse({
     itemId: formData.get("itemId"),
     startMonth: formData.get("startMonth"),
+    endMonth: formData.get("endMonth") ?? "",
     monthlyAmount: formData.get("monthlyAmount"),
   });
 
@@ -91,6 +94,7 @@ export async function saveAnnualSavingRateAction(formData: FormData) {
       actorUserId: user.id,
       itemId: parsed.data.itemId,
       startMonth: parsed.data.startMonth,
+      endMonth: parsed.data.endMonth || null,
       monthlyAmount: parsed.data.monthlyAmount,
     });
   } catch (error) {

@@ -110,6 +110,7 @@ model AnnualSavingRate {
   id                 String           @id @default(cuid())
   annualBudgetItemId String
   startMonth         String
+  endMonth           String?
   monthlyAmount      Int
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt

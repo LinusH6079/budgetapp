@@ -26,12 +26,23 @@ type AnnualBudgetItemCardProps = {
     savingRates: Array<{
       id: string;
       startMonth: string;
+      endMonth: string | null;
       monthlyAmount: number;
     }>;
     reservedAmount: number;
     remainingAmount: number;
     recommendedMonthlyAmount: number;
     fundedFraction: number;
+    targetShortfall: number;
+    isTargetSecured: boolean;
+    nextAutomaticAdjustment: {
+      monthKey: string;
+      amount: number;
+    } | null;
+    finalCatchUpAdjustment: {
+      monthKey: string;
+      amount: number;
+    } | null;
     updatedAt: Date;
     updatedByUser: { name: string } | null;
     latestContribution: {
@@ -76,8 +87,37 @@ export function AnnualBudgetItemCard({
             {item.savingMode === "CUSTOM_SCHEDULE" ? "Milstolpe" : "Behövs"}{" "}
             {formatMonthLabel(item.dueMonth)}
             {item.recurrence === "YEARLY" ? " · Varje år" : ""}
-            {item.savingMode === "CUSTOM_SCHEDULE" ? " · Spartrappa" : ""}
+            {item.savingMode === "CUSTOM_SCHEDULE" ? " · Flexibel plan" : ""}
           </p>
+          {item.savingMode === "CUSTOM_SCHEDULE" ? (
+            <div className="mt-1 grid gap-0.5 text-[10px]">
+              <p
+                className={`font-medium ${
+                  item.isTargetSecured
+                    ? "text-[#86efac]"
+                    : "text-[var(--color-danger)]"
+                }`}
+              >
+                {item.isTargetSecured
+                  ? `Planen når målet till ${formatMonthLabel(item.dueMonth)}`
+                  : `${formatCurrency(item.targetShortfall)} saknas i målplanen`}
+              </p>
+              {item.nextAutomaticAdjustment ? (
+                <p className="text-[var(--color-muted)]">
+                  Automatisk takt från{" "}
+                  {formatMonthLabel(item.nextAutomaticAdjustment.monthKey)}:{" "}
+                  {formatCurrency(item.nextAutomaticAdjustment.amount)}/mån
+                </p>
+              ) : null}
+              {item.finalCatchUpAdjustment ? (
+                <p className="text-[var(--color-muted)]">
+                  Slutjustering i{" "}
+                  {formatMonthLabel(item.finalCatchUpAdjustment.monthKey)}:{" "}
+                  {formatCurrency(item.finalCatchUpAdjustment.amount)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <ModalLauncher
@@ -146,9 +186,10 @@ export function AnnualBudgetItemCard({
 
             {item.savingMode === "CUSTOM_SCHEDULE" ? (
               <div className="border-t border-[var(--color-line)] pt-4">
-                <p className="text-sm font-semibold">Spartrappa</p>
+                <p className="text-sm font-semibold">Flexibel målplan</p>
                 <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-muted)]">
-                  Varje belopp gäller från startmånaden tills nästa steg börjar.
+                  Tillfälliga belopp gäller inom sin period. Därefter återgår
+                  planen automatiskt till den takt som krävs för att nå målet.
                 </p>
 
                 <div className="mt-3 grid gap-1.5">
@@ -159,7 +200,10 @@ export function AnnualBudgetItemCard({
                     >
                       <div className="min-w-0">
                         <p className="text-xs font-medium">
-                          Från {formatMonthLabel(rate.startMonth)}
+                          {formatMonthLabel(rate.startMonth)}
+                          {rate.endMonth
+                            ? ` – ${formatMonthLabel(rate.endMonth)}`
+                            : " och framåt"}
                         </p>
                         <p className="mt-0.5 text-[10px] text-[var(--color-muted)]">
                           {formatCurrency(rate.monthlyAmount)}/mån
@@ -197,7 +241,16 @@ export function AnnualBudgetItemCard({
                     </label>
                     <label className="block">
                       <span className="mb-1.5 block text-[11px] text-[var(--color-muted)]">
-                        Per månad
+                        Till och med
+                      </span>
+                      <input
+                        name="endMonth"
+                        type="month"
+                      />
+                    </label>
+                    <label className="col-span-2 block">
+                      <span className="mb-1.5 block text-[11px] text-[var(--color-muted)]">
+                        Belopp per månad
                       </span>
                       <input
                         name="monthlyAmount"
@@ -207,6 +260,10 @@ export function AnnualBudgetItemCard({
                       />
                     </label>
                   </div>
+                  <p className="text-[10px] leading-relaxed text-[var(--color-muted)]">
+                    Före milstolpen krävs ett slutdatum. Ett steg som börjar
+                    efter milstolpen kan lämnas öppet för fortsatt sparande.
+                  </p>
                   <FormStatusButton
                     className="action-secondary w-full justify-center"
                     pendingLabel="Sparar..."
@@ -315,7 +372,7 @@ export function AnnualBudgetItemCard({
         </div>
         <div className="text-right">
           <p className="text-[10px] text-[var(--color-muted)]">
-            {item.savingMode === "CUSTOM_SCHEDULE" ? "Nuvarande takt" : "Rekommenderat"}
+            {item.savingMode === "CUSTOM_SCHEDULE" ? "Planerat nu" : "Rekommenderat"}
           </p>
           <p className="mt-0.5 text-xs font-semibold">
             {formatCurrency(item.recommendedMonthlyAmount)}/mån

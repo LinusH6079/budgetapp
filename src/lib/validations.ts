@@ -132,6 +132,10 @@ export const annualBudgetItemSchema = z.object({
     .string()
     .optional()
     .or(z.literal("")),
+  initialSavingEndMonth: z
+    .string()
+    .optional()
+    .or(z.literal("")),
   initialMonthlyAmount: moneyField.optional(),
 }).superRefine((value, ctx) => {
   if (value.savingMode !== AnnualSavingMode.CUSTOM_SCHEDULE) {
@@ -153,16 +157,70 @@ export const annualBudgetItemSchema = z.object({
       message: "Ange ett månadsbelopp för spartrappan.",
     });
   }
+
+  if (
+    value.initialSavingEndMonth &&
+    !isMonthKey(value.initialSavingEndMonth)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["initialSavingEndMonth"],
+      message: "Välj en giltig slutmånad.",
+    });
+  }
+
+  if (
+    value.initialSavingMonth &&
+    value.initialSavingMonth < value.dueMonth &&
+    !value.initialSavingEndMonth
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["initialSavingEndMonth"],
+      message: "Ange när det tillfälliga beloppet ska sluta.",
+    });
+  }
+
+  if (
+    value.initialSavingMonth &&
+    value.initialSavingEndMonth &&
+    value.initialSavingEndMonth < value.initialSavingMonth
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["initialSavingEndMonth"],
+      message: "Slutmånaden kan inte vara före startmånaden.",
+    });
+  }
 });
 
-export const annualSavingRateSchema = z.object({
-  itemId: z.string().cuid(),
-  startMonth: z.string().refine(isMonthKey, "Välj en giltig startmånad."),
-  monthlyAmount: moneyField.refine(
-    (value) => value > 0,
-    "Månadsbeloppet måste vara större än 0.",
-  ),
-});
+export const annualSavingRateSchema = z
+  .object({
+    itemId: z.string().cuid(),
+    startMonth: z.string().refine(isMonthKey, "Välj en giltig startmånad."),
+    endMonth: z.string().optional().or(z.literal("")),
+    monthlyAmount: moneyField.refine(
+      (value) => value > 0,
+      "Månadsbeloppet måste vara större än 0.",
+    ),
+  })
+  .superRefine((value, ctx) => {
+    if (value.endMonth && !isMonthKey(value.endMonth)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endMonth"],
+        message: "Välj en giltig slutmånad.",
+      });
+    }
+
+    if (value.endMonth && value.endMonth < value.startMonth) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endMonth"],
+        message: "Slutmånaden kan inte vara före startmånaden.",
+      });
+    }
+  });
 
 export const deleteAnnualSavingRateSchema = z.object({
   itemId: z.string().cuid(),
@@ -337,6 +395,7 @@ export const householdImportSchema = z.object({
           .array(
             z.object({
               startMonth: z.string().refine(isMonthKey),
+              endMonth: z.string().refine(isMonthKey).nullable().optional(),
               monthlyAmount: z.number().int().positive(),
             }),
           )

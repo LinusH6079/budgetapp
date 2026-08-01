@@ -15,6 +15,7 @@ export function revalidateBudgetPaths(returnTo?: string) {
   revalidatePath("/app");
   revalidatePath("/app/household");
   revalidatePath("/app/months");
+  revalidatePath("/app/annual");
 
   if (returnTo) {
     const url = new URL(returnTo, "http://localhost");

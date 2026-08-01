@@ -13,6 +13,7 @@ Mobilvänlig fullstack-app för hushållsbudget för exakt två personer. Byggd 
 - Återkommande utgifter som kan kopieras till nästa månad
 - Hushålls- och personsummeringar
 - Oförklarad förbrukning mellan månader
+- Årsbudget med sparmål, månadstakt och reserverade pengar för större kostnader
 - JSON-export och JSON-import
 
 Gemensamma utgifter delas 50/50 i personliga summeringar. Hushållssiffran är den officiella siffran för oförklarad förbrukning.

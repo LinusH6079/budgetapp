@@ -104,6 +104,45 @@ export const spendingPaceEntrySchema = z.object({
   ),
 });
 
+export const annualBudgetItemSchema = z.object({
+  itemId: z.string().cuid().optional().or(z.literal("")),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Namn krävs.")
+    .max(120, "Namnet är för långt."),
+  targetAmount: moneyField.refine(
+    (value) => value > 0,
+    "Målbeloppet måste vara större än 0.",
+  ),
+  dueMonth: z
+    .string()
+    .refine(isMonthKey, "Välj en giltig förfallomånad."),
+  category: z.string().trim().max(50, "Kategorin är för lång."),
+});
+
+export const annualContributionSchema = z.object({
+  itemId: z.string().cuid(),
+  amount: moneyField.refine(
+    (value) => value > 0,
+    "Beloppet måste vara större än 0.",
+  ),
+});
+
+export const annualItemIdSchema = z.object({
+  itemId: z.string().cuid(),
+});
+
+export const settleAnnualBudgetItemSchema = z.object({
+  itemId: z.string().cuid(),
+  monthId: z.string().cuid(),
+  amount: moneyField.refine(
+    (value) => value > 0,
+    "Kostnaden måste vara större än 0.",
+  ),
+  payerType: z.nativeEnum(PayerType),
+});
+
 export const expenseSchema = z.object({
   monthId: z.string().cuid(),
   expenseId: z.string().cuid().optional().or(z.literal("")),
@@ -230,6 +269,24 @@ export const householdImportSchema = z.object({
         }),
       ),
     })
+    .optional(),
+  annualBudget: z
+    .array(
+      z.object({
+        name: z.string(),
+        targetAmount: z.number().int().positive(),
+        dueMonth: z.string().refine(isMonthKey),
+        category: z.string().nullable(),
+        isArchived: z.boolean(),
+        entries: z.array(
+          z.object({
+            amount: z.number().int().positive(),
+            entryType: z.enum(["CONTRIBUTION", "WITHDRAWAL"]),
+            createdAt: z.string(),
+          }),
+        ),
+      }),
+    )
     .optional(),
   months: z.array(
     z.object({

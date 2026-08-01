@@ -28,6 +28,11 @@ enum PayerType {
   SHARED
 }
 
+enum AnnualSavingEntryType {
+  CONTRIBUTION
+  WITHDRAWAL
+}
+
 model User {
   id                          String                  @id @default(cuid())
   name                        String
@@ -43,6 +48,8 @@ model User {
   updatedExpenses             Expense[]               @relation("ExpenseUpdatedBy")
   updatedSpendingPaceSettings SpendingPaceSettings[]  @relation("SpendingPaceSettingsUpdatedBy")
   updatedSpendingPaceEntries  SpendingPaceEntry[]     @relation("SpendingPaceEntryUpdatedBy")
+  updatedAnnualBudgetItems    AnnualBudgetItem[]      @relation("AnnualBudgetItemUpdatedBy")
+  updatedAnnualSavingEntries  AnnualSavingEntry[]     @relation("AnnualSavingEntryUpdatedBy")
 }
 
 model Household {
@@ -55,6 +62,39 @@ model Household {
   budgetRows           BudgetMonth[]
   spendingPaceSettings SpendingPaceSettings?
   spendingPaceEntries  SpendingPaceEntry[]
+  annualBudgetItems    AnnualBudgetItem[]
+}
+
+model AnnualBudgetItem {
+  id              String              @id @default(cuid())
+  householdId     String
+  name            String
+  targetAmount    Int
+  dueMonth        String
+  category        String?
+  isArchived      Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  updatedByUserId String?
+  household       Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  updatedByUser   User?               @relation("AnnualBudgetItemUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  entries         AnnualSavingEntry[]
+
+  @@index([householdId, isArchived, dueMonth])
+}
+
+model AnnualSavingEntry {
+  id                 String                @id @default(cuid())
+  annualBudgetItemId String
+  amount             Int
+  entryType          AnnualSavingEntryType @default(CONTRIBUTION)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  updatedByUserId    String?
+  annualBudgetItem   AnnualBudgetItem      @relation(fields: [annualBudgetItemId], references: [id], onDelete: Cascade)
+  updatedByUser      User?                 @relation("AnnualSavingEntryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([annualBudgetItemId, createdAt])
 }
 
 model SpendingPaceSettings {

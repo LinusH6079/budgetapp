@@ -1,7 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Home, LogOut, MoreHorizontal, Settings2, WalletCards } from "lucide-react";
+import {
+  Home,
+  Landmark,
+  LogOut,
+  MoreHorizontal,
+  Settings2,
+  WalletCards,
+} from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { NavigationProgress } from "@/components/navigation-progress";
@@ -20,6 +27,7 @@ type AppShellProps = {
 const desktopNavItems = [
   { href: "/app", label: "Översikt", icon: Home },
   { href: "/app/months", label: "Månader", icon: WalletCards },
+  { href: "/app/annual", label: "Årsbudget", icon: Landmark },
   { href: "/app/household", label: "Hushåll", icon: Settings2 },
 ];
 
@@ -42,6 +50,10 @@ function getPageTitle(pathname: string, householdName?: string | null) {
     return "Mer";
   }
 
+  if (pathname.startsWith("/app/annual")) {
+    return "Årsbudget";
+  }
+
   return householdName || "Översikt";
 }
 
@@ -61,6 +73,12 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
       label: "Månader",
       icon: WalletCards,
       isActive: pathname.startsWith("/app/months"),
+    },
+    {
+      href: "/app/annual",
+      label: "Årsbudget",
+      icon: Landmark,
+      isActive: pathname.startsWith("/app/annual"),
     },
     {
       href: "/app/household",
@@ -138,7 +156,7 @@ export function AppShell({ children, userName, householdName }: AppShellProps) {
         </header>
 
         <nav className="mobile-bottom-nav mobile-bottom-chrome fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-line)] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur">
-          <div className="mx-auto grid max-w-sm grid-cols-3 gap-2">
+          <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
             {mobileNavItems.map((item) => (
               <PendingLink
                 key={item.href}

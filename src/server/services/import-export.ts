@@ -9,7 +9,7 @@ export async function exportHouseholdDataForUser(userId: string) {
     throw new Error("Du behöver ett hushåll innan du kan exportera data.");
   }
 
-  const [months, spendingPaceSettings, spendingPaceEntries] =
+  const [months, spendingPaceSettings, spendingPaceEntries, annualBudgetItems] =
     await Promise.all([
       db.budgetMonth.findMany({
         where: {
@@ -41,6 +41,21 @@ export async function exportHouseholdDataForUser(userId: string) {
           },
         ],
       }),
+      db.annualBudgetItem.findMany({
+        where: {
+          householdId: household.id,
+        },
+        include: {
+          entries: {
+            orderBy: {
+              createdAt: "asc",
+            },
+          },
+        },
+        orderBy: {
+          dueMonth: "asc",
+        },
+      }),
     ]);
 
   const members = mapMembersToSlots(household);
@@ -69,6 +84,18 @@ export async function exportHouseholdDataForUser(userId: string) {
         amount: entry.amount,
       })),
     },
+    annualBudget: annualBudgetItems.map((item) => ({
+      name: item.name,
+      targetAmount: item.targetAmount,
+      dueMonth: item.dueMonth,
+      category: item.category,
+      isArchived: item.isArchived,
+      entries: item.entries.map((entry) => ({
+        amount: entry.amount,
+        entryType: entry.entryType,
+        createdAt: entry.createdAt.toISOString(),
+      })),
+    })),
     months: months.map((month) => ({
       monthKey: month.monthKey,
       note: month.note,
@@ -177,6 +204,36 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
             amount: entry.amount,
             updatedByUserId: userId,
           })),
+        });
+      }
+    }
+
+    if (imported.annualBudget) {
+      await tx.annualBudgetItem.deleteMany({
+        where: {
+          householdId: household.id,
+        },
+      });
+
+      for (const importedItem of imported.annualBudget) {
+        await tx.annualBudgetItem.create({
+          data: {
+            householdId: household.id,
+            name: importedItem.name,
+            targetAmount: importedItem.targetAmount,
+            dueMonth: importedItem.dueMonth,
+            category: importedItem.category,
+            isArchived: importedItem.isArchived,
+            updatedByUserId: userId,
+            entries: {
+              create: importedItem.entries.map((entry) => ({
+                amount: entry.amount,
+                entryType: entry.entryType,
+                createdAt: new Date(entry.createdAt),
+                updatedByUserId: userId,
+              })),
+            },
+          },
         });
       }
     }

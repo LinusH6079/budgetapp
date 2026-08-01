@@ -16,7 +16,7 @@ type SpendingPaceCardProps = {
   activeMonth?: {
     monthKey: string;
     remainingActual: number;
-    totalReserved: number;
+    reservedOutsideMonthlyBudget: number;
   };
   data: {
     settings: {
@@ -165,20 +165,23 @@ export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
             <p className="mt-1 text-[1.75rem] font-semibold tracking-[-0.05em]">
               {formatCurrency(activeMonth.remainingActual)}
             </p>
-            {activeMonth.totalReserved > 0 ? (
+            {activeMonth.reservedOutsideMonthlyBudget > 0 ? (
               <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-[var(--color-line)] pt-2.5 text-[11px]">
                 <span className="text-[var(--color-muted)]">
                   Fritt efter årsreservering
                 </span>
                 <span
                   className={`font-semibold ${
-                    activeMonth.remainingActual - activeMonth.totalReserved < 0
+                    activeMonth.remainingActual -
+                      activeMonth.reservedOutsideMonthlyBudget <
+                    0
                       ? "text-[var(--color-danger)]"
                       : ""
                   }`}
                 >
                   {formatCurrency(
-                    activeMonth.remainingActual - activeMonth.totalReserved,
+                    activeMonth.remainingActual -
+                      activeMonth.reservedOutsideMonthlyBudget,
                   )}
                 </span>
               </div>

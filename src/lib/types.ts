@@ -35,6 +35,18 @@ export const budgetMonthDetailsArgs = {
     expenses: {
       include: {
         updatedByUser: true,
+        annualBudgetItem: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        annualSavingEntries: {
+          select: {
+            id: true,
+            amount: true,
+          },
+        },
       },
       orderBy: [
         {

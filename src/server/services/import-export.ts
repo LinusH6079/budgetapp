@@ -17,7 +17,15 @@ export async function exportHouseholdDataForUser(userId: string) {
         },
         include: {
           personSnapshots: true,
-          expenses: true,
+          expenses: {
+            include: {
+              annualBudgetItem: {
+                select: {
+                  id: true,
+                },
+              },
+            },
+          },
         },
         orderBy: {
           monthKey: "asc",
@@ -85,16 +93,19 @@ export async function exportHouseholdDataForUser(userId: string) {
       })),
     },
     annualBudget: annualBudgetItems.map((item) => ({
+      backupKey: item.id,
       name: item.name,
       targetAmount: item.targetAmount,
       dueMonth: item.dueMonth,
       category: item.category,
       isArchived: item.isArchived,
-      entries: item.entries.map((entry) => ({
-        amount: entry.amount,
-        entryType: entry.entryType,
-        createdAt: entry.createdAt.toISOString(),
-      })),
+      entries: item.entries
+        .filter((entry) => !entry.sourceExpenseId)
+        .map((entry) => ({
+          amount: entry.amount,
+          entryType: entry.entryType,
+          createdAt: entry.createdAt.toISOString(),
+        })),
     })),
     months: months.map((month) => ({
       monthKey: month.monthKey,
@@ -114,6 +125,7 @@ export async function exportHouseholdDataForUser(userId: string) {
       }),
       expenses: month.expenses.map((expense) => ({
         recurringSourceExpenseId: expense.recurringSourceExpenseId,
+        annualBudgetItemBackupKey: expense.annualBudgetItem?.id ?? null,
         swishId: expense.swishId,
         name: expense.name,
         amount: expense.amount,
@@ -208,6 +220,8 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
       }
     }
 
+    const annualBudgetIdByBackupKey = new Map<string, string>();
+
     if (imported.annualBudget) {
       await tx.annualBudgetItem.deleteMany({
         where: {
@@ -216,7 +230,7 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
       });
 
       for (const importedItem of imported.annualBudget) {
-        await tx.annualBudgetItem.create({
+        const createdItem = await tx.annualBudgetItem.create({
           data: {
             householdId: household.id,
             name: importedItem.name,
@@ -235,6 +249,10 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
             },
           },
         });
+
+        if (importedItem.backupKey) {
+          annualBudgetIdByBackupKey.set(importedItem.backupKey, createdItem.id);
+        }
       }
     }
 
@@ -296,28 +314,53 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
       }
 
       if (importedMonth.expenses.length > 0) {
-        await tx.expense.createMany({
-          data: importedMonth.expenses.map((expense) => ({
-            budgetMonthId: month.id,
-            recurringSourceExpenseId: expense.recurringSourceExpenseId ?? null,
-            swishId: expense.swishId ?? null,
-            name: expense.name,
-            amount: expense.amount,
-            category: expense.category,
-            expenseType: expense.expenseType,
-            planningType: expense.planningType,
-            payerType: expense.payerType,
-            dueDate: expense.dueDate ? new Date(expense.dueDate) : null,
-            isPaid: expense.isPaid,
-            paidAt: expense.paidAt ? new Date(expense.paidAt) : null,
-            firstPersonPaidAt: expense.firstPersonPaidAt ? new Date(expense.firstPersonPaidAt) : null,
-            secondPersonPaidAt: expense.secondPersonPaidAt ? new Date(expense.secondPersonPaidAt) : null,
-            firstPersonSwishId: expense.firstPersonSwishId ?? null,
-            secondPersonSwishId: expense.secondPersonSwishId ?? null,
-            note: expense.note,
-            updatedByUserId: userId,
-          })),
-        });
+        for (const expense of importedMonth.expenses) {
+          const annualBudgetItemId = expense.annualBudgetItemBackupKey
+            ? annualBudgetIdByBackupKey.get(
+                expense.annualBudgetItemBackupKey,
+              ) ?? null
+            : null;
+          const createdExpense = await tx.expense.create({
+            data: {
+              budgetMonthId: month.id,
+              recurringSourceExpenseId:
+                expense.recurringSourceExpenseId ?? null,
+              annualBudgetItemId,
+              swishId: expense.swishId ?? null,
+              name: expense.name,
+              amount: expense.amount,
+              category: expense.category,
+              expenseType: expense.expenseType,
+              planningType: expense.planningType,
+              payerType: expense.payerType,
+              dueDate: expense.dueDate ? new Date(expense.dueDate) : null,
+              isPaid: expense.isPaid,
+              paidAt: expense.paidAt ? new Date(expense.paidAt) : null,
+              firstPersonPaidAt: expense.firstPersonPaidAt
+                ? new Date(expense.firstPersonPaidAt)
+                : null,
+              secondPersonPaidAt: expense.secondPersonPaidAt
+                ? new Date(expense.secondPersonPaidAt)
+                : null,
+              firstPersonSwishId: expense.firstPersonSwishId ?? null,
+              secondPersonSwishId: expense.secondPersonSwishId ?? null,
+              note: expense.note,
+              updatedByUserId: userId,
+            },
+          });
+
+          if (annualBudgetItemId && expense.isPaid) {
+            await tx.annualSavingEntry.create({
+              data: {
+                annualBudgetItemId,
+                sourceExpenseId: createdExpense.id,
+                amount: createdExpense.amount,
+                entryType: "CONTRIBUTION",
+                updatedByUserId: userId,
+              },
+            });
+          }
+        }
       }
     }
   });

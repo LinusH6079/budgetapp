@@ -79,6 +79,7 @@ model AnnualBudgetItem {
   household       Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
   updatedByUser   User?               @relation("AnnualBudgetItemUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
   entries         AnnualSavingEntry[]
+  linkedExpenses  Expense[]
 
   @@index([householdId, isArchived, dueMonth])
 }
@@ -91,10 +92,13 @@ model AnnualSavingEntry {
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
   updatedByUserId    String?
+  sourceExpenseId    String?
   annualBudgetItem   AnnualBudgetItem      @relation(fields: [annualBudgetItemId], references: [id], onDelete: Cascade)
   updatedByUser      User?                 @relation("AnnualSavingEntryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  sourceExpense      Expense?              @relation("ExpenseAnnualSavingEntry", fields: [sourceExpenseId], references: [id], onDelete: Cascade)
 
   @@index([annualBudgetItemId, createdAt])
+  @@index([sourceExpenseId])
 }
 
 model SpendingPaceSettings {
@@ -186,7 +190,7 @@ model MonthlyPersonSnapshot {
 }
 
 model Expense {
-  id                       String       @id @default(cuid())
+  id                       String              @id @default(cuid())
   budgetMonthId            String
   recurringSourceExpenseId String?
   swishId                  String?
@@ -194,21 +198,24 @@ model Expense {
   amount                   Int
   category                 String
   expenseType              ExpenseType
-  planningType             PlanningType @default(PLANNED)
+  planningType             PlanningType        @default(PLANNED)
   payerType                PayerType
   dueDate                  DateTime?
-  isPaid                   Boolean      @default(false)
+  isPaid                   Boolean             @default(false)
   paidAt                   DateTime?
   firstPersonPaidAt        DateTime?
   secondPersonPaidAt       DateTime?
   firstPersonSwishId       String?
   secondPersonSwishId      String?
   note                     String?
-  createdAt                DateTime     @default(now())
-  updatedAt                DateTime     @updatedAt
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
   updatedByUserId          String?
-  budgetMonth              BudgetMonth  @relation(fields: [budgetMonthId], references: [id], onDelete: Cascade)
-  updatedByUser            User?        @relation("ExpenseUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  annualBudgetItemId       String?
+  budgetMonth              BudgetMonth         @relation(fields: [budgetMonthId], references: [id], onDelete: Cascade)
+  updatedByUser            User?               @relation("ExpenseUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  annualBudgetItem         AnnualBudgetItem?   @relation(fields: [annualBudgetItemId], references: [id], onDelete: SetNull)
+  annualSavingEntries      AnnualSavingEntry[] @relation("ExpenseAnnualSavingEntry")
 
   @@unique([budgetMonthId, recurringSourceExpenseId])
   @@index([budgetMonthId, dueDate])
@@ -218,4 +225,5 @@ model Expense {
   @@index([swishId])
   @@index([firstPersonSwishId])
   @@index([secondPersonSwishId])
+  @@index([annualBudgetItemId])
 }

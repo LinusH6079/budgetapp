@@ -35,12 +35,20 @@ type ExpenseListProps = {
     updatedByUser: {
       name: string;
     } | null;
+    annualBudgetItem: {
+      id: string;
+      name: string;
+    } | null;
   }>;
   memberOptions: Array<{
     label: string;
     value: "FIRST_PERSON" | "SECOND_PERSON";
   }>;
   currentUserPayerType: "FIRST_PERSON" | "SECOND_PERSON";
+  annualBudgetOptions: Array<{
+    id: string;
+    name: string;
+  }>;
   payerLabels: Record<PayerType, string>;
   currentFilters: {
     status: string;
@@ -71,6 +79,7 @@ export function ExpenseList({
   expenses,
   memberOptions,
   currentUserPayerType,
+  annualBudgetOptions,
   payerLabels,
   currentFilters,
   categories,
@@ -349,6 +358,7 @@ export function ExpenseList({
                   payerLabels={payerLabels}
                   memberOptions={memberOptions}
                   currentUserPayerType={currentUserPayerType}
+                  annualBudgetOptions={annualBudgetOptions}
                   selectionMode={selectionMode}
                   selectedParts={selectedParts
                     .filter((part) => part.expenseId === expense.id)

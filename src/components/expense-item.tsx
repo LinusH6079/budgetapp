@@ -30,6 +30,10 @@ type ExpenseItemProps = {
     updatedByUser: {
       name: string;
     } | null;
+    annualBudgetItem: {
+      id: string;
+      name: string;
+    } | null;
   };
   monthId: string;
   returnTo: string;
@@ -40,6 +44,10 @@ type ExpenseItemProps = {
     value: "FIRST_PERSON" | "SECOND_PERSON";
   }>;
   currentUserPayerType: "FIRST_PERSON" | "SECOND_PERSON";
+  annualBudgetOptions: Array<{
+    id: string;
+    name: string;
+  }>;
   selectionMode?: boolean;
   selectedParts?: Array<"FIRST_PERSON" | "SECOND_PERSON" | "FULL">;
   onToggleSelect?: (selection: {
@@ -78,6 +86,7 @@ export function ExpenseItem({
   payerLabels,
   memberOptions,
   currentUserPayerType,
+  annualBudgetOptions,
   selectionMode = false,
   selectedParts = [],
   onToggleSelect,
@@ -134,6 +143,9 @@ export function ExpenseItem({
       formatShortDate(expense.dueDate),
       expense.category,
       payerLabels[expense.payerType],
+      expense.annualBudgetItem
+        ? `Sparar till ${expense.annualBudgetItem.name}`
+        : null,
       optimisticSwishId ? `Swish ${optimisticSwishId}` : paidLabel,
     ].filter((value): value is string => Boolean(value));
 
@@ -142,6 +154,7 @@ export function ExpenseItem({
     expense.category,
     expense.dueDate,
     expense.payerType,
+    expense.annualBudgetItem,
     optimisticFirstPaidAt,
     optimisticPaid,
     optimisticPaidAt,
@@ -491,6 +504,7 @@ export function ExpenseItem({
                 expense={expense}
                 memberOptions={memberOptions}
                 currentUserPayerType={currentUserPayerType}
+                annualBudgetOptions={annualBudgetOptions}
               />
             </ModalLauncher>
 

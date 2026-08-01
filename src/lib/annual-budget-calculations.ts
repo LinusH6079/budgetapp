@@ -1,6 +1,7 @@
 export type AnnualBudgetEntryInput = {
   amount: number;
   entryType: "CONTRIBUTION" | "WITHDRAWAL";
+  sourceExpenseId?: string | null;
 };
 
 export type AnnualBudgetItemInput = {
@@ -10,6 +11,14 @@ export type AnnualBudgetItemInput = {
   dueMonth: string;
   entries: AnnualBudgetEntryInput[];
 };
+
+export function expenseAnnualContributionAmount(input: {
+  amount: number;
+  isPaid: boolean;
+  hasActiveAnnualBudgetItem: boolean;
+}) {
+  return input.isPaid && input.hasActiveAnnualBudgetItem ? input.amount : 0;
+}
 
 function currentMonthKey(now: Date) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -41,6 +50,14 @@ export function calculateAnnualBudgetItem(
   now = new Date(),
 ) {
   const reservedAmount = netReservedAmount(item.entries);
+  const reservedViaExpenses = item.entries.reduce(
+    (sum, entry) =>
+      sum +
+      (entry.entryType === "CONTRIBUTION" && entry.sourceExpenseId
+        ? entry.amount
+        : 0),
+    0,
+  );
   const remainingAmount = Math.max(0, item.targetAmount - reservedAmount);
   const recommendedMonthlyAmount = Math.ceil(
     remainingAmount / monthsUntilDue(item.dueMonth, now),
@@ -49,6 +66,11 @@ export function calculateAnnualBudgetItem(
   return {
     ...item,
     reservedAmount,
+    reservedViaExpenses,
+    reservedOutsideMonthlyBudget: Math.max(
+      0,
+      reservedAmount - reservedViaExpenses,
+    ),
     remainingAmount,
     recommendedMonthlyAmount,
     fundedFraction:
@@ -74,6 +96,10 @@ export function calculateAnnualBudget(
     ),
     totalReserved: calculatedItems.reduce(
       (sum, item) => sum + item.reservedAmount,
+      0,
+    ),
+    reservedOutsideMonthlyBudget: calculatedItems.reduce(
+      (sum, item) => sum + item.reservedOutsideMonthlyBudget,
       0,
     ),
     recommendedThisMonth: calculatedItems.reduce(

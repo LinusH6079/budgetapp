@@ -3,10 +3,67 @@ import { describe, expect, it } from "vitest";
 import {
   calculateAnnualBudget,
   calculateAnnualBudgetItem,
+  expenseAnnualContributionAmount,
   netReservedAmount,
 } from "@/lib/annual-budget-calculations";
 
 describe("annual budget calculations", () => {
+  it("counts a tagged expense only after it is paid", () => {
+    expect(
+      expenseAnnualContributionAmount({
+        amount: 25_000,
+        isPaid: false,
+        hasActiveAnnualBudgetItem: true,
+      }),
+    ).toBe(0);
+    expect(
+      expenseAnnualContributionAmount({
+        amount: 25_000,
+        isPaid: true,
+        hasActiveAnnualBudgetItem: true,
+      }),
+    ).toBe(25_000);
+  });
+
+  it("does not count an expense when its annual target is unavailable", () => {
+    expect(
+      expenseAnnualContributionAmount({
+        amount: 25_000,
+        isPaid: true,
+        hasActiveAnnualBudgetItem: false,
+      }),
+    ).toBe(0);
+  });
+
+  it("separates transfers already counted as monthly expenses", () => {
+    const result = calculateAnnualBudget(
+      [
+        {
+          id: "car-tax",
+          name: "Bilskatt",
+          targetAmount: 120_000,
+          dueMonth: "2027-01",
+          entries: [
+            {
+              amount: 20_000,
+              entryType: "CONTRIBUTION",
+              sourceExpenseId: "expense-1",
+            },
+            {
+              amount: 10_000,
+              entryType: "CONTRIBUTION",
+              sourceExpenseId: null,
+            },
+          ],
+        },
+      ],
+      new Date(2026, 7, 1),
+    );
+
+    expect(result.totalReserved).toBe(30_000);
+    expect(result.reservedOutsideMonthlyBudget).toBe(10_000);
+  });
+
   it("calculates net reserved money from contributions and withdrawals", () => {
     expect(
       netReservedAmount([

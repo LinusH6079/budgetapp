@@ -11,6 +11,7 @@ import { MonthNotesCard } from "@/components/month-notes-card";
 import { MonthTabs } from "@/components/month-tabs";
 import { formatCurrency } from "@/lib/money";
 import { requireUser } from "@/lib/session";
+import { getAnnualBudgetForUser } from "@/server/services/annual-budget";
 import { filterExpenseItems, getMonthPageData, sortExpenseItems } from "@/server/services/budget-months";
 import { mapMembersToSlots } from "@/server/services/households";
 
@@ -66,7 +67,10 @@ export default async function MonthDetailPage({
   const user = await requireUser();
   const { monthKey } = await params;
   const resolvedSearchParams = await searchParams;
-  const pageData = await getMonthPageData(user.id, monthKey);
+  const [pageData, annualBudget] = await Promise.all([
+    getMonthPageData(user.id, monthKey),
+    getAnnualBudgetForUser(user.id),
+  ]);
 
   if (!pageData) {
     notFound();
@@ -106,6 +110,10 @@ export default async function MonthDetailPage({
     "SECOND_PERSON"
       ? PayerType.SECOND_PERSON
       : PayerType.FIRST_PERSON;
+  const annualBudgetOptions = (annualBudget?.items ?? []).map((item) => ({
+    id: item.id,
+    name: item.name,
+  }));
   const payerLabels: Record<PayerType, string> = {
     [PayerType.FIRST_PERSON]: memberOptions[0]?.label ?? "Person 1",
     [PayerType.SECOND_PERSON]: memberOptions[1]?.label ?? "Person 2",
@@ -236,6 +244,7 @@ export default async function MonthDetailPage({
             expenses={filteredExpenses}
             memberOptions={memberOptions}
             currentUserPayerType={currentUserPayerType}
+            annualBudgetOptions={annualBudgetOptions}
             payerLabels={payerLabels}
             currentFilters={filters}
             categories={[...new Set(pageData.activeMonth.expenses.map((expense) => expense.category))].sort((a, b) =>
@@ -261,6 +270,7 @@ export default async function MonthDetailPage({
               isLocked={pageData.activeMonth.isLocked}
               memberOptions={memberOptions}
               currentUserPayerType={currentUserPayerType}
+              annualBudgetOptions={annualBudgetOptions}
             />
           </ModalLauncher>
         </>

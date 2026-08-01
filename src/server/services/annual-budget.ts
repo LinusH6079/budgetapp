@@ -126,7 +126,8 @@ export async function getAnnualBudgetForUser(
         .reverse()
         .find(
           (entry) =>
-            entry.entryType === AnnualSavingEntryType.CONTRIBUTION,
+            entry.entryType === AnnualSavingEntryType.CONTRIBUTION &&
+            !entry.sourceExpenseId,
         );
 
       return {
@@ -240,6 +241,7 @@ export async function undoLatestAnnualContributionForUser(input: {
     where: {
       annualBudgetItemId: item.id,
       entryType: AnnualSavingEntryType.CONTRIBUTION,
+      sourceExpenseId: null,
     },
     orderBy: [
       { createdAt: "desc" },

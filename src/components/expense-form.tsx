@@ -21,12 +21,20 @@ type ExpenseFormProps = {
     payerType: PayerType;
     isPaid: boolean;
     paidAt: Date | null;
+    annualBudgetItem: {
+      id: string;
+      name: string;
+    } | null;
   };
   memberOptions: Array<{
     label: string;
     value: "FIRST_PERSON" | "SECOND_PERSON";
   }>;
   currentUserPayerType: "FIRST_PERSON" | "SECOND_PERSON";
+  annualBudgetOptions: Array<{
+    id: string;
+    name: string;
+  }>;
 };
 
 export function ExpenseForm({
@@ -36,6 +44,7 @@ export function ExpenseForm({
   expense,
   memberOptions,
   currentUserPayerType,
+  annualBudgetOptions,
 }: ExpenseFormProps) {
   const initialPayers =
     expense?.payerType === PayerType.SHARED
@@ -107,6 +116,27 @@ export function ExpenseForm({
             <option value={ExpenseType.ONE_TIME}>Engångs</option>
             <option value={ExpenseType.RECURRING}>Återkommande</option>
           </select>
+        </label>
+
+        <label className="block sm:col-span-2">
+          <span className="mb-1.5 block text-sm font-medium">
+            Spara till årskostnad <span className="text-[var(--color-muted)]">(valfritt)</span>
+          </span>
+          <select
+            name="annualBudgetItemId"
+            defaultValue={expense?.annualBudgetItem?.id ?? ""}
+            disabled={isLocked}
+          >
+            <option value="">Ingen årskostnad</option>
+            {annualBudgetOptions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--color-muted)]">
+            Beloppet räknas som sparat när utgiften markeras betald.
+          </p>
         </label>
 
         <fieldset className="sm:col-span-2">

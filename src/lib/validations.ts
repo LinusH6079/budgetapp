@@ -151,6 +151,7 @@ export const expenseSchema = z.object({
   category: z.string().trim().min(1, "Kategori krävs.").max(50, "Kategorin är för lång."),
   expenseType: z.nativeEnum(ExpenseType),
   payerType: z.nativeEnum(PayerType),
+  annualBudgetItemId: z.string().cuid().optional().or(z.literal("")),
 });
 
 export const deleteExpenseSchema = z.object({
@@ -211,6 +212,7 @@ export const swishSearchSchema = z.object({
 
 const importExpenseSchema = z.object({
   recurringSourceExpenseId: z.string().cuid().nullable().optional(),
+  annualBudgetItemBackupKey: z.string().nullable().optional(),
   swishId: z.string().nullable().optional(),
   name: z.string(),
   amount: z.number().int().nonnegative(),
@@ -273,6 +275,7 @@ export const householdImportSchema = z.object({
   annualBudget: z
     .array(
       z.object({
+        backupKey: z.string().optional(),
         name: z.string(),
         targetAmount: z.number().int().positive(),
         dueMonth: z.string().refine(isMonthKey),

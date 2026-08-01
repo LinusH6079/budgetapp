@@ -3,6 +3,7 @@ import { Prisma, PayerType, PlanningType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getNextMonthKey } from "@/lib/date";
 import { expensePartAmount } from "@/lib/budget-calculations";
+import { expenseAnnualContributionAmount } from "@/lib/annual-budget-calculations";
 import { assertMonthEditable } from "@/server/services/access";
 import { buildRecurringExpenseCopyData } from "@/server/services/budget-months";
 import { getHouseholdForUser } from "@/server/services/households";
@@ -38,6 +39,9 @@ async function requireExpenseInMonth(expenseId: string, monthId: string) {
       id: expenseId,
       budgetMonthId: monthId,
     },
+    include: {
+      annualSavingEntries: true,
+    },
   });
 
   if (!expense) {
@@ -45,6 +49,111 @@ async function requireExpenseInMonth(expenseId: string, monthId: string) {
   }
 
   return expense;
+}
+
+async function assertAnnualBudgetItemAvailable(input: {
+  tx: Prisma.TransactionClient;
+  annualBudgetItemId: string;
+  householdId: string;
+}) {
+  const item = await input.tx.annualBudgetItem.findFirst({
+    where: {
+      id: input.annualBudgetItemId,
+      householdId: input.householdId,
+      isArchived: false,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!item) {
+    throw new Error("Årskostnaden hittades inte eller är redan avslutad.");
+  }
+}
+
+async function syncExpenseAnnualContribution(input: {
+  tx: Prisma.TransactionClient;
+  actorUserId: string;
+  householdId: string;
+  expense: {
+    id: string;
+    amount: number;
+    isPaid: boolean;
+    annualBudgetItemId: string | null;
+  };
+}) {
+  const existingEntry = await input.tx.annualSavingEntry.findFirst({
+    where: {
+      sourceExpenseId: input.expense.id,
+    },
+  });
+  const targetItem = input.expense.annualBudgetItemId
+    ? await input.tx.annualBudgetItem.findFirst({
+        where: {
+          id: input.expense.annualBudgetItemId,
+          householdId: input.householdId,
+          isArchived: false,
+        },
+        select: {
+          id: true,
+        },
+      })
+    : null;
+  const contributionAmount = expenseAnnualContributionAmount({
+    amount: input.expense.amount,
+    isPaid: input.expense.isPaid,
+    hasActiveAnnualBudgetItem: Boolean(targetItem),
+  });
+
+  if (contributionAmount === 0 || !targetItem) {
+    if (existingEntry) {
+      await input.tx.annualSavingEntry.delete({
+        where: {
+          id: existingEntry.id,
+        },
+      });
+      await input.tx.annualBudgetItem.update({
+        where: {
+          id: existingEntry.annualBudgetItemId,
+        },
+        data: {
+          updatedByUserId: input.actorUserId,
+        },
+      });
+    }
+    return;
+  }
+
+  await input.tx.annualSavingEntry.deleteMany({
+    where: {
+      sourceExpenseId: input.expense.id,
+    },
+  });
+  await input.tx.annualSavingEntry.create({
+    data: {
+      annualBudgetItemId: targetItem.id,
+      sourceExpenseId: input.expense.id,
+      amount: contributionAmount,
+      entryType: "CONTRIBUTION",
+      updatedByUserId: input.actorUserId,
+    },
+  });
+
+  const touchedItemIds = new Set([
+    targetItem.id,
+    existingEntry?.annualBudgetItemId,
+  ]);
+  await input.tx.annualBudgetItem.updateMany({
+    where: {
+      id: {
+        in: [...touchedItemIds].filter((id): id is string => Boolean(id)),
+      },
+    },
+    data: {
+      updatedByUserId: input.actorUserId,
+    },
+  });
 }
 
 async function syncRecurringExpenseToNextMonth(input: {
@@ -120,6 +229,7 @@ export async function upsertExpenseForUser(input: {
   category: string;
   expenseType: "RECURRING" | "ONE_TIME";
   payerType: "FIRST_PERSON" | "SECOND_PERSON" | "SHARED";
+  annualBudgetItemId?: string | null;
 }) {
   const month = await requireExpenseAccess(input.actorUserId, input.monthId);
   assertMonthEditable(month.isLocked);
@@ -129,6 +239,14 @@ export async function upsertExpenseForUser(input: {
 
     if (input.expenseId) {
       existingExpense = await requireExpenseInMonth(input.expenseId, input.monthId);
+    }
+
+    if (input.annualBudgetItemId) {
+      await assertAnnualBudgetItemAvailable({
+        tx,
+        annualBudgetItemId: input.annualBudgetItemId,
+        householdId: month.householdId,
+      });
     }
 
     if (
@@ -187,6 +305,7 @@ export async function upsertExpenseForUser(input: {
       firstPersonSwishId,
       secondPersonSwishId,
       note: null,
+      annualBudgetItemId: input.annualBudgetItemId ?? null,
       updatedByUserId: input.actorUserId,
     } as const;
 
@@ -203,6 +322,13 @@ export async function upsertExpenseForUser(input: {
             ...expensePayload,
           },
         });
+
+    await syncExpenseAnnualContribution({
+      tx,
+      actorUserId: input.actorUserId,
+      householdId: month.householdId,
+      expense,
+    });
 
     await syncRecurringExpenseToNextMonth({
       tx,
@@ -231,6 +357,18 @@ export async function deleteExpenseForUser(input: {
       },
     });
 
+    const annualSavingEntry = expense.annualSavingEntries[0];
+    if (annualSavingEntry) {
+      await tx.annualBudgetItem.update({
+        where: {
+          id: annualSavingEntry.annualBudgetItemId,
+        },
+        data: {
+          updatedByUserId: input.actorUserId,
+        },
+      });
+    }
+
     await syncRecurringExpenseToNextMonth({
       tx,
       actorUserId: input.actorUserId,
@@ -256,6 +394,26 @@ export async function setExpensePaidStateForUser(input: {
   assertMonthEditable(month.isLocked);
   const expense = await requireExpenseInMonth(input.expenseId, input.monthId);
   const nextPaidAt = input.nextPaidState === "paid" ? new Date() : null;
+  const updateAndSyncAnnual = (
+    data: Prisma.ExpenseUncheckedUpdateInput,
+  ) =>
+    db.$transaction(async (tx) => {
+      const updatedExpense = await tx.expense.update({
+        where: {
+          id: input.expenseId,
+        },
+        data,
+      });
+
+      await syncExpenseAnnualContribution({
+        tx,
+        actorUserId: input.actorUserId,
+        householdId: month.householdId,
+        expense: updatedExpense,
+      });
+
+      return updatedExpense;
+    });
 
   if (expense.payerType === PayerType.SHARED) {
     if (!input.targetPayerType) {
@@ -273,11 +431,7 @@ export async function setExpensePaidStateForUser(input: {
         : expense.secondPersonPaidAt ?? legacyPaidAt;
     const isPaid = Boolean(firstPersonPaidAt && secondPersonPaidAt);
 
-    return db.expense.update({
-      where: {
-        id: input.expenseId,
-      },
-      data: {
+    return updateAndSyncAnnual({
         isPaid,
         paidAt: isPaid ? new Date() : null,
         firstPersonPaidAt,
@@ -292,7 +446,6 @@ export async function setExpensePaidStateForUser(input: {
             : undefined,
         swishId: null,
         updatedByUserId: input.actorUserId,
-      },
     });
   }
 
@@ -300,11 +453,7 @@ export async function setExpensePaidStateForUser(input: {
     throw new Error("Personen är inte tilldelad den här utgiften.");
   }
 
-  return db.expense.update({
-    where: {
-      id: input.expenseId,
-    },
-    data: {
+  return updateAndSyncAnnual({
       isPaid: input.nextPaidState === "paid",
       paidAt: nextPaidAt,
       firstPersonPaidAt:
@@ -315,7 +464,6 @@ export async function setExpensePaidStateForUser(input: {
       secondPersonSwishId: null,
       swishId: input.nextPaidState === "paid" ? undefined : null,
       updatedByUserId: input.actorUserId,
-    },
   });
 }
 
@@ -421,7 +569,7 @@ export async function settleExpensesWithSwishForUser(input: {
     }
 
     await Promise.all(
-      [...states.values()].map((state) => {
+      [...states.values()].map(async (state) => {
         const isShared = state.expense.payerType === PayerType.SHARED;
         const isPaid = isShared
           ? Boolean(state.firstPersonPaidAt && state.secondPersonPaidAt)
@@ -433,7 +581,7 @@ export async function settleExpensesWithSwishForUser(input: {
             ? state.firstPersonSwishId
             : null;
 
-        return tx.expense.update({
+        const updatedExpense = await tx.expense.update({
           where: {
             id: state.expense.id,
           },
@@ -460,6 +608,15 @@ export async function settleExpensesWithSwishForUser(input: {
             updatedByUserId: input.actorUserId,
           },
         });
+
+        await syncExpenseAnnualContribution({
+          tx,
+          actorUserId: input.actorUserId,
+          householdId: month.householdId,
+          expense: updatedExpense,
+        });
+
+        return updatedExpense;
       }),
     );
 

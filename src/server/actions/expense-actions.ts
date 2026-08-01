@@ -27,6 +27,7 @@ export async function saveExpenseAction(formData: FormData) {
     category: formData.get("category"),
     expenseType: formData.get("expenseType"),
     payerType: formData.get("payerType"),
+    annualBudgetItemId: formData.get("annualBudgetItemId"),
   });
 
   if (!parsed.success) {
@@ -43,6 +44,7 @@ export async function saveExpenseAction(formData: FormData) {
       category: parsed.data.category,
       expenseType: parsed.data.expenseType,
       payerType: parsed.data.payerType,
+      annualBudgetItemId: parsed.data.annualBudgetItemId || null,
     });
   } catch (error) {
     redirectWithMessage(

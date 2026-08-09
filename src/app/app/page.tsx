@@ -6,9 +6,10 @@ import { PendingLink } from "@/components/pending-link";
 import { SpendingPaceCard } from "@/components/spending-pace-card";
 import { formatMonthLabel } from "@/lib/date";
 import { formatCurrency } from "@/lib/money";
+import { getBudgetMonthKeyForPayCycle } from "@/lib/pay-cycle";
 import { requireUser } from "@/lib/session";
 import { getAnnualBudgetForUser } from "@/server/services/annual-budget";
-import { getLatestMonthKeyForUser, getMonthPageData } from "@/server/services/budget-months";
+import { getActiveMonthKeyForUser, getMonthPageData } from "@/server/services/budget-months";
 import { getHouseholdForUser } from "@/server/services/households";
 import { getSpendingPaceForUser } from "@/server/services/spending-pace";
 
@@ -76,9 +77,10 @@ function AnnualOverviewCard({
 export default async function AppHomePage({ searchParams }: AppHomePageProps) {
   const user = await requireUser();
   const { notice, error } = await searchParams;
-  const [household, latestMonthKey, spendingPace, annualBudget] = await Promise.all([
+  const calendarActiveMonthKey = getBudgetMonthKeyForPayCycle();
+  const [household, activeMonthKey, spendingPace, annualBudget] = await Promise.all([
     getHouseholdForUser(user.id),
-    getLatestMonthKeyForUser(user.id),
+    getActiveMonthKeyForUser(user.id),
     getSpendingPaceForUser(user.id),
     getAnnualBudgetForUser(user.id),
   ]);
@@ -92,14 +94,18 @@ export default async function AppHomePage({ searchParams }: AppHomePageProps) {
     );
   }
 
-  if (!latestMonthKey) {
+  if (!activeMonthKey) {
     return (
       <div className="viewport-page">
         <FlashMessage notice={notice} error={error} />
         <section className="app-panel px-4 py-5 sm:px-5">
-          <p className="eyebrow-label">Översikt</p>
-          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em]">Ingen månad ännu</h2>
-          <p className="muted mt-2">Gå till månader för att skapa första månaden.</p>
+          <p className="eyebrow-label">Aktiv månad</p>
+          <h2 className="mt-3 text-2xl font-semibold capitalize tracking-[-0.04em]">
+            {formatMonthLabel(calendarActiveMonthKey)} saknas
+          </h2>
+          <p className="muted mt-2">
+            Skapa budgetmånaden för den aktuella löneperioden under Månader.
+          </p>
         </section>
         {spendingPace ? <SpendingPaceCard data={spendingPace} /> : null}
         {annualBudget ? (
@@ -114,7 +120,7 @@ export default async function AppHomePage({ searchParams }: AppHomePageProps) {
     );
   }
 
-  const pageData = await getMonthPageData(user.id, latestMonthKey);
+  const pageData = await getMonthPageData(user.id, activeMonthKey);
 
   if (!pageData) {
     return (

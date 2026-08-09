@@ -20,7 +20,6 @@ type AppShellProps = {
   children: React.ReactNode;
   userName: string;
   householdName?: string | null;
-  latestMonthKey?: string | null;
 };
 
 const desktopNavItems = [

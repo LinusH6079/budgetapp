@@ -3,6 +3,7 @@ import type { ExpenseOrigin } from "@prisma/client";
 import { buildMonthSummary } from "@/lib/budget-calculations";
 import { compareMonthKeys, getNextMonthKey, getPreviousMonthKey } from "@/lib/date";
 import { db } from "@/lib/db";
+import { getBudgetMonthKeyForPayCycle } from "@/lib/pay-cycle";
 import { budgetMonthDetailsArgs } from "@/lib/types";
 import { assertMonthEditable } from "@/server/services/access";
 import { syncAutomaticAnnualSavingExpenses } from "@/server/services/annual-saving-expenses";
@@ -527,7 +528,14 @@ export function filterExpenseItems<
   });
 }
 
-export async function getLatestMonthKeyForUser(userId: string) {
+export async function getActiveMonthKeyForUser(
+  userId: string,
+  now = new Date(),
+) {
+  const activeMonthKey = getBudgetMonthKeyForPayCycle(now);
   const months = await getMonthsForUser(userId);
-  return months.sort((a, b) => compareMonthKeys(b.monthKey, a.monthKey))[0]?.monthKey ?? null;
+
+  return months.some((month) => month.monthKey === activeMonthKey)
+    ? activeMonthKey
+    : null;
 }

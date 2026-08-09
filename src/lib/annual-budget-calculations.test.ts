@@ -8,6 +8,7 @@ import {
   buildGuaranteedAnnualSavingSchedule,
   expenseAnnualContributionAmount,
   effectiveAnnualSavingRate,
+  futureYearlySavingCycles,
   netReservedAmount,
   nextYearlySavingStartMonth,
 } from "@/lib/annual-budget-calculations";
@@ -109,6 +110,31 @@ describe("annual budget calculations", () => {
         singleMonthOnly: false,
       }),
     ).toBe("2027-01");
+  });
+
+  it("plans the next yearly cycle before the current cycle is settled", () => {
+    expect(
+      futureYearlySavingCycles({
+        currentDueMonth: "2026-10",
+        singleMonthOnly: false,
+        throughMonth: "2026-11",
+      }),
+    ).toEqual([
+      {
+        savingStartMonth: "2026-11",
+        dueMonth: "2027-10",
+      },
+    ]);
+  });
+
+  it("does not start a single-month yearly cost before its next due month", () => {
+    expect(
+      futureYearlySavingCycles({
+        currentDueMonth: "2026-10",
+        singleMonthOnly: true,
+        throughMonth: "2026-11",
+      }),
+    ).toEqual([]);
   });
 
   it("keeps a yearly single-month cost in its due month", () => {

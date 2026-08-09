@@ -58,6 +58,17 @@ async function requireAnnualItemAccess(actorUserId: string, itemId: string) {
           { createdAt: "asc" },
           { id: "asc" },
         ],
+        include: {
+          sourceExpense: {
+            select: {
+              budgetMonth: {
+                select: {
+                  monthKey: true,
+                },
+              },
+            },
+          },
+        },
       },
       savingRates: {
         orderBy: {
@@ -124,6 +135,17 @@ export async function getAnnualBudgetForUser(
           { createdAt: "asc" },
           { id: "asc" },
         ],
+        include: {
+          sourceExpense: {
+            select: {
+              budgetMonth: {
+                select: {
+                  monthKey: true,
+                },
+              },
+            },
+          },
+        },
       },
       savingRates: {
         orderBy: {
@@ -153,6 +175,16 @@ export async function getAnnualBudgetForUser(
   const calculation = calculateAnnualBudget(
     items.map((item) => ({
       ...item,
+      entries: item.entries.filter((entry) => {
+        if (entry.entryType === AnnualSavingEntryType.WITHDRAWAL) {
+          return true;
+        }
+
+        const contributionMonth =
+          entry.sourceExpense?.budgetMonth.monthKey ??
+          stockholmMonthKey(entry.createdAt);
+        return contributionMonth <= item.dueMonth;
+      }),
       monthlyOverrides: item.savingOverrides.map((override) => ({
         monthKey: override.budgetMonth.monthKey,
         amount: override.amount,
@@ -579,7 +611,18 @@ export async function settleAnnualBudgetItemForUser(input: {
   }
 
   const paidAt = new Date();
-  const reservedAmount = netReservedAmount(item.entries);
+  const reservedAmount = netReservedAmount(
+    item.entries.filter((entry) => {
+      if (entry.entryType === AnnualSavingEntryType.WITHDRAWAL) {
+        return true;
+      }
+
+      const contributionMonth =
+        entry.sourceExpense?.budgetMonth.monthKey ??
+        stockholmMonthKey(entry.createdAt);
+      return contributionMonth <= item.dueMonth;
+    }),
+  );
 
   return db.$transaction(async (tx) => {
     const expense = await tx.expense.create({

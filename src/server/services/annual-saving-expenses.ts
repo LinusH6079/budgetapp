@@ -1,4 +1,5 @@
 import {
+  AnnualBudgetRecurrence,
   ExpenseOrigin,
   ExpenseType,
   PayerType,
@@ -12,6 +13,7 @@ import {
   annualSavingMonthKeys,
   buildGuaranteedAnnualSavingSchedule,
   effectiveAnnualSavingRate,
+  futureYearlySavingCycles,
   netReservedAmount,
 } from "@/lib/annual-budget-calculations";
 
@@ -36,7 +38,19 @@ export async function syncAutomaticAnnualSavingExpenses({
         isArchived: false,
       },
       include: {
-        entries: true,
+        entries: {
+          include: {
+            sourceExpense: {
+              select: {
+                budgetMonth: {
+                  select: {
+                    monthKey: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         savingRates: {
           orderBy: {
             startMonth: "asc",
@@ -129,8 +143,24 @@ export async function syncAutomaticAnnualSavingExpenses({
     );
     immutableExpenses.forEach((expense) => retainedExpenseIds.add(expense.id));
     const committedUnfundedAmount = immutableExpenses.reduce(
-      (sum, expense) => sum + (expense.isPaid ? 0 : expense.amount),
+      (sum, expense) =>
+        sum +
+        (expense.month.monthKey <= item.dueMonth && !expense.isPaid
+          ? expense.amount
+          : 0),
       0,
+    );
+    const reservedThroughCurrentDue = netReservedAmount(
+      item.entries.filter((entry) => {
+        if (entry.entryType === "WITHDRAWAL") {
+          return true;
+        }
+
+        const contributionMonth =
+          entry.sourceExpense?.budgetMonth.monthKey ??
+          annualBudgetCurrentMonthKey(entry.createdAt);
+        return contributionMonth <= item.dueMonth;
+      }),
     );
     const allTargetMonthKeys = annualSavingMonthKeys(
       item.savingStartMonth && item.savingStartMonth > currentMonthKey
@@ -153,7 +183,7 @@ export async function syncAutomaticAnnualSavingExpenses({
     );
     const remainingTargetAmount =
       item.targetAmount -
-      netReservedAmount(item.entries) -
+      reservedThroughCurrentDue -
       committedUnfundedAmount -
       fixedOverrideTotal;
     const allocationByMonth =
@@ -191,6 +221,73 @@ export async function syncAutomaticAnnualSavingExpenses({
               allocation.amount,
             ] as const),
           );
+
+    const latestBudgetMonth = months.at(-1)?.monthKey;
+    if (
+      item.recurrence === AnnualBudgetRecurrence.YEARLY &&
+      latestBudgetMonth
+    ) {
+      const futureCycles = futureYearlySavingCycles({
+        currentDueMonth: item.dueMonth,
+        singleMonthOnly: item.singleMonthOnly,
+        throughMonth: latestBudgetMonth,
+      });
+
+      for (const cycle of futureCycles) {
+        const cycleMonthKeys = annualSavingMonthKeys(
+          cycle.savingStartMonth,
+          cycle.dueMonth,
+        );
+        const cycleReservedAmount = item.entries.reduce((sum, entry) => {
+          if (entry.entryType !== "CONTRIBUTION") {
+            return sum;
+          }
+
+          const contributionMonth =
+            entry.sourceExpense?.budgetMonth.monthKey ??
+            annualBudgetCurrentMonthKey(entry.createdAt);
+          return contributionMonth >= cycle.savingStartMonth &&
+            contributionMonth <= cycle.dueMonth
+            ? sum + entry.amount
+            : sum;
+        }, 0);
+        const cycleCommittedAmount = immutableExpenses.reduce(
+          (sum, expense) =>
+            sum +
+            (!expense.isPaid &&
+            expense.month.monthKey >= cycle.savingStartMonth &&
+            expense.month.monthKey <= cycle.dueMonth
+              ? expense.amount
+              : 0),
+          0,
+        );
+        const cycleOverrideTotal = cycleMonthKeys.reduce(
+          (sum, monthKey) =>
+            sum +
+            (immutableMonthKeys.has(monthKey)
+              ? 0
+              : Math.max(0, overrideAmounts.get(monthKey) ?? 0)),
+          0,
+        );
+        const availableCycleMonthKeys = cycleMonthKeys.filter(
+          (monthKey) =>
+            !overrideAmounts.has(monthKey) &&
+            !immutableMonthKeys.has(monthKey),
+        );
+        const cycleAllocations = allocateAnnualSavingByMonth({
+          remainingAmount:
+            item.targetAmount -
+            cycleReservedAmount -
+            cycleCommittedAmount -
+            cycleOverrideTotal,
+          monthKeys: availableCycleMonthKeys,
+        });
+
+        for (const allocation of cycleAllocations) {
+          allocationByMonth.set(allocation.monthKey, allocation.amount);
+        }
+      }
+    }
 
     for (const [monthKey, amount] of overrideAmounts) {
       if (!immutableMonthKeys.has(monthKey)) {

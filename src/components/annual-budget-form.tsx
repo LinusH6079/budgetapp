@@ -113,7 +113,11 @@ export function AnnualBudgetForm({
       {singleMonthOnly ? (
         <input type="hidden" name="savingStartMonth" value={dueMonth} />
       ) : null}
-      <div className={`grid gap-2.5 ${singleMonthOnly ? "" : "grid-cols-2"}`}>
+      <div
+        className={`grid min-w-0 gap-2.5 ${
+          singleMonthOnly ? "" : "grid-cols-1 min-[390px]:grid-cols-2"
+        }`}
+      >
         {!singleMonthOnly ? (
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium">
@@ -141,7 +145,7 @@ export function AnnualBudgetForm({
           />
         </label>
       </div>
-      <label className="flex cursor-pointer items-start gap-2.5 rounded-[14px] border border-[var(--color-line)] bg-white/[0.025] px-3 py-2.5">
+      <label className="flex max-w-full cursor-pointer items-start gap-2.5 overflow-hidden rounded-[14px] border border-[var(--color-line)] bg-white/[0.025] px-3 py-2.5">
         <input
           type="checkbox"
           checked={singleMonthOnly}
@@ -151,11 +155,11 @@ export function AnnualBudgetForm({
               setSavingMode("TARGET_BY_DATE");
             }
           }}
-          className="mt-0.5 h-4 w-4 shrink-0"
+          className="mt-0.5 !h-4 !w-4 shrink-0 !p-0"
         />
-        <span className="min-w-0">
+        <span className="min-w-0 flex-1 overflow-hidden">
           <span className="block text-xs font-medium">Endast en månad</span>
-          <span className="mt-0.5 block text-[10px] leading-relaxed text-[var(--color-muted)]">
+          <span className="mt-0.5 block break-words text-[10px] leading-relaxed text-[var(--color-muted)]">
             Hela beloppet läggs i den valda budgetmånaden.
           </span>
         </span>

@@ -24,6 +24,11 @@ export type AnnualSavingOverrideInput = {
   amount: number;
 };
 
+export type AnnualSavingCycle = {
+  savingStartMonth: string;
+  dueMonth: string;
+};
+
 export type AnnualSavingRateInput = {
   startMonth: string;
   endMonth?: string | null;
@@ -66,6 +71,34 @@ export function nextYearlySavingStartMonth(input: {
   const previousCycleDueMonth = `${Number(year) + Math.max(0, dueYearShift - 1)}-${month}`;
 
   return nextMonthKey(previousCycleDueMonth);
+}
+
+export function futureYearlySavingCycles(input: {
+  currentDueMonth: string;
+  singleMonthOnly: boolean;
+  throughMonth: string;
+}) {
+  const cycles: AnnualSavingCycle[] = [];
+  let previousDueMonth = input.currentDueMonth;
+
+  while (true) {
+    const [year, month] = previousDueMonth.split("-");
+    const dueMonth = `${Number(year) + 1}-${month}`;
+    const savingStartMonth = nextYearlySavingStartMonth({
+      currentDueMonth: previousDueMonth,
+      nextDueMonth: dueMonth,
+      singleMonthOnly: input.singleMonthOnly,
+    });
+
+    if (savingStartMonth > input.throughMonth) {
+      break;
+    }
+
+    cycles.push({ savingStartMonth, dueMonth });
+    previousDueMonth = dueMonth;
+  }
+
+  return cycles;
 }
 
 export function annualSavingMonthKeys(

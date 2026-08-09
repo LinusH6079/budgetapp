@@ -72,6 +72,16 @@ textarea:focus {
   @apply border-[var(--color-accent-strong)] ring-2 ring-[color:var(--color-accent-soft)];
 }
 
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: var(--color-accent-strong);
+}
+
 button {
   @apply transition;
 }

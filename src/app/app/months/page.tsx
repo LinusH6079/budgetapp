@@ -6,10 +6,11 @@ import { HouseholdSetupCard } from "@/components/household-setup-card";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { MonthOverflowActions } from "@/components/month-overflow-actions";
 import { PendingLink } from "@/components/pending-link";
-import { compareMonthKeys, formatMonthLabel, getCurrentMonthKey, getNextMonthKey } from "@/lib/date";
+import { compareMonthKeys, formatMonthLabel, getNextMonthKey } from "@/lib/date";
+import { getBudgetMonthKeyForPayCycle } from "@/lib/pay-cycle";
 import { requireUser } from "@/lib/session";
 import { createMonthAction } from "@/server/actions/month-actions";
-import { getLatestMonthKeyForUser, getMonthsForUser } from "@/server/services/budget-months";
+import { getMonthsForUser } from "@/server/services/budget-months";
 import { getHouseholdForUser } from "@/server/services/households";
 
 const MONTHS_PER_PAGE = 8;
@@ -25,7 +26,7 @@ type MonthsPageProps = {
 export default async function MonthsPage({ searchParams }: MonthsPageProps) {
   const user = await requireUser();
   const household = await getHouseholdForUser(user.id);
-  const latestMonthKey = await getLatestMonthKeyForUser(user.id);
+  const activeMonthKey = getBudgetMonthKeyForPayCycle();
   const { notice, error, page } = await searchParams;
 
   if (!household) {
@@ -41,7 +42,7 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
   const latestMonth = months[0];
   const suggestedMonthKey = latestMonth
     ? getNextMonthKey(latestMonth.monthKey)
-    : getCurrentMonthKey();
+    : activeMonthKey;
   const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
   const pageCount = Math.max(1, Math.ceil(months.length / MONTHS_PER_PAGE));
   const clampedPage = Math.min(currentPage, pageCount);
@@ -96,7 +97,7 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
         <div className="grid gap-2.5">
           {visibleMonths.length > 0 ? (
             visibleMonths.map((month) => {
-              const isActive = month.monthKey === latestMonthKey;
+              const isActive = month.monthKey === activeMonthKey;
 
               return (
                 <article

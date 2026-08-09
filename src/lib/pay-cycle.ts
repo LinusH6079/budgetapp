@@ -184,3 +184,8 @@ export function getPayCycle(now = new Date()) {
     weeks,
   };
 }
+
+export function getBudgetMonthKeyForPayCycle(now = new Date()) {
+  const { endDate } = getPayCycle(now);
+  return `${endDate.year}-${String(endDate.month).padStart(2, "0")}`;
+}

@@ -373,8 +373,9 @@ export async function promoteBudgetScenarioForUser(input: {
     input.scenarioId,
   );
 
-  return db.$transaction(async (tx) => {
-    const existing = await tx.budgetMonth.findUnique({
+  return db.$transaction(
+    async (tx) => {
+      const existing = await tx.budgetMonth.findUnique({
       where: {
         householdId_monthKey: {
           householdId: household.id,
@@ -426,6 +427,11 @@ export async function promoteBudgetScenarioForUser(input: {
       actorUserId: input.actorUserId,
     });
 
-    return month;
-  });
+      return month;
+    },
+    {
+      maxWait: 5_000,
+      timeout: 20_000,
+    },
+  );
 }

@@ -6,7 +6,7 @@ import { HouseholdSetupCard } from "@/components/household-setup-card";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { MonthOverflowActions } from "@/components/month-overflow-actions";
 import { PendingLink } from "@/components/pending-link";
-import { compareMonthKeys, formatMonthLabel, getCurrentMonthKey } from "@/lib/date";
+import { compareMonthKeys, formatMonthLabel, getCurrentMonthKey, getNextMonthKey } from "@/lib/date";
 import { requireUser } from "@/lib/session";
 import { createMonthAction } from "@/server/actions/month-actions";
 import { getLatestMonthKeyForUser, getMonthsForUser } from "@/server/services/budget-months";
@@ -39,6 +39,9 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
 
   const months = (await getMonthsForUser(user.id)).sort((a, b) => compareMonthKeys(b.monthKey, a.monthKey));
   const latestMonth = months[0];
+  const suggestedMonthKey = latestMonth
+    ? getNextMonthKey(latestMonth.monthKey)
+    : getCurrentMonthKey();
   const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
   const pageCount = Math.max(1, Math.ceil(months.length / MONTHS_PER_PAGE));
   const clampedPage = Math.min(currentPage, pageCount);
@@ -58,7 +61,7 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
 
           <ModalLauncher
             title="Ny månad"
-            description="Skapa en ny månad och kopiera återkommande poster om du vill."
+            description="Nästa månad och senaste kopieringskälla är redan valda."
             trigger={
               <span className="icon-action-button action-primary">
                 <Plus className="h-4 w-4" />
@@ -70,7 +73,7 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
               <input type="hidden" name="returnTo" value="/app/months" />
               <label className="block">
                 <span className="mb-2 block text-sm font-medium">Månad</span>
-                <input name="monthKey" defaultValue={getCurrentMonthKey()} placeholder="2026-04" required />
+                <input name="monthKey" defaultValue={suggestedMonthKey} placeholder="2026-04" required />
               </label>
               <label className="block">
                 <span className="mb-2 block text-sm font-medium">Kopiera från</span>
@@ -78,7 +81,7 @@ export default async function MonthsPage({ searchParams }: MonthsPageProps) {
                   <option value="">Ingen</option>
                   {months.map((month) => (
                     <option key={month.id} value={month.id}>
-                      {month.monthKey}
+                      {formatMonthLabel(month.monthKey)}
                     </option>
                   ))}
                 </select>

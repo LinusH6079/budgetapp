@@ -19,6 +19,19 @@ import {
 
 import { redirectWithMessage, revalidateBudgetPaths } from "./shared";
 
+function readableMonthError(error: unknown, fallback: string) {
+  if (!(error instanceof Error)) return fallback;
+
+  if (
+    error.message.includes("Transaction already closed") ||
+    error.message.includes("timeout for this transaction")
+  ) {
+    return "Månaden tog för lång tid att skapa. Försök igen om en liten stund.";
+  }
+
+  return error.message;
+}
+
 export async function createMonthAction(formData: FormData) {
   const user = await requireUser();
   const returnTo = String(formData.get("returnTo") || "/app/months");
@@ -41,7 +54,7 @@ export async function createMonthAction(formData: FormData) {
     redirectWithMessage(
       returnTo,
       "error",
-      error instanceof Error ? error.message : "Kunde inte skapa månad.",
+      readableMonthError(error, "Kunde inte skapa månad."),
     );
   }
 
@@ -61,7 +74,7 @@ export async function createNextMonthAction(formData: FormData) {
     redirectWithMessage(
       `/app/months/${currentMonthKey}`,
       "error",
-      error instanceof Error ? error.message : "Kunde inte skapa nästa månad.",
+      readableMonthError(error, "Kunde inte skapa nästa månad."),
     );
   }
 }

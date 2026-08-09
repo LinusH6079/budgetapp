@@ -242,8 +242,9 @@ export async function createMonthForUser(input: {
     throw new Error("Källmånaden hör inte till ditt hushåll.");
   }
 
-  return db.$transaction(async (tx) => {
-    const month = await tx.budgetMonth.create({
+  return db.$transaction(
+    async (tx) => {
+      const month = await tx.budgetMonth.create({
       data: {
         householdId: household.id,
         monthKey: input.monthKey,
@@ -291,8 +292,13 @@ export async function createMonthForUser(input: {
       actorUserId: input.userId,
     });
 
-    return month;
-  });
+      return month;
+    },
+    {
+      maxWait: 5_000,
+      timeout: 20_000,
+    },
+  );
 }
 
 export async function createNextMonthForUser(userId: string, currentMonthKey: string) {

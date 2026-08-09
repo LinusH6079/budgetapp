@@ -7,8 +7,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FormStatusButton } from "@/components/form-status-button";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { expensePartAmount } from "@/lib/budget-calculations";
-import { formatCurrency } from "@/lib/money";
-import { deleteExpenseAction, toggleExpensePaidOptimisticAction } from "@/server/actions/expense-actions";
+import { formatCurrency, formatEditableAmount } from "@/lib/money";
+import {
+  deleteExpenseAction,
+  toggleExpensePaidOptimisticAction,
+  updateAnnualSavingExpenseAmountAction,
+} from "@/server/actions/expense-actions";
 
 import { ExpenseForm } from "./expense-form";
 
@@ -534,6 +538,54 @@ export function ExpenseItem({
                   currentUserPayerType={currentUserPayerType}
                   annualBudgetOptions={annualBudgetOptions}
                 />
+              </ModalLauncher>
+            ) : null}
+
+            {expense.origin === "ANNUAL_SAVING" &&
+            !isLocked &&
+            !optimisticPaid &&
+            !optimisticFirstPaidAt &&
+            !optimisticSecondPaidAt ? (
+              <ModalLauncher
+                title="Justera månadens sparande"
+                description="Resterande månader räknas om automatiskt så att målbeloppet fortfarande nås."
+                dialogClassName="sm:max-w-sm"
+                trigger={
+                  <span className="icon-action-button !h-8 !w-8">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </span>
+                }
+              >
+                <form
+                  action={updateAnnualSavingExpenseAmountAction}
+                  className="grid gap-3"
+                >
+                  <input type="hidden" name="returnTo" value={returnTo} />
+                  <input type="hidden" name="monthId" value={monthId} />
+                  <input type="hidden" name="expenseId" value={expense.id} />
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium">
+                      Sparbelopp denna månad
+                    </span>
+                    <input
+                      name="amount"
+                      inputMode="decimal"
+                      defaultValue={formatEditableAmount(expense.amount)}
+                      required
+                      autoFocus
+                    />
+                  </label>
+                  <p className="text-[11px] leading-relaxed text-[var(--color-muted)]">
+                    Ändringen gäller bara den här månaden. Framtida
+                    rekommendationer anpassas direkt efter beloppet.
+                  </p>
+                  <FormStatusButton
+                    className="action-primary w-full justify-center"
+                    pendingLabel="Räknar om..."
+                  >
+                    Spara och räkna om
+                  </FormStatusButton>
+                </form>
               </ModalLauncher>
             ) : null}
 

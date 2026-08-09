@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  annualSavingExpenseOverrideSchema,
   deleteExpenseSchema,
   expenseSchema,
   settleExpensesWithSwishSchema,
@@ -11,6 +12,7 @@ import {
   deleteExpenseForUser,
   settleExpensesWithSwishForUser,
   setExpensePaidStateForUser,
+  updateAnnualSavingExpenseAmountForUser,
   upsertExpenseForUser,
 } from "@/server/services/expenses";
 
@@ -56,6 +58,46 @@ export async function saveExpenseAction(formData: FormData) {
 
   revalidateBudgetPaths(returnTo);
   redirectWithMessage(returnTo, "notice", "Utgiften sparades.");
+}
+
+export async function updateAnnualSavingExpenseAmountAction(formData: FormData) {
+  const user = await requireUser();
+  const returnTo = String(formData.get("returnTo") || "/app");
+  const parsed = annualSavingExpenseOverrideSchema.safeParse({
+    monthId: formData.get("monthId"),
+    expenseId: formData.get("expenseId"),
+    amount: formData.get("amount"),
+  });
+
+  if (!parsed.success) {
+    redirectWithMessage(
+      returnTo,
+      "error",
+      parsed.error.issues[0]?.message ?? "Sparbeloppet är ogiltigt.",
+    );
+  }
+
+  try {
+    await updateAnnualSavingExpenseAmountForUser({
+      actorUserId: user.id,
+      monthId: parsed.data.monthId,
+      expenseId: parsed.data.expenseId,
+      amount: parsed.data.amount,
+    });
+  } catch (error) {
+    redirectWithMessage(
+      returnTo,
+      "error",
+      error instanceof Error ? error.message : "Kunde inte justera sparbeloppet.",
+    );
+  }
+
+  revalidateBudgetPaths(returnTo);
+  redirectWithMessage(
+    returnTo,
+    "notice",
+    "Sparbeloppet ändrades och planen räknades om.",
+  );
 }
 
 export async function deleteExpenseAction(formData: FormData) {

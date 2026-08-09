@@ -19,6 +19,7 @@ type AnnualBudgetFormProps = {
     recurrence: "ONE_TIME" | "YEARLY";
     savingMode: "TARGET_BY_DATE" | "CUSTOM_SCHEDULE";
     firstPersonSharePercent: number;
+    singleMonthOnly: boolean;
   };
   memberOptions: Array<{
     label: string;
@@ -38,6 +39,15 @@ export function AnnualBudgetForm({
   const defaultFirstPersonShare = item?.firstPersonSharePercent ?? 50;
   const [secondPersonShare, setSecondPersonShare] = useState(
     100 - defaultFirstPersonShare,
+  );
+  const [dueMonth, setDueMonth] = useState(
+    item?.dueMonth ?? defaultDueMonth,
+  );
+  const [savingStartMonth, setSavingStartMonth] = useState(
+    item?.savingStartMonth ?? defaultStartMonth,
+  );
+  const [singleMonthOnly, setSingleMonthOnly] = useState(
+    item?.singleMonthOnly ?? false,
   );
   const firstPersonName = memberOptions[0]?.label ?? "Person 1";
   const secondPersonName = memberOptions[1]?.label ?? "Person 2";
@@ -95,35 +105,67 @@ export function AnnualBudgetForm({
         />
       </label>
 
-      <div className="grid grid-cols-2 gap-2.5">
+      <input
+        type="hidden"
+        name="singleMonthOnly"
+        value={singleMonthOnly ? "true" : "false"}
+      />
+      {singleMonthOnly ? (
+        <input type="hidden" name="savingStartMonth" value={dueMonth} />
+      ) : null}
+      <div className={`grid gap-2.5 ${singleMonthOnly ? "" : "grid-cols-2"}`}>
+        {!singleMonthOnly ? (
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium">
+              Första sparmånad
+            </span>
+            <input
+              name="savingStartMonth"
+              type="month"
+              value={savingStartMonth}
+              onChange={(event) => setSavingStartMonth(event.target.value)}
+              required
+            />
+          </label>
+        ) : null}
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium">
-            Första sparmånad
-          </span>
-          <input
-            name="savingStartMonth"
-            type="month"
-            defaultValue={item?.savingStartMonth ?? defaultStartMonth}
-            required
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium">
-            Sista sparmånad
+            {singleMonthOnly ? "Budgetmånad" : "Sista sparmånad"}
           </span>
           <input
             name="dueMonth"
             type="month"
-            defaultValue={item?.dueMonth ?? defaultDueMonth}
+            value={dueMonth}
+            onChange={(event) => setDueMonth(event.target.value)}
             required
           />
         </label>
       </div>
+      <label className="flex cursor-pointer items-start gap-2.5 rounded-[14px] border border-[var(--color-line)] bg-white/[0.025] px-3 py-2.5">
+        <input
+          type="checkbox"
+          checked={singleMonthOnly}
+          onChange={(event) => {
+            setSingleMonthOnly(event.target.checked);
+            if (event.target.checked) {
+              setSavingMode("TARGET_BY_DATE");
+            }
+          }}
+          className="mt-0.5 h-4 w-4 shrink-0"
+        />
+        <span className="min-w-0">
+          <span className="block text-xs font-medium">Endast en månad</span>
+          <span className="mt-0.5 block text-[10px] leading-relaxed text-[var(--color-muted)]">
+            Hela beloppet läggs i den valda budgetmånaden.
+          </span>
+        </span>
+      </label>
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">Sparmodell</span>
         <select
           name="savingMode"
           value={savingMode}
+          disabled={singleMonthOnly}
           onChange={(event) =>
             setSavingMode(
               event.target.value as "TARGET_BY_DATE" | "CUSTOM_SCHEDULE",
@@ -133,6 +175,9 @@ export function AnnualBudgetForm({
           <option value="TARGET_BY_DATE">Nå målet till datum</option>
           <option value="CUSTOM_SCHEDULE">Flexibel målplan</option>
         </select>
+        {singleMonthOnly ? (
+          <input type="hidden" name="savingMode" value="TARGET_BY_DATE" />
+        ) : null}
       </label>
 
       {savingMode === "CUSTOM_SCHEDULE" && !item ? (
@@ -179,8 +224,9 @@ export function AnnualBudgetForm({
         </div>
       ) : savingMode === "TARGET_BY_DATE" ? (
         <p className="text-[11px] leading-relaxed text-[var(--color-muted)]">
-          Första och sista sparmånaden räknas med. Augusti till oktober ger
-          alltså tre sparmånader.
+          {singleMonthOnly
+            ? "Hela målbeloppet rekommenderas i den valda månaden."
+            : "Första och sista sparmånaden räknas med. Augusti till oktober ger alltså tre sparmånader."}
         </p>
       ) : null}
 

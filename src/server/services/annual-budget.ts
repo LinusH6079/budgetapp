@@ -10,6 +10,7 @@ import {
 import {
   calculateAnnualBudget,
   netReservedAmount,
+  nextYearlySavingStartMonth,
 } from "@/lib/annual-budget-calculations";
 import { db } from "@/lib/db";
 import { assertMonthEditable } from "@/server/services/access";
@@ -37,11 +38,6 @@ function nextYearDueMonth(monthKey: string, now: Date) {
   }
 
   return `${nextYear}-${month}`;
-}
-
-function shiftMonthKeyByYears(monthKey: string, years: number) {
-  const [year, month] = monthKey.split("-");
-  return `${Number(year) + years}-${month}`;
 }
 
 async function requireAnnualItemAccess(actorUserId: string, itemId: string) {
@@ -157,9 +153,10 @@ export async function getAnnualBudgetForUser(
   const calculation = calculateAnnualBudget(
     items.map((item) => ({
       ...item,
-      excludedMonthKeys: item.savingOverrides.map(
-        (override) => override.budgetMonth.monthKey,
-      ),
+      monthlyOverrides: item.savingOverrides.map((override) => ({
+        monthKey: override.budgetMonth.monthKey,
+        amount: override.amount,
+      })),
     })),
     now,
   );
@@ -222,6 +219,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
   recurrence: AnnualBudgetRecurrence;
   savingMode: AnnualSavingMode;
   firstPersonSharePercent: number;
+  singleMonthOnly: boolean;
   initialSavingMonth?: string | null;
   initialSavingEndMonth?: string | null;
   initialMonthlyAmount?: number | null;
@@ -241,6 +239,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
     recurrence: input.recurrence,
     savingMode: input.savingMode,
     firstPersonSharePercent: input.firstPersonSharePercent,
+    singleMonthOnly: input.singleMonthOnly,
     updatedByUserId: input.actorUserId,
   };
 
@@ -617,8 +616,6 @@ export async function settleAnnualBudgetItemForUser(input: {
     const nextDueMonth = isYearly
       ? nextYearDueMonth(item.dueMonth, paidAt)
       : item.dueMonth;
-    const dueYearShift =
-      Number(nextDueMonth.slice(0, 4)) - Number(item.dueMonth.slice(0, 4));
     await tx.annualBudgetItem.update({
       where: {
         id: item.id,
@@ -626,8 +623,12 @@ export async function settleAnnualBudgetItemForUser(input: {
       data: {
         isArchived: !isYearly,
         savingStartMonth:
-          isYearly && item.savingStartMonth
-            ? shiftMonthKeyByYears(item.savingStartMonth, dueYearShift)
+          isYearly
+            ? nextYearlySavingStartMonth({
+                currentDueMonth: item.dueMonth,
+                nextDueMonth,
+                singleMonthOnly: item.singleMonthOnly,
+              })
             : item.savingStartMonth,
         dueMonth: nextDueMonth,
         updatedByUserId: input.actorUserId,

@@ -9,6 +9,7 @@ import {
   expenseAnnualContributionAmount,
   effectiveAnnualSavingRate,
   netReservedAmount,
+  nextYearlySavingStartMonth,
 } from "@/lib/annual-budget-calculations";
 
 describe("annual budget calculations", () => {
@@ -91,6 +92,64 @@ describe("annual budget calculations", () => {
     );
 
     expect(result.recommendedMonthlyAmount).toBe(40_000);
+  });
+
+  it("starts the next yearly saving cycle immediately after the prior due month", () => {
+    expect(
+      nextYearlySavingStartMonth({
+        currentDueMonth: "2026-10",
+        nextDueMonth: "2027-10",
+        singleMonthOnly: false,
+      }),
+    ).toBe("2026-11");
+    expect(
+      nextYearlySavingStartMonth({
+        currentDueMonth: "2026-12",
+        nextDueMonth: "2027-12",
+        singleMonthOnly: false,
+      }),
+    ).toBe("2027-01");
+  });
+
+  it("keeps a yearly single-month cost in its due month", () => {
+    expect(
+      nextYearlySavingStartMonth({
+        currentDueMonth: "2026-05",
+        nextDueMonth: "2027-05",
+        singleMonthOnly: true,
+      }),
+    ).toBe("2027-05");
+  });
+
+  it("reallocates future recommendations around a monthly override", () => {
+    const august = calculateAnnualBudgetItem(
+      {
+        id: "car-tax",
+        name: "Bilskatt",
+        targetAmount: 120_000,
+        savingStartMonth: "2026-08",
+        dueMonth: "2026-10",
+        entries: [],
+        monthlyOverrides: [{ monthKey: "2026-09", amount: 20_000 }],
+      },
+      new Date(2026, 7, 1),
+    );
+    const september = calculateAnnualBudgetItem(
+      {
+        id: "car-tax",
+        name: "Bilskatt",
+        targetAmount: 120_000,
+        savingStartMonth: "2026-08",
+        dueMonth: "2026-10",
+        entries: [],
+        monthlyOverrides: [{ monthKey: "2026-09", amount: 20_000 }],
+      },
+      new Date(2026, 8, 1),
+    );
+
+    expect(august.recommendedMonthlyAmount).toBe(50_000);
+    expect(september.recommendedMonthlyAmount).toBe(20_000);
+    expect(september.isTargetSecured).toBe(true);
   });
 
   it("waits until the selected first saving month", () => {

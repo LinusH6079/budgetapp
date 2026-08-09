@@ -25,6 +25,7 @@ type AnnualBudgetItemCardProps = {
     recurrence: "ONE_TIME" | "YEARLY";
     savingMode: "TARGET_BY_DATE" | "CUSTOM_SCHEDULE";
     firstPersonSharePercent: number;
+    singleMonthOnly: boolean;
     savingRates: Array<{
       id: string;
       startMonth: string;
@@ -86,8 +87,10 @@ export function AnnualBudgetItemCard({
             ) : null}
           </div>
           <p className="mt-1 text-[11px] text-[var(--color-muted)]">
-            Sparperiod{" "}
-            {formatMonthLabel(item.savingStartMonth ?? defaultStartMonth)}–
+            {item.singleMonthOnly ? "Budgetmånad " : "Sparperiod "}
+            {!item.singleMonthOnly
+              ? `${formatMonthLabel(item.savingStartMonth ?? defaultStartMonth)}–`
+              : null}
             {formatMonthLabel(item.dueMonth)}
             {item.recurrence === "YEARLY" ? " · Varje år" : ""}
             {item.savingMode === "CUSTOM_SCHEDULE" ? " · Flexibel plan" : ""}

@@ -107,8 +107,11 @@ export async function syncAutomaticAnnualSavingExpenses({
         : firstPersonSharePercent === 0
           ? PayerType.SECOND_PERSON
           : PayerType.SHARED;
-    const overriddenMonthKeys = new Set(
-      item.savingOverrides.map((override) => override.budgetMonth.monthKey),
+    const overrideAmounts = new Map(
+      item.savingOverrides.map((override) => [
+        override.budgetMonth.monthKey,
+        override.amount,
+      ]),
     );
     const itemExpenses = months.flatMap((month) =>
       month.expenses
@@ -129,20 +132,30 @@ export async function syncAutomaticAnnualSavingExpenses({
       (sum, expense) => sum + (expense.isPaid ? 0 : expense.amount),
       0,
     );
-    const availableTargetMonthKeys = annualSavingMonthKeys(
+    const allTargetMonthKeys = annualSavingMonthKeys(
       item.savingStartMonth && item.savingStartMonth > currentMonthKey
         ? item.savingStartMonth
         : currentMonthKey,
       item.dueMonth,
-    ).filter(
+    );
+    const fixedOverrideTotal = allTargetMonthKeys.reduce(
+      (sum, monthKey) =>
+        sum +
+        (immutableMonthKeys.has(monthKey)
+          ? 0
+          : Math.max(0, overrideAmounts.get(monthKey) ?? 0)),
+      0,
+    );
+    const availableTargetMonthKeys = allTargetMonthKeys.filter(
       (monthKey) =>
-        !overriddenMonthKeys.has(monthKey) &&
+        !overrideAmounts.has(monthKey) &&
         !immutableMonthKeys.has(monthKey),
     );
     const remainingTargetAmount =
       item.targetAmount -
       netReservedAmount(item.entries) -
-      committedUnfundedAmount;
+      committedUnfundedAmount -
+      fixedOverrideTotal;
     const allocationByMonth =
       item.savingMode === "CUSTOM_SCHEDULE"
         ? new Map([
@@ -158,7 +171,7 @@ export async function syncAutomaticAnnualSavingExpenses({
               .filter(
                 (month) =>
                   month.monthKey > item.dueMonth &&
-                  !overriddenMonthKeys.has(month.monthKey) &&
+                  !overrideAmounts.has(month.monthKey) &&
                   !immutableMonthKeys.has(month.monthKey),
               )
               .map((month) => [
@@ -178,6 +191,12 @@ export async function syncAutomaticAnnualSavingExpenses({
               allocation.amount,
             ] as const),
           );
+
+    for (const [monthKey, amount] of overrideAmounts) {
+      if (!immutableMonthKeys.has(monthKey)) {
+        allocationByMonth.set(monthKey, amount);
+      }
+    }
 
     for (const month of months) {
       if (month.isLocked) {

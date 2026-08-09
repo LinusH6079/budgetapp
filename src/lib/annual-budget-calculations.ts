@@ -16,6 +16,12 @@ export type AnnualBudgetItemInput = {
   savingMode?: "TARGET_BY_DATE" | "CUSTOM_SCHEDULE";
   savingRates?: AnnualSavingRateInput[];
   excludedMonthKeys?: string[];
+  monthlyOverrides?: AnnualSavingOverrideInput[];
+};
+
+export type AnnualSavingOverrideInput = {
+  monthKey: string;
+  amount: number;
 };
 
 export type AnnualSavingRateInput = {
@@ -42,6 +48,24 @@ function nextMonthKey(monthKey: string) {
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
   return `${nextYear}-${String(nextMonth).padStart(2, "0")}`;
+}
+
+export function nextYearlySavingStartMonth(input: {
+  currentDueMonth: string;
+  nextDueMonth: string;
+  singleMonthOnly: boolean;
+}) {
+  if (input.singleMonthOnly) {
+    return input.nextDueMonth;
+  }
+
+  const dueYearShift =
+    Number(input.nextDueMonth.slice(0, 4)) -
+    Number(input.currentDueMonth.slice(0, 4));
+  const [year, month] = input.currentDueMonth.split("-");
+  const previousCycleDueMonth = `${Number(year) + Math.max(0, dueYearShift - 1)}-${month}`;
+
+  return nextMonthKey(previousCycleDueMonth);
 }
 
 export function annualSavingMonthKeys(
@@ -203,31 +227,74 @@ export function calculateAnnualBudgetItem(
     item.savingStartMonth && item.savingStartMonth > currentMonthKey
       ? item.savingStartMonth
       : currentMonthKey;
-  const targetMonthKeys = annualSavingMonthKeys(
+  const overrideAmounts = new Map(
+    (item.monthlyOverrides ?? []).map((override) => [
+      override.monthKey,
+      Math.max(0, override.amount),
+    ]),
+  );
+  for (const monthKey of item.excludedMonthKeys ?? []) {
+    if (!overrideAmounts.has(monthKey)) {
+      overrideAmounts.set(monthKey, 0);
+    }
+  }
+  const allTargetMonthKeys = annualSavingMonthKeys(
     savingStartMonth,
     item.dueMonth,
-  ).filter((monthKey) => !item.excludedMonthKeys?.includes(monthKey));
+  );
+  const targetMonthKeys = allTargetMonthKeys.filter(
+    (monthKey) => !overrideAmounts.has(monthKey),
+  );
+  const fixedOverrideTotal = allTargetMonthKeys.reduce(
+    (sum, monthKey) => sum + (overrideAmounts.get(monthKey) ?? 0),
+    0,
+  );
+  const amountLeftAfterOverrides = Math.max(
+    0,
+    remainingAmount - fixedOverrideTotal,
+  );
   const targetPlan =
     item.savingMode === "CUSTOM_SCHEDULE"
       ? buildGuaranteedAnnualSavingSchedule({
-          remainingAmount,
+          remainingAmount: amountLeftAfterOverrides,
           monthKeys: targetMonthKeys,
           rates: item.savingRates ?? [],
         })
       : {
           schedule: allocateAnnualSavingByMonth({
-            remainingAmount,
+            remainingAmount: amountLeftAfterOverrides,
             monthKeys: targetMonthKeys,
           }).map((month) => ({
             ...month,
             isCustomRate: false,
             isCatchUpAdjustment: false,
           })),
-          targetShortfall: targetMonthKeys.length > 0 ? 0 : remainingAmount,
-          isTargetSecured: remainingAmount === 0 || targetMonthKeys.length > 0,
+          targetShortfall:
+            targetMonthKeys.length > 0 ? 0 : amountLeftAfterOverrides,
+          isTargetSecured:
+            amountLeftAfterOverrides === 0 || targetMonthKeys.length > 0,
         };
+  const calculatedAmounts = new Map(
+    targetPlan.schedule.map((month) => [month.monthKey, month]),
+  );
+  const combinedSchedule = allTargetMonthKeys.map((monthKey) => {
+    if (overrideAmounts.has(monthKey)) {
+      return {
+        monthKey,
+        amount: overrideAmounts.get(monthKey) ?? 0,
+        isCustomRate: false,
+        isCatchUpAdjustment: false,
+        isMonthlyOverride: true,
+      };
+    }
+
+    return {
+      ...calculatedAmounts.get(monthKey)!,
+      isMonthlyOverride: false,
+    };
+  });
   const recommendedMonthlyAmount =
-    targetPlan.schedule.find((month) => month.monthKey === currentMonthKey)
+    combinedSchedule.find((month) => month.monthKey === currentMonthKey)
       ?.amount ??
     (item.savingMode === "CUSTOM_SCHEDULE" && currentMonthKey > item.dueMonth
       ? effectiveAnnualSavingRate(item.savingRates ?? [], currentMonthKey)

@@ -146,6 +146,7 @@ export async function exportHouseholdDataForUser(userId: string) {
       recurrence: item.recurrence,
       savingMode: item.savingMode,
       firstPersonSharePercent: item.firstPersonSharePercent,
+      singleMonthOnly: item.singleMonthOnly,
       savingRates: item.savingRates.map((rate) => ({
         startMonth: rate.startMonth,
         endMonth: rate.endMonth,
@@ -461,6 +462,7 @@ export async function importHouseholdDataForUser(userId: string, rawJson: string
             recurrence: importedItem.recurrence ?? "ONE_TIME",
             savingMode: importedItem.savingMode ?? "TARGET_BY_DATE",
             firstPersonSharePercent: importedItem.firstPersonSharePercent ?? 50,
+            singleMonthOnly: importedItem.singleMonthOnly ?? false,
             isArchived: importedItem.isArchived,
             updatedByUserId: userId,
             entries: {

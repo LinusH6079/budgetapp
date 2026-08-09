@@ -372,6 +372,66 @@ export async function upsertExpenseForUser(input: {
   });
 }
 
+export async function updateAnnualSavingExpenseAmountForUser(input: {
+  actorUserId: string;
+  monthId: string;
+  expenseId: string;
+  amount: number;
+}) {
+  const month = await requireExpenseAccess(input.actorUserId, input.monthId);
+  assertMonthEditable(month.isLocked);
+  const expense = await requireExpenseInMonth(input.expenseId, input.monthId);
+
+  if (
+    expense.origin !== ExpenseOrigin.ANNUAL_SAVING ||
+    !expense.annualBudgetItemId
+  ) {
+    throw new Error("Endast automatiskt årssparande kan justeras här.");
+  }
+
+  if (
+    expense.isPaid ||
+    expense.firstPersonPaidAt ||
+    expense.secondPersonPaidAt
+  ) {
+    throw new Error("Markera sparandet som obetalt innan beloppet ändras.");
+  }
+
+  return db.$transaction(async (tx) => {
+    await tx.annualSavingOverride.upsert({
+      where: {
+        budgetMonthId_annualBudgetItemId: {
+          budgetMonthId: input.monthId,
+          annualBudgetItemId: expense.annualBudgetItemId!,
+        },
+      },
+      create: {
+        budgetMonthId: input.monthId,
+        annualBudgetItemId: expense.annualBudgetItemId!,
+        amount: input.amount,
+        createdByUserId: input.actorUserId,
+      },
+      update: {
+        amount: input.amount,
+        createdByUserId: input.actorUserId,
+      },
+    });
+
+    await tx.annualBudgetItem.update({
+      where: { id: expense.annualBudgetItemId! },
+      data: { updatedByUserId: input.actorUserId },
+    });
+
+    await syncAutomaticAnnualSavingExpenses({
+      tx,
+      householdId: month.householdId,
+      actorUserId: input.actorUserId,
+    });
+
+    return tx.expense.findUnique({ where: { id: input.expenseId } });
+  }, { maxWait: 5_000, timeout: 20_000 });
+}
+
 export async function deleteExpenseForUser(input: {
   actorUserId: string;
   monthId: string;
@@ -408,9 +468,11 @@ export async function deleteExpenseForUser(input: {
         create: {
           budgetMonthId: input.monthId,
           annualBudgetItemId: expense.annualBudgetItemId,
+          amount: 0,
           createdByUserId: input.actorUserId,
         },
         update: {
+          amount: 0,
           createdByUserId: input.actorUserId,
         },
       });
@@ -451,7 +513,7 @@ export async function deleteExpenseForUser(input: {
     });
 
     return deletedExpense;
-  });
+  }, { maxWait: 5_000, timeout: 20_000 });
 }
 
 export async function setExpensePaidStateForUser(input: {

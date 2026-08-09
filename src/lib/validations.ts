@@ -281,6 +281,10 @@ export const annualBudgetItemSchema = z.object({
     .max(100)
     .refine((value) => value % 5 === 0, "Fördelningen måste anges i steg om 5 %.")
     .default(50),
+  singleMonthOnly: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .default("false"),
   initialSavingMonth: z
     .string()
     .optional()
@@ -425,6 +429,15 @@ export const expenseSchema = z.object({
   annualBudgetItemId: z.string().cuid().optional().or(z.literal("")),
 });
 
+export const annualSavingExpenseOverrideSchema = z.object({
+  monthId: z.string().cuid(),
+  expenseId: z.string().cuid(),
+  amount: moneyField.refine(
+    (value) => value > 0,
+    "Sparbeloppet måste vara större än 0.",
+  ),
+});
+
 export const deleteExpenseSchema = z.object({
   expenseId: z.string().cuid(),
   monthId: z.string().cuid(),
@@ -557,6 +570,7 @@ export const householdImportSchema = z.object({
         recurrence: z.nativeEnum(AnnualBudgetRecurrence).optional(),
         savingMode: z.nativeEnum(AnnualSavingMode).optional(),
         firstPersonSharePercent: z.number().int().min(0).max(100).optional(),
+        singleMonthOnly: z.boolean().optional(),
         isArchived: z.boolean(),
         savingRates: z
           .array(

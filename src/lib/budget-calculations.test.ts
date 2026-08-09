@@ -93,6 +93,33 @@ describe("budget calculations", () => {
     expect(summary.perPerson[1]?.totalExpenses).toBe(15000);
   });
 
+  it("använder den sparade procenten i personsummeringen", () => {
+    const summary = buildMonthSummary({
+      monthKey: "2026-04",
+      orderedMembers,
+      snapshots: [
+        { userId: "u1", incomeAmount: 100000, carryOverAmount: 0 },
+        { userId: "u2", incomeAmount: 100000, carryOverAmount: 0 },
+      ],
+      expenses: [
+        {
+          id: "annual-saving",
+          amount: 20000,
+          category: "Årssparande",
+          planningType: "PLANNED",
+          payerType: "SHARED",
+          firstPersonSharePercent: 70,
+          isPaid: false,
+          dueDate: null,
+        },
+      ],
+    });
+
+    expect(summary.perPerson[0]?.totalExpenses).toBe(14000);
+    expect(summary.perPerson[1]?.totalExpenses).toBe(6000);
+    expect(summary.perPerson[0]?.totalExpenses + summary.perPerson[1]?.totalExpenses).toBe(20000);
+  });
+
   it("räknar en gemensam utgift delvis betald per person", () => {
     const summary = buildMonthSummary({
       monthKey: "2026-04",
@@ -132,5 +159,14 @@ describe("expensePartAmount", () => {
       expensePartAmount(10001, "FIRST_PERSON") +
         expensePartAmount(10001, "SECOND_PERSON"),
     ).toBe(10001);
+  });
+
+  it("splits shared amounts using a custom first-person percentage", () => {
+    expect(expensePartAmount(10_000, "FIRST_PERSON", 70)).toBe(7_000);
+    expect(expensePartAmount(10_000, "SECOND_PERSON", 70)).toBe(3_000);
+    expect(
+      expensePartAmount(10_001, "FIRST_PERSON", 65) +
+        expensePartAmount(10_001, "SECOND_PERSON", 65),
+    ).toBe(10_001);
   });
 });

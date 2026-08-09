@@ -641,6 +641,7 @@ export async function settleExpensesWithSwishForUser(input: {
           totalAmount += expensePartAmount(
             state.expense.amount,
             PayerType.FIRST_PERSON,
+            state.expense.firstPersonSharePercent ?? 50,
           );
         } else {
           if (state.secondPersonPaidAt) {
@@ -651,6 +652,7 @@ export async function settleExpensesWithSwishForUser(input: {
           totalAmount += expensePartAmount(
             state.expense.amount,
             PayerType.SECOND_PERSON,
+            state.expense.firstPersonSharePercent ?? 50,
           );
         }
       } else {
@@ -817,6 +819,7 @@ export async function getExpensesBySwishIdForUser(input: {
         settlementAmount: expensePartAmount(
           expense.amount,
           firstMatches ? PayerType.FIRST_PERSON : PayerType.SECOND_PERSON,
+          expense.firstPersonSharePercent ?? 50,
         ),
         settlementPayerType: firstMatches
           ? PayerType.FIRST_PERSON

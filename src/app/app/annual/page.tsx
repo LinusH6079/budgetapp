@@ -97,6 +97,7 @@ export default async function AnnualBudgetPage({
             <AnnualBudgetForm
               defaultDueMonth={dueMonth}
               defaultStartMonth={startMonth}
+              memberOptions={memberOptions}
             />
           </ModalLauncher>
         </div>

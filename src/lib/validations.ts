@@ -201,6 +201,7 @@ export const scenarioExpenseSchema = z.object({
   category: z.string().trim().min(1, "Kategori krävs.").max(50, "Kategorin är för lång."),
   expenseType: z.nativeEnum(ExpenseType),
   payerType: z.nativeEnum(PayerType),
+  firstPersonSharePercent: z.number().int().min(0).max(100).nullable().optional(),
 });
 
 export const deleteScenarioExpenseSchema = z.object({
@@ -273,6 +274,13 @@ export const annualBudgetItemSchema = z.object({
   category: z.string().trim().max(50, "Kategorin är för lång."),
   recurrence: z.nativeEnum(AnnualBudgetRecurrence),
   savingMode: z.nativeEnum(AnnualSavingMode),
+  firstPersonSharePercent: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(100)
+    .refine((value) => value % 5 === 0, "Fördelningen måste anges i steg om 5 %.")
+    .default(50),
   initialSavingMonth: z
     .string()
     .optional()
@@ -484,6 +492,7 @@ const importExpenseSchema = z.object({
   origin: z.nativeEnum(ExpenseOrigin).optional(),
   planningType: z.nativeEnum(PlanningType),
   payerType: z.nativeEnum(PayerType),
+  firstPersonSharePercent: z.number().int().min(0).max(100).nullable().optional(),
   dueDate: z.string().nullable(),
   isPaid: z.boolean(),
   paidAt: z.string().nullable(),
@@ -547,6 +556,7 @@ export const householdImportSchema = z.object({
         category: z.string().nullable(),
         recurrence: z.nativeEnum(AnnualBudgetRecurrence).optional(),
         savingMode: z.nativeEnum(AnnualSavingMode).optional(),
+        firstPersonSharePercent: z.number().int().min(0).max(100).optional(),
         isArchived: z.boolean(),
         savingRates: z
           .array(
@@ -638,6 +648,7 @@ export const householdImportSchema = z.object({
       sourceOrigin: z.nativeEnum(ExpenseOrigin),
       planningType: z.nativeEnum(PlanningType),
       payerType: z.nativeEnum(PayerType),
+      firstPersonSharePercent: z.number().int().min(0).max(100).nullable().optional(),
       dueDate: z.string().nullable(),
       isSystemGenerated: z.boolean(),
     })),

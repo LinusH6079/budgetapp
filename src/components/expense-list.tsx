@@ -24,6 +24,7 @@ type ExpenseListProps = {
     expenseType: "RECURRING" | "ONE_TIME";
     origin: "STANDARD" | "ANNUAL_SAVING" | "LOAN_PAYMENT" | "LOAN_EXTRA_PAYMENT" | "FINANCING_CASH";
     payerType: PayerType;
+    firstPersonSharePercent: number | null;
     dueDate: Date | null;
     isPaid: boolean;
     paidAt: Date | null;
@@ -148,7 +149,11 @@ export function ExpenseList({
       return sum + expense.amount;
     }
 
-    return sum + expensePartAmount(expense.amount, selection.targetPayerType);
+    return sum + expensePartAmount(
+      expense.amount,
+      selection.targetPayerType,
+      expense.firstPersonSharePercent ?? 50,
+    );
   }, 0);
   const selectableExpenseCount = visibleExpenses.reduce((count, expense) => {
     if (expense.payerType !== PayerType.SHARED) {

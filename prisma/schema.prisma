@@ -159,6 +159,7 @@ model ScenarioExpense {
   sourceOrigin      ExpenseOrigin  @default(STANDARD)
   planningType      PlanningType   @default(PLANNED)
   payerType         PayerType
+  firstPersonSharePercent Int?
   dueDate           DateTime?
   isSystemGenerated Boolean        @default(false)
   createdAt         DateTime       @default(now())
@@ -284,6 +285,7 @@ model AnnualBudgetItem {
   category         String?
   recurrence       AnnualBudgetRecurrence @default(ONE_TIME)
   savingMode       AnnualSavingMode       @default(TARGET_BY_DATE)
+  firstPersonSharePercent Int              @default(50)
   isArchived       Boolean                @default(false)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
@@ -461,6 +463,7 @@ model Expense {
   origin                   ExpenseOrigin         @default(STANDARD)
   planningType             PlanningType          @default(PLANNED)
   payerType                PayerType
+  firstPersonSharePercent  Int?
   dueDate                  DateTime?
   isPaid                   Boolean               @default(false)
   paidAt                   DateTime?

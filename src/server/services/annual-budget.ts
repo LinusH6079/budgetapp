@@ -106,13 +106,15 @@ export async function getAnnualBudgetForUser(
     return null;
   }
 
-  await db.$transaction((tx) =>
-    syncAutomaticAnnualSavingExpenses({
-      tx,
-      householdId: household.id,
-      actorUserId: userId,
-      now,
-    }),
+  await db.$transaction(
+    (tx) =>
+      syncAutomaticAnnualSavingExpenses({
+        tx,
+        householdId: household.id,
+        actorUserId: userId,
+        now,
+      }),
+    { maxWait: 5_000, timeout: 20_000 },
   );
 
   const items = await db.annualBudgetItem.findMany({
@@ -219,6 +221,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
   category: string;
   recurrence: AnnualBudgetRecurrence;
   savingMode: AnnualSavingMode;
+  firstPersonSharePercent: number;
   initialSavingMonth?: string | null;
   initialSavingEndMonth?: string | null;
   initialMonthlyAmount?: number | null;
@@ -237,6 +240,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
     category: input.category || null,
     recurrence: input.recurrence,
     savingMode: input.savingMode,
+    firstPersonSharePercent: input.firstPersonSharePercent,
     updatedByUserId: input.actorUserId,
   };
 
@@ -269,7 +273,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
         actorUserId: input.actorUserId,
       });
       return createdItem;
-    });
+    }, { maxWait: 5_000, timeout: 20_000 });
   }
 
   const item = await requireAnnualItemAccess(
@@ -320,7 +324,7 @@ export async function upsertAnnualBudgetItemForUser(input: {
       actorUserId: input.actorUserId,
     });
     return updatedItem;
-  });
+  }, { maxWait: 5_000, timeout: 20_000 });
 }
 
 export async function addAnnualContributionForUser(input: {

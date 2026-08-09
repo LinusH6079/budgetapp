@@ -6,6 +6,7 @@ export type BudgetExpenseLike = {
   category: string;
   planningType: PlanningType;
   payerType: PayerType;
+  firstPersonSharePercent?: number | null;
   isPaid: boolean;
   firstPersonPaidAt?: Date | null;
   secondPersonPaidAt?: Date | null;
@@ -23,13 +24,17 @@ export type PersonSlot = "FIRST_PERSON" | "SECOND_PERSON";
 export function expensePartAmount(
   amount: number,
   payerType?: PersonSlot,
+  firstPersonSharePercent = 50,
 ) {
   if (!payerType) {
     return amount;
   }
 
-  const firstHalf = Math.floor(amount / 2);
-  return payerType === "FIRST_PERSON" ? firstHalf : amount - firstHalf;
+  const normalizedFirstShare = Math.min(100, Math.max(0, firstPersonSharePercent));
+  const firstPersonAmount = Math.floor((amount * normalizedFirstShare) / 100);
+  return payerType === "FIRST_PERSON"
+    ? firstPersonAmount
+    : amount - firstPersonAmount;
 }
 
 export type OrderedMember = {
@@ -62,20 +67,20 @@ export type PersonSummary = {
   unexplainedDifferenceFromPreviousMonth?: number | null;
 };
 
-function amountForPerson(payerType: PayerType, amount: number, slot: PersonSlot) {
-  if (payerType === PayerType.SHARED) {
-    if (slot === "FIRST_PERSON") {
-      return Math.floor(amount / 2);
-    }
-
-    return amount - Math.floor(amount / 2);
+function amountForPerson(expense: BudgetExpenseLike, slot: PersonSlot) {
+  if (expense.payerType === PayerType.SHARED) {
+    return expensePartAmount(
+      expense.amount,
+      slot,
+      expense.firstPersonSharePercent ?? 50,
+    );
   }
 
-  if (payerType === PayerType.FIRST_PERSON) {
-    return slot === "FIRST_PERSON" ? amount : 0;
+  if (expense.payerType === PayerType.FIRST_PERSON) {
+    return slot === "FIRST_PERSON" ? expense.amount : 0;
   }
 
-  return slot === "SECOND_PERSON" ? amount : 0;
+  return slot === "SECOND_PERSON" ? expense.amount : 0;
 }
 
 function isPaidForPerson(expense: BudgetExpenseLike, slot: PersonSlot) {
@@ -100,7 +105,7 @@ function paidAmount(expense: BudgetExpenseLike) {
   return (["FIRST_PERSON", "SECOND_PERSON"] as const).reduce(
     (sum, slot) =>
       isPaidForPerson(expense, slot)
-        ? sum + amountForPerson(expense.payerType, expense.amount, slot)
+        ? sum + amountForPerson(expense, slot)
         : sum,
     0,
   );
@@ -182,10 +187,10 @@ export function perPersonTotals(input: BudgetComputationInput): PersonSummary[] 
         return sum;
       }
 
-      return sum + amountForPerson(expense.payerType, expense.amount, member.slot);
+      return sum + amountForPerson(expense, member.slot);
     }, 0);
     const totalExpenses = input.expenses.reduce(
-      (sum, expense) => sum + amountForPerson(expense.payerType, expense.amount, member.slot),
+      (sum, expense) => sum + amountForPerson(expense, member.slot),
       0,
     );
     const paidExpenses = input.expenses.reduce((sum, expense) => {
@@ -193,7 +198,7 @@ export function perPersonTotals(input: BudgetComputationInput): PersonSummary[] 
         return sum;
       }
 
-      return sum + amountForPerson(expense.payerType, expense.amount, member.slot);
+      return sum + amountForPerson(expense, member.slot);
     }, 0);
     const available = income + carryOver;
     const nextCarry = nextSnapshot?.carryOverAmount ?? null;

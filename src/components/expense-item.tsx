@@ -21,6 +21,7 @@ type ExpenseItemProps = {
     expenseType: "RECURRING" | "ONE_TIME";
     origin: "STANDARD" | "ANNUAL_SAVING" | "LOAN_PAYMENT" | "LOAN_EXTRA_PAYMENT" | "FINANCING_CASH";
     payerType: PayerType;
+    firstPersonSharePercent: number | null;
     dueDate: Date | null;
     isPaid: boolean;
     paidAt: Date | null;
@@ -145,10 +146,14 @@ export function ExpenseItem({
     const parts = [
       formatShortDate(expense.dueDate),
       expense.category,
-      payerLabels[expense.payerType],
+      expense.payerType === PayerType.SHARED &&
+      expense.firstPersonSharePercent !== null &&
+      expense.firstPersonSharePercent !== 50
+        ? `${memberOptions[0]?.label ?? "Person 1"} ${expense.firstPersonSharePercent}% / ${memberOptions[1]?.label ?? "Person 2"} ${100 - expense.firstPersonSharePercent}%`
+        : payerLabels[expense.payerType],
       expense.annualBudgetItem
         ? expense.origin === "ANNUAL_SAVING"
-          ? `Automatiskt årssparande · ${expense.annualBudgetItem.name}`
+          ? "Årssparande"
           : `Sparar till ${expense.annualBudgetItem.name}`
         : null,
       expense.origin === "LOAN_PAYMENT"
@@ -167,6 +172,7 @@ export function ExpenseItem({
     expense.dueDate,
     expense.origin,
     expense.payerType,
+    expense.firstPersonSharePercent,
     expense.annualBudgetItem,
     optimisticFirstPaidAt,
     optimisticPaid,
@@ -174,6 +180,7 @@ export function ExpenseItem({
     optimisticSecondPaidAt,
     optimisticSwishId,
     payerLabels,
+    memberOptions,
   ]);
 
   const applyConfirmedPaidState = () => {
@@ -388,7 +395,11 @@ export function ExpenseItem({
         } ${disabled ? "opacity-55" : ""}`}
         aria-label={`${selected ? "Ta bort" : "Lägg till"} ${member?.label ?? "person"}s halva`}
         title={`${member?.label ?? "Person"} · ${formatCurrency(
-          expensePartAmount(expense.amount, payerType),
+          expensePartAmount(
+            expense.amount,
+            payerType,
+            expense.firstPersonSharePercent ?? 50,
+          ),
         )}`}
       >
         {initial}

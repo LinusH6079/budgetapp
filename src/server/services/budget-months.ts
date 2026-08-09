@@ -18,6 +18,7 @@ type RecurringExpenseSource = {
   origin: ExpenseOrigin;
   planningType: "PLANNED" | "UNPLANNED";
   payerType: "FIRST_PERSON" | "SECOND_PERSON" | "SHARED";
+  firstPersonSharePercent?: number | null;
   dueDate: Date | null;
   note: string | null;
 };
@@ -49,6 +50,7 @@ export function buildRecurringExpenseCopyData(
     origin: "STANDARD" as const,
     planningType: expense.planningType,
     payerType: expense.payerType,
+    firstPersonSharePercent: expense.firstPersonSharePercent ?? null,
     dueDate: dueDateForMonth(expense.dueDate, targetMonthKey),
     isPaid: false,
     paidAt: null,

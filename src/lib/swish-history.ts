@@ -4,6 +4,7 @@ export type SwishHistoryExpense = {
   id: string;
   amount: number;
   payerType: "FIRST_PERSON" | "SECOND_PERSON" | "SHARED";
+  firstPersonSharePercent?: number | null;
   swishId: string | null;
   firstPersonSwishId: string | null;
   secondPersonSwishId: string | null;
@@ -81,7 +82,11 @@ export function buildSwishHistory(
       addReference({
         expense,
         swishId: expense.firstPersonSwishId,
-        amount: expensePartAmount(expense.amount, "FIRST_PERSON"),
+        amount: expensePartAmount(
+          expense.amount,
+          "FIRST_PERSON",
+          expense.firstPersonSharePercent ?? 50,
+        ),
         partCount: 1,
       });
     }
@@ -90,7 +95,11 @@ export function buildSwishHistory(
       addReference({
         expense,
         swishId: expense.secondPersonSwishId,
-        amount: expensePartAmount(expense.amount, "SECOND_PERSON"),
+        amount: expensePartAmount(
+          expense.amount,
+          "SECOND_PERSON",
+          expense.firstPersonSharePercent ?? 50,
+        ),
         partCount: 1,
       });
     }

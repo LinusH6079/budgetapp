@@ -76,6 +76,7 @@ export async function syncAutomaticAnnualSavingExpenses({
             category: true,
             expenseType: true,
             payerType: true,
+            firstPersonSharePercent: true,
             isPaid: true,
             firstPersonPaidAt: true,
             secondPersonPaidAt: true,
@@ -95,9 +96,17 @@ export async function syncAutomaticAnnualSavingExpenses({
 
   const activeItemIds = new Set(items.map((item) => item.id));
   const retainedExpenseIds = new Set<string>();
-  const payerType = memberCount >= 2 ? PayerType.SHARED : PayerType.FIRST_PERSON;
 
   for (const item of items) {
+    const firstPersonSharePercent = memberCount >= 2
+      ? item.firstPersonSharePercent
+      : 100;
+    const payerType =
+      firstPersonSharePercent === 100
+        ? PayerType.FIRST_PERSON
+        : firstPersonSharePercent === 0
+          ? PayerType.SECOND_PERSON
+          : PayerType.SHARED;
     const overriddenMonthKeys = new Set(
       item.savingOverrides.map((override) => override.budgetMonth.monthKey),
     );
@@ -187,13 +196,14 @@ export async function syncAutomaticAnnualSavingExpenses({
       }
 
       const data = {
-        name: `Spara till ${item.name}`,
+        name: item.name,
         amount,
         category: "Årssparande",
         expenseType: ExpenseType.ONE_TIME,
         origin: ExpenseOrigin.ANNUAL_SAVING,
         planningType: PlanningType.PLANNED,
         payerType,
+        firstPersonSharePercent,
         dueDate: null,
         note: null,
         annualBudgetItemId: item.id,
@@ -208,6 +218,7 @@ export async function syncAutomaticAnnualSavingExpenses({
           existingExpense.category !== data.category ||
           existingExpense.expenseType !== data.expenseType ||
           existingExpense.payerType !== data.payerType ||
+          existingExpense.firstPersonSharePercent !== data.firstPersonSharePercent ||
           existingExpenses.length > 1
         ) {
           await tx.expense.update({
@@ -261,6 +272,7 @@ export async function syncAutomaticAnnualSavingExpenses({
                 origin: data.origin,
                 planningType: data.planningType,
                 payerType: data.payerType,
+                firstPersonSharePercent: data.firstPersonSharePercent,
                 dueDate: data.dueDate,
                 note: data.note,
                 budgetMonth: {

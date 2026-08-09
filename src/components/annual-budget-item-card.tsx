@@ -24,6 +24,7 @@ type AnnualBudgetItemCardProps = {
     category: string | null;
     recurrence: "ONE_TIME" | "YEARLY";
     savingMode: "TARGET_BY_DATE" | "CUSTOM_SCHEDULE";
+    firstPersonSharePercent: number;
     savingRates: Array<{
       id: string;
       startMonth: string;
@@ -90,6 +91,9 @@ export function AnnualBudgetItemCard({
             {formatMonthLabel(item.dueMonth)}
             {item.recurrence === "YEARLY" ? " · Varje år" : ""}
             {item.savingMode === "CUSTOM_SCHEDULE" ? " · Flexibel plan" : ""}
+          </p>
+          <p className="mt-0.5 text-[10px] text-[var(--color-muted)]">
+            {memberOptions[0]?.label ?? "Person 1"} {item.firstPersonSharePercent}% · {memberOptions[1]?.label ?? "Person 2"} {100 - item.firstPersonSharePercent}%
           </p>
           {item.savingMode === "CUSTOM_SCHEDULE" ? (
             <div className="mt-1 grid gap-0.5 text-[10px]">
@@ -184,6 +188,7 @@ export function AnnualBudgetItemCard({
               defaultDueMonth={defaultDueMonth}
               defaultStartMonth={defaultStartMonth}
               item={item}
+              memberOptions={memberOptions}
             />
 
             {item.savingMode === "CUSTOM_SCHEDULE" ? (

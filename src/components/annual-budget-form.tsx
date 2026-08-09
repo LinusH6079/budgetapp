@@ -18,17 +18,29 @@ type AnnualBudgetFormProps = {
     category: string | null;
     recurrence: "ONE_TIME" | "YEARLY";
     savingMode: "TARGET_BY_DATE" | "CUSTOM_SCHEDULE";
+    firstPersonSharePercent: number;
   };
+  memberOptions: Array<{
+    label: string;
+    value: "FIRST_PERSON" | "SECOND_PERSON";
+  }>;
 };
 
 export function AnnualBudgetForm({
   defaultDueMonth,
   defaultStartMonth,
   item,
+  memberOptions,
 }: AnnualBudgetFormProps) {
   const [savingMode, setSavingMode] = useState<
     "TARGET_BY_DATE" | "CUSTOM_SCHEDULE"
   >(item?.savingMode ?? "TARGET_BY_DATE");
+  const defaultFirstPersonShare = item?.firstPersonSharePercent ?? 50;
+  const [secondPersonShare, setSecondPersonShare] = useState(
+    100 - defaultFirstPersonShare,
+  );
+  const firstPersonName = memberOptions[0]?.label ?? "Person 1";
+  const secondPersonName = memberOptions[1]?.label ?? "Person 2";
 
   return (
     <form action={saveAnnualBudgetItemAction} className="grid gap-3">
@@ -43,6 +55,34 @@ export function AnnualBudgetForm({
           required
         />
       </label>
+
+      <div className="rounded-[16px] border border-[var(--color-line)] bg-white/[0.025] p-3">
+        <input
+          type="hidden"
+          name="firstPersonSharePercent"
+          value={100 - secondPersonShare}
+        />
+        <div className="flex items-center justify-between gap-3 text-xs font-medium">
+          <span className="min-w-0 truncate">{firstPersonName} {100 - secondPersonShare}%</span>
+          <span className="min-w-0 truncate text-right">{secondPersonName} {secondPersonShare}%</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="5"
+          value={secondPersonShare}
+          onChange={(event) => setSecondPersonShare(Number(event.target.value))}
+          aria-label={`Fördelning mellan ${firstPersonName} och ${secondPersonName}`}
+          className="mt-3 h-2 w-full cursor-pointer touch-manipulation"
+          style={{ accentColor: "var(--color-accent-strong)" }}
+        />
+        <div className="mt-1.5 flex justify-between text-[9px] text-[var(--color-muted)]">
+          <span>100% {firstPersonName}</span>
+          <span>50/50</span>
+          <span>100% {secondPersonName}</span>
+        </div>
+      </div>
 
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">Målbelopp</span>

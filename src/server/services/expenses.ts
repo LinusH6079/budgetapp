@@ -248,23 +248,25 @@ export async function upsertExpenseForUser(input: {
 }) {
   const month = await requireExpenseAccess(input.actorUserId, input.monthId);
   assertMonthEditable(month.isLocked);
+  const existingExpense = input.expenseId
+    ? await requireExpenseInMonth(input.expenseId, input.monthId)
+    : null;
+
+  if (existingExpense?.origin === ExpenseOrigin.ANNUAL_SAVING) {
+    throw new Error("Automatiskt årssparande justeras från årsbudgeten.");
+  }
+  if (
+    existingExpense?.origin === ExpenseOrigin.LOAN_PAYMENT ||
+    existingExpense?.origin === ExpenseOrigin.LOAN_EXTRA_PAYMENT
+  ) {
+    throw new Error("Låneutgiften justeras från Lån & finansiering.");
+  }
+
+  const shouldSyncAnnualSavings = Boolean(
+    input.annualBudgetItemId || existingExpense?.annualBudgetItemId,
+  );
 
   return db.$transaction(async (tx) => {
-    let existingExpense = null;
-
-    if (input.expenseId) {
-      existingExpense = await requireExpenseInMonth(input.expenseId, input.monthId);
-      if (existingExpense.origin === ExpenseOrigin.ANNUAL_SAVING) {
-        throw new Error("Automatiskt årssparande justeras från årsbudgeten.");
-      }
-      if (
-        existingExpense.origin === ExpenseOrigin.LOAN_PAYMENT ||
-        existingExpense.origin === ExpenseOrigin.LOAN_EXTRA_PAYMENT
-      ) {
-        throw new Error("Låneutgiften justeras från Lån & finansiering.");
-      }
-    }
-
     if (input.annualBudgetItemId) {
       await assertAnnualBudgetItemAvailable({
         tx,
@@ -348,28 +350,37 @@ export async function upsertExpenseForUser(input: {
           },
         });
 
-    await syncExpenseAnnualContribution({
-      tx,
-      actorUserId: input.actorUserId,
-      householdId: month.householdId,
-      expense,
-    });
+    if (shouldSyncAnnualSavings) {
+      await syncExpenseAnnualContribution({
+        tx,
+        actorUserId: input.actorUserId,
+        householdId: month.householdId,
+        expense,
+      });
+    }
 
-    await syncRecurringExpenseToNextMonth({
-      tx,
-      actorUserId: input.actorUserId,
-      sourceMonth: month,
-      sourceExpense: expense,
-    });
+    if (
+      input.expenseType === "RECURRING" ||
+      existingExpense?.expenseType === "RECURRING"
+    ) {
+      await syncRecurringExpenseToNextMonth({
+        tx,
+        actorUserId: input.actorUserId,
+        sourceMonth: month,
+        sourceExpense: expense,
+      });
+    }
 
-    await syncAutomaticAnnualSavingExpenses({
-      tx,
-      householdId: month.householdId,
-      actorUserId: input.actorUserId,
-    });
+    if (shouldSyncAnnualSavings) {
+      await syncAutomaticAnnualSavingExpenses({
+        tx,
+        householdId: month.householdId,
+        actorUserId: input.actorUserId,
+      });
+    }
 
     return expense;
-  });
+  }, { maxWait: 5_000, timeout: 20_000 });
 }
 
 export async function updateAnnualSavingExpenseAmountForUser(input: {

@@ -65,7 +65,6 @@ export async function getSpendingPaceForUser(
     cycleStartKey,
     weekStartKey,
     currentWeekAmount,
-    latestCurrentWeekAddition: currentWeekEntries.at(-1)?.amount ?? null,
     weeklyTotals,
     spent,
     remaining: settings ? settings.monthlyLimit - spent : null,
@@ -131,9 +130,9 @@ export async function saveCurrentWeekSpendingForUser(input: {
   });
 }
 
-export async function undoLatestCurrentWeekSpendingForUser(input: {
+export async function deleteSpendingPaceEntryForUser(input: {
   userId: string;
-  now?: Date;
+  entryId: string;
 }) {
   const household = await getHouseholdForUser(input.userId);
 
@@ -141,30 +140,16 @@ export async function undoLatestCurrentWeekSpendingForUser(input: {
     throw new Error("Hushållet hittades inte.");
   }
 
-  const cycle = getPayCycle(input.now);
-  const latestEntry = await db.spendingPaceEntry.findFirst({
+  const result = await db.spendingPaceEntry.deleteMany({
     where: {
+      id: input.entryId,
       householdId: household.id,
-      cycleStartKey: calendarDateKey(cycle.startDate),
-      weekStartKey: calendarDateKey(cycle.weekStartDate),
     },
-    orderBy: [
-      {
-        createdAt: "desc",
-      },
-      {
-        id: "desc",
-      },
-    ],
   });
 
-  if (!latestEntry) {
-    throw new Error("Det finns inget veckobelopp att ångra.");
+  if (result.count === 0) {
+    throw new Error("Utgiften hittades inte.");
   }
 
-  return db.spendingPaceEntry.delete({
-    where: {
-      id: latestEntry.id,
-    },
-  });
+  return result;
 }

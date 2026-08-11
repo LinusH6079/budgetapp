@@ -1,16 +1,16 @@
-import { ArrowRight, RotateCcw, Settings2 } from "lucide-react";
+import { ArrowRight, Settings2 } from "lucide-react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { ModalLauncher } from "@/components/modal-launcher";
 import { PendingLink } from "@/components/pending-link";
 import { SpendingPaceProgress } from "@/components/spending-pace-progress";
+import { SpendingPaceEntryList } from "@/components/spending-pace-entry-list";
 import { formatMonthLabel } from "@/lib/date";
 import { formatEditableAmount, formatCurrency } from "@/lib/money";
 import type { CalendarDate } from "@/lib/pay-cycle";
 import {
   saveCurrentWeekSpendingAction,
   saveSpendingPaceSettingsAction,
-  undoLatestCurrentWeekSpendingAction,
 } from "@/server/actions/spending-pace-actions";
 
 type SpendingPaceCardProps = {
@@ -25,6 +25,12 @@ type SpendingPaceCardProps = {
     weeklyTotals: Array<{
       weekStartKey: string;
       amount: number;
+    }>;
+    entries: Array<{
+      id: string;
+      amount: number;
+      weekStartKey: string;
+      createdAt: Date;
     }>;
     cycle: {
       startDate: CalendarDate;
@@ -44,7 +50,6 @@ type SpendingPaceCardProps = {
       }>;
     };
     currentWeekAmount: number;
-    latestCurrentWeekAddition: number | null;
     spent: number;
     remaining: number | null;
     weekRemaining: number | null;
@@ -282,20 +287,14 @@ export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
               </FormStatusButton>
             </form>
 
-            {data.latestCurrentWeekAddition !== null ? (
-              <form
-                action={undoLatestCurrentWeekSpendingAction}
-                className="mt-2"
-              >
-                <FormStatusButton
-                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-[var(--color-muted)] transition-colors hover:bg-white/5 hover:text-white"
-                  pendingLabel="Ångrar..."
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Ångra senaste +{formatCurrency(data.latestCurrentWeekAddition)}
-                </FormStatusButton>
-              </form>
-            ) : null}
+            <SpendingPaceEntryList
+              entries={data.entries.map((entry) => ({
+                id: entry.id,
+                amount: entry.amount,
+                weekStartKey: entry.weekStartKey,
+                createdAt: entry.createdAt.toISOString(),
+              }))}
+            />
 
             {data.weeklyTotals.length > 0 ? (
               <div className="mt-3 flex gap-1.5 overflow-x-auto no-scrollbar">

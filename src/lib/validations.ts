@@ -254,6 +254,10 @@ export const spendingPaceEntrySchema = z.object({
   ),
 });
 
+export const spendingPaceEntryDeleteSchema = z.object({
+  entryId: z.string().cuid(),
+});
+
 export const annualBudgetItemSchema = z.object({
   itemId: z.string().cuid().optional().or(z.literal("")),
   name: z

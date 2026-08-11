@@ -1,17 +1,20 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { requireUser } from "@/lib/session";
 import {
+  spendingPaceEntryDeleteSchema,
   spendingPaceEntrySchema,
   spendingPaceSettingsSchema,
 } from "@/lib/validations";
 import {
+  deleteSpendingPaceEntryForUser,
   saveCurrentWeekSpendingForUser,
   saveSpendingPaceSettingsForUser,
-  undoLatestCurrentWeekSpendingForUser,
 } from "@/server/services/spending-pace";
 
-import { redirectWithMessage, revalidateBudgetPaths } from "./shared";
+import { redirectWithMessage } from "./shared";
 
 export async function saveSpendingPaceSettingsAction(formData: FormData) {
   const user = await requireUser();
@@ -42,7 +45,7 @@ export async function saveSpendingPaceSettingsAction(formData: FormData) {
     );
   }
 
-  revalidateBudgetPaths("/app");
+  revalidatePath("/app");
   redirectWithMessage("/app", "notice", "Lönebudgeten sparades.");
 }
 
@@ -73,25 +76,36 @@ export async function saveCurrentWeekSpendingAction(formData: FormData) {
     );
   }
 
-  revalidateBudgetPaths("/app");
+  revalidatePath("/app");
   redirectWithMessage("/app", "notice", "Beloppet lades till på veckan.");
 }
 
-export async function undoLatestCurrentWeekSpendingAction() {
+export async function deleteSpendingPaceEntryAction(input: {
+  entryId: string;
+}) {
   const user = await requireUser();
+  const parsed = spendingPaceEntryDeleteSchema.safeParse(input);
 
-  try {
-    await undoLatestCurrentWeekSpendingForUser({
-      userId: user.id,
-    });
-  } catch (error) {
-    redirectWithMessage(
-      "/app",
-      "error",
-      error instanceof Error ? error.message : "Kunde inte ångra beloppet.",
-    );
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      message: "Kunde inte ta bort utgiften.",
+    };
   }
 
-  revalidateBudgetPaths("/app");
-  redirectWithMessage("/app", "notice", "Senaste veckobeloppet ångrades.");
+  try {
+    await deleteSpendingPaceEntryForUser({
+      userId: user.id,
+      entryId: parsed.data.entryId,
+    });
+    revalidatePath("/app");
+
+    return { ok: true as const };
+  } catch (error) {
+    return {
+      ok: false as const,
+      message:
+        error instanceof Error ? error.message : "Kunde inte ta bort utgiften.",
+    };
+  }
 }

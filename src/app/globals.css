@@ -86,6 +86,26 @@ button {
   @apply transition;
 }
 
+button:not(:disabled):active,
+.touch-feedback:active,
+.pending-link:active {
+  transform: scale(0.97);
+}
+
+.pending-link {
+  transition-property: color, background-color, border-color, opacity, transform;
+  transition-duration: 140ms;
+}
+
+.pending-link[data-pending="true"] {
+  cursor: progress;
+  opacity: 0.64;
+}
+
+.tab-panel-enter {
+  animation: tab-panel-enter 150ms ease-out both;
+}
+
 .app-panel {
   @apply rounded-[22px] border bg-[color:var(--color-panel)];
   border-color: rgba(255, 255, 255, 0.08);
@@ -255,5 +275,22 @@ button {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes tab-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel-enter {
+    animation: none;
   }
 }

@@ -145,7 +145,7 @@ export const getMonthPageData = cache(async (userId: string, monthKey: string) =
     return null;
   }
 
-  const [previousMonth, nextMonth, allMonths] = await Promise.all([
+  const [previousMonth, nextMonth] = await Promise.all([
     db.budgetMonth.findUnique({
       where: {
         householdId_monthKey: {
@@ -169,7 +169,6 @@ export const getMonthPageData = cache(async (userId: string, monthKey: string) =
         personSnapshots: true,
       },
     }),
-    getMonthsForUser(userId),
   ]);
 
   const orderedMembers = mapMembersToSlots(household).map((member) => ({
@@ -200,7 +199,6 @@ export const getMonthPageData = cache(async (userId: string, monthKey: string) =
   return {
     household,
     activeMonth,
-    allMonths,
     previousMonth,
     nextMonth,
     summary,

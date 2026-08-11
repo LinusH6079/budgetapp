@@ -4,7 +4,12 @@ type AppLoadingProps = {
 
 export function AppLoading({ blocks = 3 }: AppLoadingProps) {
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[960px] flex-col gap-4 px-4 pb-24 pt-4 sm:px-5 lg:px-8">
+    <div className="viewport-page" role="status" aria-live="polite" aria-label="Laddar innehåll">
+      <div className="flex items-center gap-2 px-1 text-xs font-medium text-[var(--color-muted)]">
+        <span className="spinner" aria-hidden="true" />
+        <span>Laddar innehåll...</span>
+      </div>
+
       <div className="app-panel px-4 py-4 sm:px-5">
         <div className="skeleton h-4 w-24 rounded-full" />
         <div className="mt-3 skeleton h-9 w-52 rounded-2xl" />

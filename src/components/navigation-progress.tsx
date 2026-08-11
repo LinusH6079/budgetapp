@@ -10,6 +10,8 @@ export function NavigationProgress() {
   const [isVisible, setIsVisible] = useState(false);
   const [progress, setProgress] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigationStartedRef = useRef(false);
   const mountedRef = useRef(false);
 
   useEffect(() => {
@@ -17,13 +19,23 @@ export function NavigationProgress() {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
+      }
 
+      navigationStartedRef.current = true;
       setIsVisible(true);
-      setProgress(16);
+      setProgress(12);
 
       intervalRef.current = setInterval(() => {
         setProgress((current) => Math.min(current + Math.random() * 12, 88));
       }, 180);
+
+      fallbackTimeoutRef.current = setTimeout(() => {
+        navigationStartedRef.current = false;
+        setIsVisible(false);
+        setProgress(0);
+      }, 15_000);
     };
 
     window.addEventListener("app:navigation-start", start);
@@ -31,6 +43,9 @@ export function NavigationProgress() {
       window.removeEventListener("app:navigation-start", start);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+      }
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
       }
     };
   }, []);
@@ -41,12 +56,16 @@ export function NavigationProgress() {
       return;
     }
 
-    if (!isVisible) {
+    if (!navigationStartedRef.current) {
       return;
     }
 
+    navigationStartedRef.current = false;
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+    }
+    if (fallbackTimeoutRef.current) {
+      clearTimeout(fallbackTimeoutRef.current);
     }
 
     const frame = window.requestAnimationFrame(() => {
@@ -61,7 +80,7 @@ export function NavigationProgress() {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
-  }, [routeKey, isVisible]);
+  }, [routeKey]);
 
   return (
     <div

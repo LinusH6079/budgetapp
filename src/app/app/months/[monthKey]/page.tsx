@@ -7,12 +7,12 @@ import { ExpenseList } from "@/components/expense-list";
 import { FlashMessage } from "@/components/flash-message";
 import { IncomeCarryOverForm } from "@/components/income-carry-over-form";
 import { ModalLauncher } from "@/components/modal-launcher";
+import { MonthDetailTabs } from "@/components/month-detail-tabs";
 import { MonthNotesCard } from "@/components/month-notes-card";
-import { MonthTabs } from "@/components/month-tabs";
 import { formatCurrency } from "@/lib/money";
 import { requireUser } from "@/lib/session";
-import { getAnnualBudgetForUser } from "@/server/services/annual-budget";
-import { filterExpenseItems, getMonthPageData, sortExpenseItems } from "@/server/services/budget-months";
+import { getAnnualBudgetOptionsForUser } from "@/server/services/annual-budget";
+import { getMonthPageData, sortExpenseItems } from "@/server/services/budget-months";
 import { mapMembersToSlots } from "@/server/services/households";
 
 type MonthTabId = "summary" | "income" | "expenses" | "notes";
@@ -67,9 +67,10 @@ export default async function MonthDetailPage({
   const user = await requireUser();
   const { monthKey } = await params;
   const resolvedSearchParams = await searchParams;
-  // Annual saving rows are synchronized before the month snapshot is read.
-  const annualBudget = await getAnnualBudgetForUser(user.id);
-  const pageData = await getMonthPageData(user.id, monthKey);
+  const [annualBudgetOptions, pageData] = await Promise.all([
+    getAnnualBudgetOptionsForUser(user.id),
+    getMonthPageData(user.id, monthKey),
+  ]);
 
   if (!pageData) {
     notFound();
@@ -94,7 +95,7 @@ export default async function MonthDetailPage({
     category: resolvedSearchParams.category ?? "all",
   };
 
-  const filteredExpenses = sortExpenseItems(filterExpenseItems(pageData.activeMonth.expenses, filters), "amount");
+  const sortedExpenses = sortExpenseItems(pageData.activeMonth.expenses, "amount");
 
   const orderedMembers = mapMembersToSlots(pageData.household);
   const memberOptions = orderedMembers.map((member) => ({
@@ -109,10 +110,6 @@ export default async function MonthDetailPage({
     "SECOND_PERSON"
       ? PayerType.SECOND_PERSON
       : PayerType.FIRST_PERSON;
-  const annualBudgetOptions = (annualBudget?.items ?? []).map((item) => ({
-    id: item.id,
-    name: item.name,
-  }));
   const payerLabels: Record<PayerType, string> = {
     [PayerType.FIRST_PERSON]: memberOptions[0]?.label ?? "Person 1",
     [PayerType.SECOND_PERSON]: memberOptions[1]?.label ?? "Person 2",
@@ -138,17 +135,7 @@ export default async function MonthDetailPage({
     { label: "Alla", status: "all" },
     { label: "Obetalda", status: "unpaid" },
     { label: "Betalda", status: "paid" },
-  ].map((filter) => {
-    const filterQuery = new URLSearchParams(query);
-    filterQuery.set("tab", "expenses");
-    filterQuery.set("status", filter.status);
-
-    return {
-      label: filter.label,
-      href: `/app/months/${monthKey}?${filterQuery.toString()}`,
-      active: filters.status === filter.status,
-    };
-  });
+  ];
 
   const unexplained = pageData.previousSummary?.unexplainedDifferenceFromPreviousMonth ?? null;
   const perPersonAvailable = pageData.summary.perPerson.map((person) => ({
@@ -182,107 +169,122 @@ export default async function MonthDetailPage({
     <div className="viewport-page">
       <FlashMessage notice={resolvedSearchParams.notice} error={resolvedSearchParams.error} />
 
-      <MonthTabs activeTabId={activeTab} tabs={tabs} />
+      <MonthDetailTabs
+        initialActiveTabId={activeTab}
+        tabs={tabs}
+        panels={[
+          {
+            id: "summary",
+            content: (
+              <section className="grid gap-4">
+                <div className="rounded-[20px] bg-[var(--color-elevated)] px-4 py-4">
+                  <p className="eyebrow-label">Kvar just nu</p>
+                  <p className="mt-1 text-[2rem] font-semibold tracking-[-0.05em]">
+                    {formatCurrency(pageData.summary.remainingActual)}
+                  </p>
+                  <SummaryPersonBreakdown items={perPersonRemainingActual} />
+                </div>
 
-      {activeTab === "summary" ? (
-        <section className="grid gap-4">
-          <div className="rounded-[20px] bg-[var(--color-elevated)] px-4 py-4">
-            <p className="eyebrow-label">Kvar just nu</p>
-            <p className="mt-1 text-[2rem] font-semibold tracking-[-0.05em]">
-              {formatCurrency(pageData.summary.remainingActual)}
-            </p>
-            <SummaryPersonBreakdown items={perPersonRemainingActual} />
-          </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="stat-tile">
+                    <p className="eyebrow-label">Tillgängligt</p>
+                    <p className="stat-value">{formatCurrency(pageData.summary.totalAvailable)}</p>
+                    <SummaryPersonBreakdown items={perPersonAvailable} />
+                  </div>
+                  <div className="stat-tile">
+                    <p className="eyebrow-label">Totala utgifter</p>
+                    <p className="stat-value">{formatCurrency(pageData.summary.totalExpenses)}</p>
+                    <SummaryPersonBreakdown items={perPersonExpenses} />
+                  </div>
+                  <div className="stat-tile">
+                    <p className="eyebrow-label">Obetalda</p>
+                    <p className="stat-value">{pageData.summary.unpaidCount} st</p>
+                  </div>
+                  <div className="stat-tile">
+                    <p className="eyebrow-label">Planerat kvar</p>
+                    <p className="stat-value">{formatCurrency(pageData.summary.remainingPlanned)}</p>
+                    <SummaryPersonBreakdown items={perPersonRemainingPlanned} />
+                  </div>
+                  <div className="stat-tile">
+                    <p className="eyebrow-label">Utgifter som ej blev loggade föregående månad</p>
+                    <p className="stat-value">
+                      {unexplained === null ? "Ingen data" : formatCurrency(unexplained)}
+                    </p>
+                    {perPersonUnexplained.length > 0 ? (
+                      <SummaryPersonBreakdown items={perPersonUnexplained} />
+                    ) : null}
+                  </div>
+                </div>
+              </section>
+            ),
+          },
+          {
+            id: "income",
+            content: (
+              <IncomeCarryOverForm
+                monthId={pageData.activeMonth.id}
+                returnTo={returnTo}
+                isLocked={pageData.activeMonth.isLocked}
+                personSnapshots={pageData.activeMonth.personSnapshots}
+              />
+            ),
+          },
+          {
+            id: "expenses",
+            content: (
+              <>
+                <ExpenseList
+                  monthId={pageData.activeMonth.id}
+                  returnTo={returnTo}
+                  isLocked={pageData.activeMonth.isLocked}
+                  expenses={sortedExpenses}
+                  memberOptions={memberOptions}
+                  currentUserPayerType={currentUserPayerType}
+                  annualBudgetOptions={annualBudgetOptions}
+                  payerLabels={payerLabels}
+                  currentFilters={filters}
+                  categories={[...new Set(pageData.activeMonth.expenses.map((expense) => expense.category))].sort(
+                    (a, b) => a.localeCompare(b, "sv"),
+                  )}
+                  quickFilters={quickFilters}
+                />
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="stat-tile">
-              <p className="eyebrow-label">Tillgängligt</p>
-              <p className="stat-value">{formatCurrency(pageData.summary.totalAvailable)}</p>
-              <SummaryPersonBreakdown items={perPersonAvailable} />
-            </div>
-            <div className="stat-tile">
-              <p className="eyebrow-label">Totala utgifter</p>
-              <p className="stat-value">{formatCurrency(pageData.summary.totalExpenses)}</p>
-              <SummaryPersonBreakdown items={perPersonExpenses} />
-            </div>
-            <div className="stat-tile">
-              <p className="eyebrow-label">Obetalda</p>
-              <p className="stat-value">{pageData.summary.unpaidCount} st</p>
-            </div>
-            <div className="stat-tile">
-              <p className="eyebrow-label">Planerat kvar</p>
-              <p className="stat-value">{formatCurrency(pageData.summary.remainingPlanned)}</p>
-              <SummaryPersonBreakdown items={perPersonRemainingPlanned} />
-            </div>
-            <div className="stat-tile">
-              <p className="eyebrow-label">
-                Utgifter som ej blev loggade föregående månad
-              </p>
-              <p className="stat-value">{unexplained === null ? "Ingen data" : formatCurrency(unexplained)}</p>
-              {perPersonUnexplained.length > 0 ? <SummaryPersonBreakdown items={perPersonUnexplained} /> : null}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {activeTab === "income" ? (
-        <IncomeCarryOverForm
-          monthId={pageData.activeMonth.id}
-          returnTo={returnTo}
-          isLocked={pageData.activeMonth.isLocked}
-          personSnapshots={pageData.activeMonth.personSnapshots}
-        />
-      ) : null}
-
-      {activeTab === "expenses" ? (
-        <>
-          <ExpenseList
-            monthId={pageData.activeMonth.id}
-            returnTo={returnTo}
-            isLocked={pageData.activeMonth.isLocked}
-            expenses={filteredExpenses}
-            memberOptions={memberOptions}
-            currentUserPayerType={currentUserPayerType}
-            annualBudgetOptions={annualBudgetOptions}
-            payerLabels={payerLabels}
-            currentFilters={filters}
-            categories={[...new Set(pageData.activeMonth.expenses.map((expense) => expense.category))].sort((a, b) =>
-              a.localeCompare(b, "sv"),
-            )}
-            quickFilters={quickFilters}
-          />
-
-          <ModalLauncher
-            title="Ny utgift"
-            description="Snabb registrering för den här månaden."
-            dialogClassName="sm:max-w-xl"
-            trigger={
-              <span className="floating-action-button">
-                <Plus className="h-6 w-6" />
-              </span>
-            }
-            triggerClassName="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 z-30 sm:right-6 lg:bottom-8"
-          >
-            <ExpenseForm
-              monthId={pageData.activeMonth.id}
-              returnTo={returnTo}
-              isLocked={pageData.activeMonth.isLocked}
-              memberOptions={memberOptions}
-              currentUserPayerType={currentUserPayerType}
-              annualBudgetOptions={annualBudgetOptions}
-            />
-          </ModalLauncher>
-        </>
-      ) : null}
-
-      {activeTab === "notes" ? (
-        <MonthNotesCard
-          monthId={pageData.activeMonth.id}
-          note={pageData.activeMonth.note}
-          returnTo={returnTo}
-          isLocked={pageData.activeMonth.isLocked}
-        />
-      ) : null}
+                <ModalLauncher
+                  title="Ny utgift"
+                  description="Snabb registrering för den här månaden."
+                  dialogClassName="sm:max-w-xl"
+                  trigger={
+                    <span className="floating-action-button">
+                      <Plus className="h-6 w-6" />
+                    </span>
+                  }
+                  triggerClassName="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 z-30 sm:right-6 lg:bottom-8"
+                >
+                  <ExpenseForm
+                    monthId={pageData.activeMonth.id}
+                    returnTo={returnTo}
+                    isLocked={pageData.activeMonth.isLocked}
+                    memberOptions={memberOptions}
+                    currentUserPayerType={currentUserPayerType}
+                    annualBudgetOptions={annualBudgetOptions}
+                  />
+                </ModalLauncher>
+              </>
+            ),
+          },
+          {
+            id: "notes",
+            content: (
+              <MonthNotesCard
+                monthId={pageData.activeMonth.id}
+                note={pageData.activeMonth.note}
+                returnTo={returnTo}
+                isLocked={pageData.activeMonth.isLocked}
+              />
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

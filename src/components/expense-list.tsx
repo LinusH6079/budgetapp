@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 
 import { ExpenseItem } from "@/components/expense-item";
 import { ModalLauncher } from "@/components/modal-launcher";
-import { PendingLink } from "@/components/pending-link";
 import { expensePartAmount } from "@/lib/budget-calculations";
 import { formatCurrency } from "@/lib/money";
 import { settleExpensesWithSwishAction } from "@/server/actions/expense-actions";
@@ -60,8 +59,7 @@ type ExpenseListProps = {
   categories: string[];
   quickFilters: Array<{
     label: string;
-    href: string;
-    active: boolean;
+    status: string;
   }>;
 };
 
@@ -90,6 +88,9 @@ export function ExpenseList({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [activePayers, setActivePayers] = useState<PayerType[]>([]);
+  const [activeStatus, setActiveStatus] = useState(currentFilters.status);
+  const [activeType, setActiveType] = useState(currentFilters.type);
+  const [activeCategory, setActiveCategory] = useState(currentFilters.category);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedParts, setSelectedParts] = useState<SwishSelection[]>([]);
   const [swishId, setSwishId] = useState("");
@@ -99,13 +100,33 @@ export function ExpenseList({
     useState<string[]>([]);
 
   const visibleExpenses = useMemo(() => {
-    const statusFiltered = expenses.filter(
-      (expense) =>
-        currentFilters.status !== "all" ||
-        expense.origin !== "ANNUAL_SAVING" ||
-        (!expense.isPaid &&
-          !optimisticallyPaidAnnualIds.includes(expense.id)),
-    );
+    const statusFiltered = expenses.filter((expense) => {
+      const isOptimisticallyPaid = optimisticallyPaidAnnualIds.includes(expense.id);
+      const isPaid = expense.isPaid || isOptimisticallyPaid;
+
+      if (activeStatus === "paid" && !isPaid) {
+        return false;
+      }
+
+      if (activeStatus === "unpaid" && isPaid) {
+        return false;
+      }
+
+      if (activeStatus === "all" && expense.origin === "ANNUAL_SAVING" && isPaid) {
+        return false;
+      }
+
+      if (
+        activeType !== "all" &&
+        (activeType === "ANNUAL_SAVING"
+          ? expense.origin !== "ANNUAL_SAVING"
+          : expense.origin !== "STANDARD" || expense.expenseType !== activeType)
+      ) {
+        return false;
+      }
+
+      return activeCategory === "all" || expense.category === activeCategory;
+    });
     const payerFiltered =
       activePayers.length === 0
         ? statusFiltered
@@ -120,7 +141,7 @@ export function ExpenseList({
         Number(right.origin === "ANNUAL_SAVING") -
         Number(left.origin === "ANNUAL_SAVING"),
     );
-  }, [activePayers, currentFilters.status, expenses, optimisticallyPaidAnnualIds]);
+  }, [activeCategory, activePayers, activeStatus, activeType, expenses, optimisticallyPaidAnnualIds]);
 
   const handlePaidStateChange = (expenseId: string, isPaid: boolean) => {
     const expense = expenses.find((candidate) => candidate.id === expenseId);
@@ -255,15 +276,10 @@ export function ExpenseList({
                 </span>
               }
             >
-              <form
-                method="get"
-                className="grid gap-3"
-                onSubmit={() => window.dispatchEvent(new CustomEvent("app:navigation-start"))}
-              >
-                <input type="hidden" name="tab" value="expenses" />
+              <div className="grid gap-3">
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-medium">Status</span>
-                  <select name="status" defaultValue={currentFilters.status}>
+                  <select value={activeStatus} onChange={(event) => setActiveStatus(event.target.value)}>
                     <option value="all">Alla</option>
                     <option value="paid">Betalda</option>
                     <option value="unpaid">Obetalda</option>
@@ -271,7 +287,7 @@ export function ExpenseList({
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-medium">Typ</span>
-                  <select name="type" defaultValue={currentFilters.type}>
+                  <select value={activeType} onChange={(event) => setActiveType(event.target.value)}>
                     <option value="all">Alla typer</option>
                     <option value="RECURRING">Återkommande</option>
                     <option value="ONE_TIME">Engångs</option>
@@ -280,7 +296,7 @@ export function ExpenseList({
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-medium">Kategori</span>
-                  <select name="category" defaultValue={currentFilters.category}>
+                  <select value={activeCategory} onChange={(event) => setActiveCategory(event.target.value)}>
                     <option value="all">Alla kategorier</option>
                     {categories.map((category) => (
                       <option key={category} value={category}>
@@ -289,26 +305,28 @@ export function ExpenseList({
                     ))}
                   </select>
                 </label>
-                <button className="action-button action-primary w-full justify-center">Visa utgifter</button>
-              </form>
+                <p className="text-[11px] text-[var(--color-muted)]" aria-live="polite">
+                  Filtren uppdateras direkt.
+                </p>
+              </div>
             </ModalLauncher>
           </div>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {quickFilters.map((filter) => (
-            <PendingLink
+            <button
               key={filter.label}
-              href={filter.href}
-              prefetch
+              type="button"
+              onClick={() => setActiveStatus(filter.status)}
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                filter.active
+                activeStatus === filter.status
                   ? "bg-[var(--color-accent-soft)] text-[var(--color-ink)]"
                   : "bg-[var(--color-elevated)] text-[var(--color-muted)]"
               }`}
             >
               {filter.label}
-            </PendingLink>
+            </button>
           ))}
         </div>
 

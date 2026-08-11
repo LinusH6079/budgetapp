@@ -6,6 +6,7 @@ import {
   PayerType,
   PlanningType,
 } from "@prisma/client";
+import { cache } from "react";
 
 import {
   calculateAnnualBudget,
@@ -239,6 +240,29 @@ export async function getAnnualBudgetForUser(
     }),
   };
 }
+
+export const getAnnualBudgetOptionsForUser = cache(async (userId: string) => {
+  const household = await getHouseholdForUser(userId);
+
+  if (!household) {
+    return [];
+  }
+
+  return db.annualBudgetItem.findMany({
+    where: {
+      householdId: household.id,
+      isArchived: false,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+    orderBy: [
+      { dueMonth: "asc" },
+      { name: "asc" },
+    ],
+  });
+});
 
 export async function upsertAnnualBudgetItemForUser(input: {
   actorUserId: string;

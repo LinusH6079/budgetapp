@@ -64,9 +64,14 @@ function formatCalendarDate(date: CalendarDate) {
   }).format(new Date(Date.UTC(date.year, date.month - 1, date.day, 12)));
 }
 
-function formatWeekStart(key: string) {
+function getIsoWeekNumber(key: string) {
   const [year, month, day] = key.split("-").map(Number);
-  return formatCalendarDate({ year, month, day });
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const weekday = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - weekday);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+
+  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
 }
 
 function clampPercentage(value: number) {
@@ -303,7 +308,7 @@ export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
                     key={entry.weekStartKey}
                     className="shrink-0 rounded-full bg-white/5 px-2.5 py-1 text-[10px] text-[var(--color-muted)]"
                   >
-                    {formatWeekStart(entry.weekStartKey)} ·{" "}
+                    Vecka {getIsoWeekNumber(entry.weekStartKey)} ·{" "}
                     {formatCurrency(entry.amount)}
                   </span>
                 ))}

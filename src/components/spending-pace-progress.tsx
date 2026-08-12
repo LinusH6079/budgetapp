@@ -133,9 +133,7 @@ export function SpendingPaceProgress({
 
       <div
         ref={trackRef}
-        className={`relative touch-pan-y select-none outline-none ${
-          showDetails ? "mt-1 h-[70px]" : "mt-2 h-[52px]"
-        }`}
+        className="relative mt-1 h-[70px] touch-pan-y select-none outline-none"
         tabIndex={0}
         role="slider"
         aria-label="Visa riktbelopp för ett datum"
@@ -173,7 +171,7 @@ export function SpendingPaceProgress({
           );
         }}
       >
-        {showDetails ? <div
+        <div
           className="absolute top-0 z-30"
           style={{
             left: `${clampPercentage(actualPercentage)}%`,
@@ -189,16 +187,16 @@ export function SpendingPaceProgress({
           >
             Spenderat {formatCurrency(spent)}
           </span>
-        </div> : null}
+        </div>
         <span
-          className={`absolute z-20 w-0.5 ${showDetails ? "top-4 h-[45px]" : "top-4 h-[25px]"} ${
+          className={`absolute bottom-1.5 z-20 h-4 w-0.5 ${
             isOverMonthlyLimit ? "bg-[#ef4444]" : "bg-[#6ee7b7]"
           }`}
           style={{ left: `${clampPercentage(actualPercentage)}%` }}
           aria-hidden="true"
         />
 
-        {showDetails ? <div
+        <div
           className="absolute top-7 z-30"
           style={{
             left: `${clampPercentage(expectedPercentage)}%`,
@@ -208,11 +206,9 @@ export function SpendingPaceProgress({
           <span className="block whitespace-nowrap rounded-md border border-white/15 bg-[#282828] px-1.5 py-0.5 text-[9px] font-semibold text-white">
             Idag {formatCurrency(expectedAmount)}
           </span>
-        </div> : null}
+        </div>
         <span
-          className={`absolute z-20 w-0.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.25)] ${
-            showDetails ? "top-[42px] h-[17px]" : "top-4 h-[25px]"
-          }`}
+          className="absolute bottom-1.5 z-20 h-4 w-0.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.25)]"
           style={{ left: `${clampPercentage(expectedPercentage)}%` }}
           aria-hidden="true"
         />
@@ -269,7 +265,7 @@ export function SpendingPaceProgress({
         </div>
       </div>
 
-      {showDetails ? <div className="mt-2 flex items-center justify-between gap-3">
+      <div className="mt-2 flex items-center justify-between gap-3">
         <p
           className={`text-[12px] font-medium ${
             paceDifference < 0
@@ -281,10 +277,12 @@ export function SpendingPaceProgress({
             ? `${formatCurrency(paceDifference)} under dagens takt`
             : `${formatCurrency(Math.abs(paceDifference))} över dagens takt`}
         </p>
-        <p className="shrink-0 text-[9px] text-[var(--color-muted)]">
-          Dra för datum
-        </p>
-      </div> : null}
+        {showDetails ? (
+          <p className="shrink-0 text-[9px] text-[var(--color-muted)]">
+            Dra för datum
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }

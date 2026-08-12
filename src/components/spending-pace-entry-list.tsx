@@ -25,13 +25,14 @@ function formatEntryDate(value: string) {
   }).format(new Date(value));
 }
 
-function formatWeekStart(key: string) {
+function getIsoWeekNumber(key: string) {
   const [year, month, day] = key.split("-").map(Number);
-  return new Intl.DateTimeFormat("sv-SE", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const weekday = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - weekday);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+
+  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
 }
 
 export function SpendingPaceEntryList({ entries }: SpendingPaceEntryListProps) {
@@ -102,7 +103,7 @@ export function SpendingPaceEntryList({ entries }: SpendingPaceEntryListProps) {
             <div className="min-w-0 flex-1">
               <p className="text-[12px] font-medium">{formatCurrency(entry.amount)}</p>
               <p className="mt-0.5 truncate text-[10px] text-[var(--color-muted)]">
-                {formatEntryDate(entry.createdAt)} · vecka från {formatWeekStart(entry.weekStartKey)}
+                {formatEntryDate(entry.createdAt)} · Vecka {getIsoWeekNumber(entry.weekStartKey)}
               </p>
             </div>
             <button

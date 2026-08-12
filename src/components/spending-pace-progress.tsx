@@ -28,6 +28,7 @@ type SpendingPaceProgressProps = {
   };
   monthlyLimit: number;
   spent: number;
+  showDetails?: boolean;
 };
 
 function formatCalendarDate(date: CalendarDate) {
@@ -58,6 +59,7 @@ export function SpendingPaceProgress({
   cycle,
   monthlyLimit,
   spent,
+  showDetails = false,
 }: SpendingPaceProgressProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
@@ -78,6 +80,8 @@ export function SpendingPaceProgress({
     selectedDay === null
       ? null
       : Math.round(monthlyLimit * (selectedDay / cycle.totalDays));
+  const selectedRemaining =
+    selectedAmount === null ? null : selectedAmount - spent;
 
   const selectFromClientX = (clientX: number) => {
     const rect = trackRef.current?.getBoundingClientRect();
@@ -95,37 +99,43 @@ export function SpendingPaceProgress({
 
   return (
     <div className="mt-4">
-      <div className="mb-1 flex items-center justify-between gap-3">
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-semibold text-white">
-          <i className="h-2 w-2 rounded-full bg-white shadow-[0_0_7px_rgba(255,255,255,0.35)]" />
-          Lön {formatCalendarDate(cycle.startDate)}
-        </span>
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-semibold text-white">
-          Nästa lön {formatCalendarDate(cycle.endDate)}
-          <i className="h-2 w-2 rounded-full bg-white shadow-[0_0_7px_rgba(255,255,255,0.35)]" />
-        </span>
-      </div>
-
-      <div className="relative flex h-9 overflow-visible pt-4 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
-        {cycle.weeks.map((week) => (
-          <span
-            key={`${week.label}-${week.start}`}
-            className="relative flex items-center justify-center border-l border-white/30 first:border-l-0"
-            style={{ width: `${week.end - week.start}%` }}
-          >
-            {week.start > 0 ? (
-              <span className="absolute -left-px -top-4 -translate-x-1/2 whitespace-nowrap rounded bg-[var(--color-surface)] px-1 text-[8px] font-medium normal-case tracking-normal text-white/75">
-                {formatCalendarDate(week.startDate)}
-              </span>
-            ) : null}
-            {week.label}
+      {showDetails ? (
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-semibold text-white">
+            <i className="h-2 w-2 rounded-full bg-white shadow-[0_0_7px_rgba(255,255,255,0.35)]" />
+            Lön {formatCalendarDate(cycle.startDate)}
           </span>
-        ))}
-      </div>
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-semibold text-white">
+            Nästa lön {formatCalendarDate(cycle.endDate)}
+            <i className="h-2 w-2 rounded-full bg-white shadow-[0_0_7px_rgba(255,255,255,0.35)]" />
+          </span>
+        </div>
+      ) : null}
+
+      {showDetails ? (
+        <div className="relative flex h-9 overflow-visible pt-4 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+          {cycle.weeks.map((week) => (
+            <span
+              key={`${week.label}-${week.start}`}
+              className="relative flex items-center justify-center border-l border-white/30 first:border-l-0"
+              style={{ width: `${week.end - week.start}%` }}
+            >
+              {week.start > 0 ? (
+                <span className="absolute -left-px -top-4 -translate-x-1/2 whitespace-nowrap rounded bg-[var(--color-surface)] px-1 text-[8px] font-medium normal-case tracking-normal text-white/75">
+                  {formatCalendarDate(week.startDate)}
+                </span>
+              ) : null}
+              {week.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <div
         ref={trackRef}
-        className="relative mt-1 h-[70px] touch-pan-y select-none outline-none"
+        className={`relative touch-pan-y select-none outline-none ${
+          showDetails ? "mt-1 h-[70px]" : "mt-2 h-[52px]"
+        }`}
         tabIndex={0}
         role="slider"
         aria-label="Visa riktbelopp för ett datum"
@@ -163,7 +173,7 @@ export function SpendingPaceProgress({
           );
         }}
       >
-        <div
+        {showDetails ? <div
           className="absolute top-0 z-30"
           style={{
             left: `${clampPercentage(actualPercentage)}%`,
@@ -179,16 +189,16 @@ export function SpendingPaceProgress({
           >
             Spenderat {formatCurrency(spent)}
           </span>
-        </div>
+        </div> : null}
         <span
-          className={`absolute top-4 z-20 h-[45px] w-0.5 ${
+          className={`absolute z-20 w-0.5 ${showDetails ? "top-4 h-[45px]" : "top-4 h-[25px]"} ${
             isOverMonthlyLimit ? "bg-[#ef4444]" : "bg-[#6ee7b7]"
           }`}
           style={{ left: `${clampPercentage(actualPercentage)}%` }}
           aria-hidden="true"
         />
 
-        <div
+        {showDetails ? <div
           className="absolute top-7 z-30"
           style={{
             left: `${clampPercentage(expectedPercentage)}%`,
@@ -198,25 +208,32 @@ export function SpendingPaceProgress({
           <span className="block whitespace-nowrap rounded-md border border-white/15 bg-[#282828] px-1.5 py-0.5 text-[9px] font-semibold text-white">
             Idag {formatCurrency(expectedAmount)}
           </span>
-        </div>
+        </div> : null}
         <span
-          className="absolute top-[42px] z-20 h-[17px] w-0.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.25)]"
+          className={`absolute z-20 w-0.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.25)] ${
+            showDetails ? "top-[42px] h-[17px]" : "top-4 h-[25px]"
+          }`}
           style={{ left: `${clampPercentage(expectedPercentage)}%` }}
           aria-hidden="true"
         />
 
-        {selectedPercentage !== null && selectedDate && selectedAmount !== null ? (
+        {selectedPercentage !== null && selectedDate && selectedAmount !== null && selectedRemaining !== null ? (
           <>
             <div
-              className="absolute -top-7 z-50"
+              className="absolute -top-10 z-50"
               style={{
                 left: `${clampPercentage(selectedPercentage)}%`,
                 transform: markerTransform(selectedPercentage),
               }}
               role="status"
             >
-              <span className="block whitespace-nowrap rounded-lg border border-white/20 bg-[#111214] px-2 py-1 text-[10px] font-semibold text-white shadow-[0_8px_24px_rgba(0,0,0,0.42)]">
-                {formatCalendarDate(selectedDate)} · {formatCurrency(selectedAmount)}
+              <span className="block whitespace-nowrap rounded-lg border border-white/20 bg-[#111214] px-2 py-1.5 text-[10px] font-semibold text-white shadow-[0_8px_24px_rgba(0,0,0,0.42)]">
+                <span className="block">
+                  {formatCalendarDate(selectedDate)} · riktbelopp {formatCurrency(selectedAmount)}
+                </span>
+                <span className={`mt-0.5 block text-[9px] ${selectedRemaining < 0 ? "text-[#fca5a5]" : "text-[#a7f3d0]"}`}>
+                  Kvar att använda {formatCurrency(selectedRemaining)}
+                </span>
               </span>
             </div>
             <span
@@ -252,7 +269,7 @@ export function SpendingPaceProgress({
         </div>
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-3">
+      {showDetails ? <div className="mt-2 flex items-center justify-between gap-3">
         <p
           className={`text-[12px] font-medium ${
             paceDifference < 0
@@ -267,7 +284,7 @@ export function SpendingPaceProgress({
         <p className="shrink-0 text-[9px] text-[var(--color-muted)]">
           Dra för datum
         </p>
-      </div>
+      </div> : null}
     </div>
   );
 }

@@ -1,4 +1,7 @@
-import { ArrowRight, Settings2 } from "lucide-react";
+"use client";
+
+import { ArrowRight, Info, Settings2 } from "lucide-react";
+import { useState } from "react";
 
 import { FormStatusButton } from "@/components/form-status-button";
 import { ModalLauncher } from "@/components/modal-launcher";
@@ -76,6 +79,7 @@ function getIsoWeekNumber(key: string) {
 
 export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
   const settings = data.settings;
+  const [showDetails, setShowDetails] = useState(false);
 
   const settingsForm = (
     <form action={saveSpendingPaceSettingsAction} className="grid gap-3">
@@ -93,20 +97,11 @@ export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
           required
         />
       </label>
-      <label className="block">
-        <span className="mb-1.5 block text-sm font-medium">
-          Riktmärke per vecka
-        </span>
-        <input
-          name="weeklyLimit"
-          inputMode="decimal"
-          defaultValue={
-            settings ? formatEditableAmount(settings.weeklyLimit) : ""
-          }
-          placeholder="3000"
-          required
-        />
-      </label>
+      <input
+        type="hidden"
+        name="weeklyLimit"
+        value={settings ? formatEditableAmount(settings.weeklyLimit) : "1"}
+      />
       <p className="text-[12px] leading-relaxed text-[var(--color-muted)]">
         Löneperioden startar den 25:e, eller på fredagen före om den 25:e
         infaller på en helg.
@@ -156,33 +151,52 @@ export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
       >
         <div>
           <p className="eyebrow-label">Lönepuls</p>
-          <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em]">
-            {formatCalendarDate(data.cycle.startDate)} –{" "}
-            {formatCalendarDate(data.cycle.endDate)}
-          </h2>
-          <p className="mt-1 text-[12px] text-[var(--color-muted)]">
-            Dag {data.cycle.elapsedDays} av {data.cycle.totalDays}
-          </p>
+          {showDetails ? (
+            <>
+              <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em]">
+                {formatCalendarDate(data.cycle.startDate)} –{" "}
+                {formatCalendarDate(data.cycle.endDate)}
+              </h2>
+              <p className="mt-1 text-[12px] text-[var(--color-muted)]">
+                Dag {data.cycle.elapsedDays} av {data.cycle.totalDays}
+              </p>
+            </>
+          ) : null}
         </div>
 
-        <ModalLauncher
-          title="Lönebudget"
-          description="Ställ in periodens och veckans riktmärken."
-          trigger={
-            <span className="icon-action-button">
-              <Settings2 className="h-4 w-4" />
-            </span>
-          }
-        >
-          {settingsForm}
-        </ModalLauncher>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowDetails((current) => !current)}
+            className={`icon-action-button touch-feedback ${
+              showDetails ? "bg-[var(--color-accent-soft)] text-white" : ""
+            }`}
+            aria-pressed={showDetails}
+            aria-label={showDetails ? "Dölj detaljer" : "Visa detaljer"}
+            title={showDetails ? "Dölj detaljer" : "Visa detaljer"}
+          >
+            <Info className="h-4 w-4" />
+          </button>
+
+          <ModalLauncher
+            title="Lönebudget"
+          description="Ställ in hur mycket ni har att använda till nästa lön."
+            trigger={
+              <span className="icon-action-button">
+                <Settings2 className="h-4 w-4" />
+              </span>
+            }
+          >
+            {settingsForm}
+          </ModalLauncher>
+        </div>
       </div>
 
       {!settings ? (
         <div className="mt-4 rounded-[18px] border border-[var(--color-line)] bg-[var(--color-elevated)] px-4 py-4">
           <p className="text-sm font-semibold">Ställ in er lönebudget</p>
           <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-muted)]">
-            Ange hur mycket ni vill kunna spendera per löneperiod och vecka.
+            Ange hur mycket ni vill kunna spendera fram till nästa lön.
           </p>
           <ModalLauncher
             title="Lönebudget"
@@ -213,21 +227,24 @@ export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
                 {formatCurrency(data.remaining ?? 0)}
               </p>
             </div>
-            <div className="pb-1 text-right">
-              <p className="text-[12px] text-[var(--color-muted)]">
-                Spenderat
-              </p>
-              <p className="mt-1 text-sm font-semibold">
-                {formatCurrency(data.spent)} av{" "}
-                {formatCurrency(settings.monthlyLimit)}
-              </p>
-            </div>
+            {showDetails ? (
+              <div className="pb-1 text-right">
+                <p className="text-[12px] text-[var(--color-muted)]">
+                  Spenderat
+                </p>
+                <p className="mt-1 text-sm font-semibold">
+                  {formatCurrency(data.spent)} av{" "}
+                  {formatCurrency(settings.monthlyLimit)}
+                </p>
+              </div>
+            ) : null}
           </div>
 
           <SpendingPaceProgress
             cycle={data.cycle}
             monthlyLimit={settings.monthlyLimit}
             spent={data.spent}
+            showDetails={showDetails}
           />
 
           <div className="mt-4 rounded-[18px] border border-[var(--color-line)] bg-[var(--color-elevated)] px-3.5 py-3.5">

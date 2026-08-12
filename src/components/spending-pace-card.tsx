@@ -74,18 +74,8 @@ function getIsoWeekNumber(key: string) {
   return Math.ceil(((date.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
 }
 
-function clampPercentage(value: number) {
-  return Math.min(100, Math.max(0, value));
-}
-
 export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
   const settings = data.settings;
-  const weekPercentage = settings
-    ? (data.currentWeekAmount / settings.weeklyLimit) * 100
-    : 0;
-  const isOverWeeklyLimit = Boolean(
-    settings && data.currentWeekAmount > settings.weeklyLimit,
-  );
 
   const settingsForm = (
     <form action={saveSpendingPaceSettingsAction} className="grid gap-3">
@@ -241,35 +231,9 @@ export function SpendingPaceCard({ activeMonth, data }: SpendingPaceCardProps) {
           />
 
           <div className="mt-4 rounded-[18px] border border-[var(--color-line)] bg-[var(--color-elevated)] px-3.5 py-3.5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">Den här veckan</p>
-                <p className="mt-1 text-[11px] text-[var(--color-muted)]">
-                  {formatCurrency(data.currentWeekAmount)} spenderat ·{" "}
-                  {formatCurrency(data.weekRemaining ?? 0)} kvar
-                </p>
-              </div>
-              <span
-                className={`text-sm font-semibold ${
-                  isOverWeeklyLimit ? "text-[var(--color-danger)]" : ""
-                }`}
-              >
-                {formatCurrency(settings.weeklyLimit)}
-              </span>
-            </div>
-
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/5">
-              <div
-                className={`h-full rounded-full ${
-                  isOverWeeklyLimit ? "bg-[#ef4444]" : "bg-[#a7f3d0]"
-                }`}
-                style={{ width: `${clampPercentage(weekPercentage)}%` }}
-              />
-            </div>
-
             <form
               action={saveCurrentWeekSpendingAction}
-              className="mt-3 flex items-end gap-2"
+              className="flex items-end gap-2"
             >
               <label className="min-w-0 flex-1">
                 <span className="mb-1.5 block text-[11px] font-medium text-[var(--color-muted)]">

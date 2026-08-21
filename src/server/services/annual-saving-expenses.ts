@@ -13,6 +13,7 @@ import {
   annualSavingMonthKeys,
   buildGuaranteedAnnualSavingSchedule,
   effectiveAnnualSavingRate,
+  expenseAnnualContributionAmount,
   futureYearlySavingCycles,
   netReservedAmount,
 } from "@/lib/annual-budget-calculations";
@@ -22,6 +23,7 @@ type SyncAutomaticAnnualSavingExpensesInput = {
   householdId: string;
   actorUserId: string;
   now?: Date;
+  annualBudgetItemIds?: string[];
 };
 
 export async function syncAutomaticAnnualSavingExpenses({
@@ -29,13 +31,19 @@ export async function syncAutomaticAnnualSavingExpenses({
   householdId,
   actorUserId,
   now = new Date(),
+  annualBudgetItemIds,
 }: SyncAutomaticAnnualSavingExpensesInput) {
+  if (annualBudgetItemIds && annualBudgetItemIds.length === 0) {
+    return;
+  }
+
   const currentMonthKey = annualBudgetCurrentMonthKey(now);
   const [items, months, memberCount] = await Promise.all([
     tx.annualBudgetItem.findMany({
       where: {
         householdId,
         isArchived: false,
+        id: annualBudgetItemIds ? { in: annualBudgetItemIds } : undefined,
       },
       include: {
         entries: {
@@ -81,6 +89,9 @@ export async function syncAutomaticAnnualSavingExpenses({
         expenses: {
           where: {
             origin: ExpenseOrigin.ANNUAL_SAVING,
+            annualBudgetItemId: annualBudgetItemIds
+              ? { in: annualBudgetItemIds }
+              : undefined,
           },
           select: {
             id: true,
@@ -146,7 +157,16 @@ export async function syncAutomaticAnnualSavingExpenses({
       (sum, expense) =>
         sum +
         (expense.month.monthKey <= item.dueMonth && !expense.isPaid
-          ? expense.amount
+          ? expense.amount -
+            expenseAnnualContributionAmount({
+              amount: expense.amount,
+              isPaid: expense.isPaid,
+              hasActiveAnnualBudgetItem: true,
+              payerType: expense.payerType,
+              firstPersonSharePercent: expense.firstPersonSharePercent,
+              firstPersonPaidAt: expense.firstPersonPaidAt,
+              secondPersonPaidAt: expense.secondPersonPaidAt,
+            })
           : 0),
       0,
     );
@@ -257,7 +277,16 @@ export async function syncAutomaticAnnualSavingExpenses({
             (!expense.isPaid &&
             expense.month.monthKey >= cycle.savingStartMonth &&
             expense.month.monthKey <= cycle.dueMonth
-              ? expense.amount
+              ? expense.amount -
+                expenseAnnualContributionAmount({
+                  amount: expense.amount,
+                  isPaid: expense.isPaid,
+                  hasActiveAnnualBudgetItem: true,
+                  payerType: expense.payerType,
+                  firstPersonSharePercent: expense.firstPersonSharePercent,
+                  firstPersonPaidAt: expense.firstPersonPaidAt,
+                  secondPersonPaidAt: expense.secondPersonPaidAt,
+                })
               : 0),
           0,
         );

@@ -95,6 +95,10 @@ async function syncExpenseAnnualContribution(input: {
     amount: number;
     isPaid: boolean;
     annualBudgetItemId: string | null;
+    payerType: PayerType;
+    firstPersonSharePercent: number | null;
+    firstPersonPaidAt: Date | null;
+    secondPersonPaidAt: Date | null;
   };
 }) {
   const existingEntry = await input.tx.annualSavingEntry.findFirst({
@@ -118,6 +122,10 @@ async function syncExpenseAnnualContribution(input: {
     amount: input.expense.amount,
     isPaid: input.expense.isPaid,
     hasActiveAnnualBudgetItem: Boolean(targetItem),
+    payerType: input.expense.payerType,
+    firstPersonSharePercent: input.expense.firstPersonSharePercent,
+    firstPersonPaidAt: input.expense.firstPersonPaidAt,
+    secondPersonPaidAt: input.expense.secondPersonPaidAt,
   });
 
   if (contributionAmount === 0 || !targetItem) {
@@ -189,6 +197,7 @@ function isRetryableTransactionError(error: unknown) {
 async function syncAnnualSavingPlanWithRetry(input: {
   householdId: string;
   actorUserId: string;
+  annualBudgetItemIds?: string[];
 }) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
@@ -198,6 +207,7 @@ async function syncAnnualSavingPlanWithRetry(input: {
             tx,
             householdId: input.householdId,
             actorUserId: input.actorUserId,
+            annualBudgetItemIds: input.annualBudgetItemIds,
           }),
         { maxWait: 10_000, timeout: 30_000 },
       );
@@ -613,6 +623,10 @@ export async function setExpensePaidStateForUser(input: {
   const requiresAnnualSync = Boolean(
     expense.annualBudgetItemId || expense.annualSavingEntries.length > 0,
   );
+  const annualBudgetItemIds = [
+    expense.annualBudgetItemId,
+    ...expense.annualSavingEntries.map((entry) => entry.annualBudgetItemId),
+  ].filter((id): id is string => Boolean(id));
   const requiresLoanSync = Boolean(
     expense.loanExtraPayment || expense.loanInstallment,
   );
@@ -705,6 +719,7 @@ export async function setExpensePaidStateForUser(input: {
       await syncAnnualSavingPlanWithRetry({
         householdId: month.householdId,
         actorUserId: input.actorUserId,
+        annualBudgetItemIds,
       });
     }
 
@@ -975,14 +990,17 @@ export async function settleExpensesWithSwishForUser(input: {
       totalAmount,
       paidAt,
       swishId: input.swishId,
-      hasAnnualSavings: expenses.some((expense) => expense.annualBudgetItemId),
+      annualBudgetItemIds: expenses
+        .map((expense) => expense.annualBudgetItemId)
+        .filter((id): id is string => Boolean(id)),
     };
   });
 
-  if (result.hasAnnualSavings) {
+  if (result.annualBudgetItemIds.length > 0) {
     await syncAnnualSavingPlanWithRetry({
       householdId: month.householdId,
       actorUserId: input.actorUserId,
+      annualBudgetItemIds: [...new Set(result.annualBudgetItemIds)],
     });
   }
 

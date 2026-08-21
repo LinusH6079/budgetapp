@@ -39,8 +39,39 @@ export function expenseAnnualContributionAmount(input: {
   amount: number;
   isPaid: boolean;
   hasActiveAnnualBudgetItem: boolean;
+  payerType?: "FIRST_PERSON" | "SECOND_PERSON" | "SHARED";
+  firstPersonSharePercent?: number | null;
+  firstPersonPaidAt?: Date | null;
+  secondPersonPaidAt?: Date | null;
 }) {
-  return input.isPaid && input.hasActiveAnnualBudgetItem ? input.amount : 0;
+  if (!input.hasActiveAnnualBudgetItem) {
+    return 0;
+  }
+
+  if (input.payerType !== "SHARED") {
+    return input.isPaid ? input.amount : 0;
+  }
+
+  // Legacy shared expenses only stored the aggregate paid state.
+  if (
+    input.isPaid &&
+    !input.firstPersonPaidAt &&
+    !input.secondPersonPaidAt
+  ) {
+    return input.amount;
+  }
+
+  const firstShare = Math.min(
+    100,
+    Math.max(0, input.firstPersonSharePercent ?? 50),
+  );
+  const firstAmount = Math.floor((input.amount * firstShare) / 100);
+  const secondAmount = input.amount - firstAmount;
+
+  return (
+    (input.firstPersonPaidAt ? firstAmount : 0) +
+    (input.secondPersonPaidAt ? secondAmount : 0)
+  );
 }
 
 export function annualBudgetCurrentMonthKey(now: Date) {

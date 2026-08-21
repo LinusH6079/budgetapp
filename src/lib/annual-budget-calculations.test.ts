@@ -31,6 +31,41 @@ describe("annual budget calculations", () => {
     ).toBe(25_000);
   });
 
+  it("counts each paid share of a shared annual saving separately", () => {
+    const base = {
+      amount: 10_001,
+      isPaid: false,
+      hasActiveAnnualBudgetItem: true,
+      payerType: "SHARED" as const,
+      firstPersonSharePercent: 35,
+    };
+    const firstPaidAt = new Date("2026-09-01T12:00:00Z");
+    const secondPaidAt = new Date("2026-09-02T12:00:00Z");
+
+    expect(
+      expenseAnnualContributionAmount({
+        ...base,
+        firstPersonPaidAt: firstPaidAt,
+        secondPersonPaidAt: null,
+      }),
+    ).toBe(3_500);
+    expect(
+      expenseAnnualContributionAmount({
+        ...base,
+        firstPersonPaidAt: null,
+        secondPersonPaidAt: secondPaidAt,
+      }),
+    ).toBe(6_501);
+    expect(
+      expenseAnnualContributionAmount({
+        ...base,
+        isPaid: true,
+        firstPersonPaidAt: firstPaidAt,
+        secondPersonPaidAt: secondPaidAt,
+      }),
+    ).toBe(10_001);
+  });
+
   it("does not count an expense when its annual target is unavailable", () => {
     expect(
       expenseAnnualContributionAmount({

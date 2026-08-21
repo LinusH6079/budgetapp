@@ -96,23 +96,19 @@ export function ExpenseList({
   const [swishId, setSwishId] = useState("");
   const [settleError, setSettleError] = useState<string | null>(null);
   const [settleNotice, setSettleNotice] = useState<string | null>(null);
-  const [optimisticallyPaidAnnualIds, setOptimisticallyPaidAnnualIds] =
-    useState<string[]>([]);
+  const [optimisticPaidStates, setOptimisticPaidStates] = useState<
+    Record<string, boolean>
+  >({});
 
   const visibleExpenses = useMemo(() => {
     const statusFiltered = expenses.filter((expense) => {
-      const isOptimisticallyPaid = optimisticallyPaidAnnualIds.includes(expense.id);
-      const isPaid = expense.isPaid || isOptimisticallyPaid;
+      const isPaid = optimisticPaidStates[expense.id] ?? expense.isPaid;
 
       if (activeStatus === "paid" && !isPaid) {
         return false;
       }
 
       if (activeStatus === "unpaid" && isPaid) {
-        return false;
-      }
-
-      if (activeStatus === "all" && expense.origin === "ANNUAL_SAVING" && isPaid) {
         return false;
       }
 
@@ -141,20 +137,13 @@ export function ExpenseList({
         Number(right.origin === "ANNUAL_SAVING") -
         Number(left.origin === "ANNUAL_SAVING"),
     );
-  }, [activeCategory, activePayers, activeStatus, activeType, expenses, optimisticallyPaidAnnualIds]);
+  }, [activeCategory, activePayers, activeStatus, activeType, expenses, optimisticPaidStates]);
 
   const handlePaidStateChange = (expenseId: string, isPaid: boolean) => {
-    const expense = expenses.find((candidate) => candidate.id === expenseId);
-
-    if (expense?.origin !== "ANNUAL_SAVING") {
-      return;
-    }
-
-    setOptimisticallyPaidAnnualIds((current) =>
-      isPaid
-        ? [...new Set([...current, expenseId])]
-        : current.filter((id) => id !== expenseId),
-    );
+    setOptimisticPaidStates((current) => ({
+      ...current,
+      [expenseId]: isPaid,
+    }));
   };
 
   const selectedTotal = selectedParts.reduce((sum, selection) => {
@@ -224,12 +213,34 @@ export function ExpenseList({
     setSettleNotice(null);
 
     startTransition(async () => {
-      const result = await settleExpensesWithSwishAction({
-        monthId,
-        selections: selectedParts,
-        swishId,
-        returnTo,
-      });
+      let result: Awaited<ReturnType<typeof settleExpensesWithSwishAction>> = {
+        ok: false,
+        message: "Kunde inte markera utgifterna.",
+      };
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          result = await settleExpensesWithSwishAction({
+            monthId,
+            selections: selectedParts,
+            swishId,
+            returnTo,
+          });
+        } catch {
+          result = {
+            ok: false,
+            message: "Anslutningen bröts. Försöker spara igen.",
+          };
+        }
+
+        if (result.ok) {
+          break;
+        }
+
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 180 * (attempt + 1)));
+        }
+      }
 
       if (!result.ok) {
         setSettleError(result.message ?? "Kunde inte markera utgifterna.");

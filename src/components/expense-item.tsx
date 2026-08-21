@@ -2,6 +2,7 @@
 
 import { PayerType } from "@prisma/client";
 import { Check, Pencil, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FormStatusButton } from "@/components/form-status-button";
@@ -99,6 +100,7 @@ export function ExpenseItem({
   onToggleSelect,
   onPaidStateChange,
 }: ExpenseItemProps) {
+  const router = useRouter();
   const [optimisticPaid, setOptimisticPaid] = useState(expense.isPaid);
   const [optimisticPaidAt, setOptimisticPaidAt] = useState<Date | null>(expense.paidAt);
   const legacySharedPaidAt =
@@ -197,6 +199,39 @@ export function ExpenseItem({
     onPaidStateChange?.(expense.id, confirmed.paid);
   };
 
+  const savePaidStateWithRetry = async (input: {
+    nextPaidState: "paid" | "unpaid";
+    targetPayerType?: "FIRST_PERSON" | "SECOND_PERSON";
+  }) => {
+    let lastMessage = "Kunde inte ändra betalstatus.";
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const result = await toggleExpensePaidOptimisticAction({
+          monthId,
+          expenseId: expense.id,
+          nextPaidState: input.nextPaidState,
+          targetPayerType: input.targetPayerType,
+          returnTo,
+        });
+
+        if (result.ok) {
+          return result;
+        }
+
+        lastMessage = result.message ?? lastMessage;
+      } catch {
+        lastMessage = "Anslutningen bröts. Försöker spara igen.";
+      }
+
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 180 * (attempt + 1)));
+      }
+    }
+
+    return { ok: false as const, message: lastMessage };
+  };
+
   const flushPaidState = async () => {
     if (isFlushingPaidState.current) {
       return;
@@ -233,12 +268,9 @@ export function ExpenseItem({
           break;
         }
 
-        const result = await toggleExpensePaidOptimisticAction({
-          monthId,
-          expenseId: expense.id,
+        const result = await savePaidStateWithRetry({
           nextPaidState: nextPaid ? "paid" : "unpaid",
           targetPayerType,
-          returnTo,
         });
 
         if (!result.ok) {
@@ -270,6 +302,7 @@ export function ExpenseItem({
     } finally {
       isFlushingPaidState.current = false;
       setIsSavingPaidState(false);
+      router.refresh();
     }
   };
 

@@ -170,6 +170,78 @@ async function syncExpenseAnnualContribution(input: {
   });
 }
 
+function isRetryableTransactionError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const code = "code" in error ? String(error.code) : "";
+  const message = "message" in error ? String(error.message) : "";
+
+  return (
+    code === "P2028" ||
+    code === "P2034" ||
+    message.includes("Transaction already closed") ||
+    message.includes("expired transaction")
+  );
+}
+
+async function syncAnnualSavingPlanWithRetry(input: {
+  householdId: string;
+  actorUserId: string;
+}) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await db.$transaction(
+        (tx) =>
+          syncAutomaticAnnualSavingExpenses({
+            tx,
+            householdId: input.householdId,
+            actorUserId: input.actorUserId,
+          }),
+        { maxWait: 10_000, timeout: 30_000 },
+      );
+      return;
+    } catch (error) {
+      if (!isRetryableTransactionError(error) || attempt === 2) {
+        // The paid state and contribution are already committed. A later annual
+        // budget read retries the derived schedule without reverting the payment.
+        console.error("Kunde inte räkna om årssparplanen efter betalning.", error);
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    }
+  }
+
+}
+
+async function runTransactionWithRetry<T>(
+  operation: (tx: Prisma.TransactionClient) => Promise<T>,
+) {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await db.$transaction(operation, {
+        maxWait: 10_000,
+        timeout: 30_000,
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableTransactionError(error) || attempt === 2) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    }
+  }
+
+  throw lastError;
+}
+
 async function syncRecurringExpenseToNextMonth(input: {
   tx: Prisma.TransactionClient;
   actorUserId: string;
@@ -538,10 +610,53 @@ export async function setExpensePaidStateForUser(input: {
   assertMonthEditable(month.isLocked);
   const expense = await requireExpenseInMonth(input.expenseId, input.monthId);
   const nextPaidAt = input.nextPaidState === "paid" ? new Date() : null;
-  const updateAndSyncAnnual = (
-    data: Prisma.ExpenseUncheckedUpdateInput,
-  ) =>
-    db.$transaction(async (tx) => {
+  const requiresAnnualSync = Boolean(
+    expense.annualBudgetItemId || expense.annualSavingEntries.length > 0,
+  );
+  const requiresLoanSync = Boolean(
+    expense.loanExtraPayment || expense.loanInstallment,
+  );
+  type PaidStateSource = Pick<
+    typeof expense,
+    | "isPaid"
+    | "paidAt"
+    | "firstPersonPaidAt"
+    | "secondPersonPaidAt"
+  >;
+  const updatePaidState = async (
+    dataOrBuilder:
+      | Prisma.ExpenseUncheckedUpdateInput
+      | ((current: PaidStateSource) => Prisma.ExpenseUncheckedUpdateInput),
+  ) => {
+    const requiresTransaction =
+      expense.payerType === PayerType.SHARED ||
+      requiresAnnualSync ||
+      requiresLoanSync;
+
+    if (!requiresTransaction && typeof dataOrBuilder !== "function") {
+      return db.expense.update({
+        where: {
+          id: input.expenseId,
+        },
+        data: dataOrBuilder,
+      });
+    }
+
+    const updatedExpense = await runTransactionWithRetry(async (tx) => {
+      const data =
+        typeof dataOrBuilder === "function"
+          ? dataOrBuilder(
+              await tx.expense.findUniqueOrThrow({
+                where: { id: input.expenseId },
+                select: {
+                  isPaid: true,
+                  paidAt: true,
+                  firstPersonPaidAt: true,
+                  secondPersonPaidAt: true,
+                },
+              }),
+            )
+          : dataOrBuilder;
       const updatedExpense = await tx.expense.update({
         where: {
           id: input.expenseId,
@@ -549,18 +664,14 @@ export async function setExpensePaidStateForUser(input: {
         data,
       });
 
-      await syncExpenseAnnualContribution({
-        tx,
-        actorUserId: input.actorUserId,
-        householdId: month.householdId,
-        expense: updatedExpense,
-      });
-
-      await syncAutomaticAnnualSavingExpenses({
-        tx,
-        householdId: month.householdId,
-        actorUserId: input.actorUserId,
-      });
+      if (requiresAnnualSync) {
+        await syncExpenseAnnualContribution({
+          tx,
+          actorUserId: input.actorUserId,
+          householdId: month.householdId,
+          expense: updatedExpense,
+        });
+      }
 
       if (expense.loanExtraPayment) {
         await rebuildLoanAfterExtraPayment({
@@ -579,32 +690,47 @@ export async function setExpensePaidStateForUser(input: {
         });
       }
 
-      await syncLoanExpenses({
-        tx,
-        householdId: month.householdId,
-        actorUserId: input.actorUserId,
-      });
+      if (requiresLoanSync) {
+        await syncLoanExpenses({
+          tx,
+          householdId: month.householdId,
+          actorUserId: input.actorUserId,
+        });
+      }
 
       return updatedExpense;
     });
+
+    if (requiresAnnualSync) {
+      await syncAnnualSavingPlanWithRetry({
+        householdId: month.householdId,
+        actorUserId: input.actorUserId,
+      });
+    }
+
+    return updatedExpense;
+  };
 
   if (expense.payerType === PayerType.SHARED) {
     if (!input.targetPayerType) {
       throw new Error("Välj vilken persons del som ska ändras.");
     }
 
-    const legacyPaidAt = expense.isPaid ? expense.paidAt ?? new Date() : null;
-    const firstPersonPaidAt =
-      input.targetPayerType === PayerType.FIRST_PERSON
-        ? nextPaidAt
-        : expense.firstPersonPaidAt ?? legacyPaidAt;
-    const secondPersonPaidAt =
-      input.targetPayerType === PayerType.SECOND_PERSON
-        ? nextPaidAt
-        : expense.secondPersonPaidAt ?? legacyPaidAt;
-    const isPaid = Boolean(firstPersonPaidAt && secondPersonPaidAt);
+    return updatePaidState((current) => {
+      const legacyPaidAt = current.isPaid
+        ? current.paidAt ?? new Date()
+        : null;
+      const firstPersonPaidAt =
+        input.targetPayerType === PayerType.FIRST_PERSON
+          ? nextPaidAt
+          : current.firstPersonPaidAt ?? legacyPaidAt;
+      const secondPersonPaidAt =
+        input.targetPayerType === PayerType.SECOND_PERSON
+          ? nextPaidAt
+          : current.secondPersonPaidAt ?? legacyPaidAt;
+      const isPaid = Boolean(firstPersonPaidAt && secondPersonPaidAt);
 
-    return updateAndSyncAnnual({
+      return {
         isPaid,
         paidAt: isPaid ? new Date() : null,
         firstPersonPaidAt,
@@ -619,6 +745,7 @@ export async function setExpensePaidStateForUser(input: {
             : undefined,
         swishId: null,
         updatedByUserId: input.actorUserId,
+      };
     });
   }
 
@@ -626,7 +753,7 @@ export async function setExpensePaidStateForUser(input: {
     throw new Error("Personen är inte tilldelad den här utgiften.");
   }
 
-  return updateAndSyncAnnual({
+  return updatePaidState({
       isPaid: input.nextPaidState === "paid",
       paidAt: nextPaidAt,
       firstPersonPaidAt:
@@ -652,7 +779,7 @@ export async function settleExpensesWithSwishForUser(input: {
   const month = await requireExpenseAccess(input.actorUserId, input.monthId);
   assertMonthEditable(month.isLocked);
 
-  return db.$transaction(async (tx) => {
+  const result = await runTransactionWithRetry(async (tx) => {
     const expenseIds = [
       ...new Set(input.selections.map((selection) => selection.expenseId)),
     ];
@@ -707,10 +834,13 @@ export async function settleExpensesWithSwishForUser(input: {
 
         if (selection.targetPayerType === PayerType.FIRST_PERSON) {
           if (state.firstPersonPaidAt) {
-            throw new Error("Den valda delen är redan betald.");
+            if (state.firstPersonSwishId !== input.swishId) {
+              throw new Error("Den valda delen är redan betald.");
+            }
+          } else {
+            state.firstPersonPaidAt = paidAt;
+            state.firstPersonSwishId = input.swishId;
           }
-          state.firstPersonPaidAt = paidAt;
-          state.firstPersonSwishId = input.swishId;
           totalAmount += expensePartAmount(
             state.expense.amount,
             PayerType.FIRST_PERSON,
@@ -718,10 +848,13 @@ export async function settleExpensesWithSwishForUser(input: {
           );
         } else {
           if (state.secondPersonPaidAt) {
-            throw new Error("Den valda delen är redan betald.");
+            if (state.secondPersonSwishId !== input.swishId) {
+              throw new Error("Den valda delen är redan betald.");
+            }
+          } else {
+            state.secondPersonPaidAt = paidAt;
+            state.secondPersonSwishId = input.swishId;
           }
-          state.secondPersonPaidAt = paidAt;
-          state.secondPersonSwishId = input.swishId;
           totalAmount += expensePartAmount(
             state.expense.amount,
             PayerType.SECOND_PERSON,
@@ -735,7 +868,10 @@ export async function settleExpensesWithSwishForUser(input: {
         ) {
           throw new Error("Personen är inte tilldelad den här utgiften.");
         }
-        if (state.expense.isPaid || state.selectedSingle) {
+        if (
+          (state.expense.isPaid && state.expense.swishId !== input.swishId) ||
+          state.selectedSingle
+        ) {
           throw new Error("Den valda utgiften är redan betald.");
         }
         state.selectedSingle = true;
@@ -784,59 +920,78 @@ export async function settleExpensesWithSwishForUser(input: {
           },
         });
 
-        await syncExpenseAnnualContribution({
-          tx,
-          actorUserId: input.actorUserId,
-          householdId: month.householdId,
-          expense: updatedExpense,
-        });
+        if (updatedExpense.annualBudgetItemId) {
+          await syncExpenseAnnualContribution({
+            tx,
+            actorUserId: input.actorUserId,
+            householdId: month.householdId,
+            expense: updatedExpense,
+          });
+        }
 
         return updatedExpense;
       }),
     );
 
-    await syncAutomaticAnnualSavingExpenses({
-      tx,
-      householdId: month.householdId,
-      actorUserId: input.actorUserId,
-    });
+    const hasLoanExpenses = expenses.some(
+      (expense) =>
+        expense.origin === ExpenseOrigin.LOAN_PAYMENT ||
+        expense.origin === ExpenseOrigin.LOAN_EXTRA_PAYMENT,
+    );
 
-    const affectedExtraPayments = await tx.loanExtraPayment.findMany({
-      where: { expenseId: { in: expenseIds } },
-      select: { loanId: true, monthKey: true },
-    });
-    for (const payment of affectedExtraPayments) {
-      await rebuildLoanAfterExtraPayment({
+    if (hasLoanExpenses) {
+      const affectedExtraPayments = await tx.loanExtraPayment.findMany({
+        where: { expenseId: { in: expenseIds } },
+        select: { loanId: true, monthKey: true },
+      });
+      for (const payment of affectedExtraPayments) {
+        await rebuildLoanAfterExtraPayment({
+          tx,
+          actorUserId: input.actorUserId,
+          loanId: payment.loanId,
+          monthKey: payment.monthKey,
+        });
+      }
+      const affectedInstallments = await tx.loanInstallment.findMany({
+        where: { expenseId: { in: expenseIds } },
+        select: { loanId: true },
+      });
+      for (const loanId of new Set(affectedInstallments.map((row) => row.loanId))) {
+        await syncLoanStatusFromInstallments({
+          tx,
+          actorUserId: input.actorUserId,
+          loanId,
+        });
+      }
+      await syncLoanExpenses({
         tx,
+        householdId: month.householdId,
         actorUserId: input.actorUserId,
-        loanId: payment.loanId,
-        monthKey: payment.monthKey,
       });
     }
-    const affectedInstallments = await tx.loanInstallment.findMany({
-      where: { expenseId: { in: expenseIds } },
-      select: { loanId: true },
-    });
-    for (const loanId of new Set(affectedInstallments.map((row) => row.loanId))) {
-      await syncLoanStatusFromInstallments({
-        tx,
-        actorUserId: input.actorUserId,
-        loanId,
-      });
-    }
-    await syncLoanExpenses({
-      tx,
-      householdId: month.householdId,
-      actorUserId: input.actorUserId,
-    });
 
     return {
       count: input.selections.length,
       totalAmount,
       paidAt,
       swishId: input.swishId,
+      hasAnnualSavings: expenses.some((expense) => expense.annualBudgetItemId),
     };
   });
+
+  if (result.hasAnnualSavings) {
+    await syncAnnualSavingPlanWithRetry({
+      householdId: month.householdId,
+      actorUserId: input.actorUserId,
+    });
+  }
+
+  return {
+    count: result.count,
+    totalAmount: result.totalAmount,
+    paidAt: result.paidAt,
+    swishId: result.swishId,
+  };
 }
 
 export async function getExpensesBySwishIdForUser(input: {

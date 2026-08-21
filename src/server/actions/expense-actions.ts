@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import {
   annualSavingExpenseOverrideSchema,
   deleteExpenseSchema,
@@ -194,7 +196,13 @@ export async function toggleExpensePaidOptimisticAction(input: {
       targetPayerType: parsed.data.targetPayerType,
     });
 
-    revalidateBudgetPaths(input.returnTo);
+    revalidatePath("/app");
+    if (input.returnTo) {
+      revalidatePath(new URL(input.returnTo, "http://localhost").pathname);
+    }
+    if (expense.annualBudgetItemId) {
+      revalidatePath("/app/annual");
+    }
 
     return {
       ok: true as const,
